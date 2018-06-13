@@ -1,1 +1,1 @@
-## OpenEM Annotation Guidelines
+## Annotation Guidelines

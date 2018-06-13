@@ -1,1 +1,1 @@
-## OpenEM Data Collection Guidelines
+## Data Collection Guidelines

@@ -1,1 +1,1 @@
-## OpenEM Build and Test Instructions
+## Build and Test Instructions

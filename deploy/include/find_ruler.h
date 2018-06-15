@@ -6,6 +6,9 @@
 
 #include <opencv2/core.hpp>
 
+#include <tensorflow/core/public/session.h>
+#include <tensorflow/core/platform/env.h>
+
 namespace openem { namespace find_ruler {
 
 /// Class for finding ruler masks from raw images.
@@ -16,12 +19,16 @@ public:
 
   /// Initializes U-Net model and sets weights.
   /// @param model_path Path to protobuf file containing model.
-  void Init(const std::string& model_path);
+  /// @return 0 on success, -1 on error.
+  int Init(const std::string& model_path);
 
   /// Finds the ruler mask by performing segmentation with U-Net.
   /// @param image Input image for which mask will be found.
   /// @return Ruler mask.
   cv::Mat GetMask(const cv::Mat& image);
+private:
+  /// Tensorflow session.
+  tensorflow::Session* session_;
 };
 
 /// Determines if a ruler is present in a mask.  If so, finds

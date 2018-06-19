@@ -31,13 +31,14 @@ mkdir build
 cd build
 cmake .. -G "Visual Studio 15 2017 Win64" ^
 -DTensorflow_DIR=C:/local/tensorflow/lib/cmake ^
--DOpenCV_DIR=C:/local/opencv/opencv/build
+-DOpenCV_DIR=C:/local/opencv/opencv/build ^
+-DCMAKE_INSTALL_PREFIX=C:/local/openem/build/inst
 ```
 
 ### Building
 
 ```shell
-MSBuild
+cmake --build . --config Release --target INSTALL
 ```
 
 [CMake]: https://cmake.org/

@@ -4,5 +4,5 @@ target_include_directories(openem PUBLIC
   ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(openem
   tensorflow
-  ${OpenCV_Libs})
+  ${OpenCV_LIBS})
 

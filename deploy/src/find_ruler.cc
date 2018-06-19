@@ -15,11 +15,13 @@ RulerMaskFinder::RulerMaskFinder()
 
 int RulerMaskFinder::Init(const std::string& model_path) {
   tf::GraphDef graph_def;
-  tf::Status status = tf::NewSession(tf::SessionOptions(), &session_);
+  tf::Session* session;
+  tf::Status status = tf::NewSession(tf::SessionOptions(), &session);
   if(!status.ok()) {
     std::cout << "Error: Unable to create Tensorflow session!" << std::endl;
     return -1;
   }
+  session_.reset(session);
   status = tf::ReadBinaryProto(tf::Env::Default(), model_path, &graph_def);
   if(!status.ok()) {
     std::cout << "Error: Failed to read Tensorflow model!" << std::endl;

@@ -28,7 +28,7 @@ public:
   cv::Mat GetMask(const cv::Mat& image);
 private:
   /// Tensorflow session.
-  tensorflow::Session* session_;
+  std::unique_ptr<tensorflow::Session> session_;
 };
 
 /// Determines if a ruler is present in a mask.  If so, finds

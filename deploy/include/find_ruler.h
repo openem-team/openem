@@ -29,6 +29,12 @@ public:
 private:
   /// Tensorflow session.
   std::unique_ptr<tensorflow::Session> session_;
+
+  /// Input image width.
+  uint64_t width_;
+
+  /// Input image height.
+  uint64_t height_;
 };
 
 /// Determines if a ruler is present in a mask.  If so, finds

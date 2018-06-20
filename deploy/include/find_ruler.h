@@ -1,32 +1,50 @@
-///@file
-///@brief Interface for finding rulers in images.
+/// @file
+/// @brief Interface for finding rulers in images.
 
 #ifndef OPENEM_DEPLOY_FIND_RULER_H_
 #define OPENEM_DEPLOY_FIND_RULER_H_
+
+#include "error_codes.h"
 
 #include <opencv2/core.hpp>
 
 #include <tensorflow/core/public/session.h>
 #include <tensorflow/core/platform/env.h>
 
-namespace openem { namespace find_ruler {
+#include <functional>
+
+namespace openem {
+namespace find_ruler {
+
+/// Function signature for user-defined callback.
+using UserCallback = std::function<void(const std::vector<cv::Mat>&)>;
 
 /// Class for finding ruler masks from raw images.
 class RulerMaskFinder {
-public:
+ public:
   /// Constructor.
   RulerMaskFinder();
 
-  /// Initializes U-Net model and sets weights.
+  /// Initializes U-Net model and registers user-defined callback.
   /// @param model_path Path to protobuf file containing model.
-  /// @return 0 on success, -1 on error.
-  int Init(const std::string& model_path);
+  /// @param callback Pointer to function that will execute whenever
+  /// processing of an image batch completes.
+  /// @return Error code.
+  ErrorCode Init(const std::string& model_path, UserCallback callback);
 
-  /// Finds the ruler mask by performing segmentation with U-Net.
+  /// Adds an image to batch for processing.  This function launches 
+  /// a new thread to do image preprocessing and immediately returns.
   /// @param image Input image for which mask will be found.
-  /// @return Ruler mask.
-  cv::Mat GetMask(const cv::Mat& image);
-private:
+  /// @return Error code.
+  ErrorCode AddImage(const cv::Mat& image);
+
+  /// Finds the ruler mask on batched images by performing 
+  /// segmentation with U-Net.  This function launches a new thread 
+  /// to execute the model and immediately returns.  The user-defined
+  /// callback registered by Init is called once the thread completes.
+  /// @return Error code.
+  ErrorCode Process();
+ private:
   /// Tensorflow session.
   std::unique_ptr<tensorflow::Session> session_;
 
@@ -35,6 +53,12 @@ private:
 
   /// Input image height.
   uint64_t height_;
+
+  /// Indicates whether the model has been initialized.
+  bool initialized_;
+
+  /// User defined callback, executed when Process completes.
+  UserCallback callback_;
 };
 
 /// Determines if a ruler is present in a mask.  If so, finds
@@ -70,7 +94,8 @@ cv::Rect FindRoi(const cv::Mat& mask, int h_margin=0, int v_margin=200);
 /// @return Cropped image.
 cv::Mat Crop(const cv::Mat& image, const cv::Rect& roi);
 
-}} // namespace openem::find_ruler
+} // namespace find_ruler
+} // namespace openem
 
 #endif // OPENEM_DEPLOY_FIND_RULER_H_
 

@@ -16,10 +16,12 @@ namespace {
 /// @param width Required width of the image.
 /// @param height Required height of the image.
 /// @return Preprocessed image.
-cv::Mat Preprocess(
+tf::Tensor Preprocess(
     const cv::Mat& image, 
-    uint64_t width, 
-    uint64_t height) {
+    int width, 
+    int height) {
+
+  // Start by resizing the image if necessary.
   cv::Mat p_image;
   if ((image.rows != height) || (image.cols != width)) {
     cv::resize(image, p_image, cv::Size(width, height));
@@ -27,10 +29,18 @@ cv::Mat Preprocess(
   else {
     p_image = image.clone();
   }
+
+  // Convert to RGB as required by the model.
   cv::cvtColor(p_image, p_image, CV_BGR2RGB);
-  p_image /= 128.0;
-  p_image -= 1.0;
-  return p_image;
+
+  // Do image scaling.
+  p_image.convertTo(p_image, CV_32F, 1.0 / 128.0, -1.0);
+
+  // Copy into tensor.
+  tf::Tensor tensor(tf::DT_FLOAT, tf::TensorShape({1, height, width, 3}));
+  auto flat = tensor.flat<float>();
+  std::copy_n(p_image.ptr<float>(), p_image.total(), flat.data());
+  return tensor;
 }
 
 } // namespace
@@ -84,6 +94,7 @@ ErrorCode RulerMaskFinder::Init(
 
 ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
   if (!initialized_) return kErrorBadInit;
+  if (!image.isContinuous()) return kErrorNotContinuous;
   auto f = std::async(std::launch::async, Preprocess, image, width_, height_);
   mutex_.lock();
   preprocessed_.push(std::move(f));

@@ -44,8 +44,10 @@ class RulerMaskFinder {
 
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
-  /// The input image is assumed to be in the default channel order
-  /// for OpenCV, which is BGR.
+  /// The input image is assumed to be 8-bit, 3-channel with colors 
+  /// in the default channel order for OpenCV, which is BGR.  It must
+  /// also have continuous storage, i.e. image.isContinuous() returns
+  /// true.
   /// @param image Input image for which mask will be found.
   /// @return Error code.
   ErrorCode AddImage(const cv::Mat& image);
@@ -70,7 +72,7 @@ class RulerMaskFinder {
   bool initialized_;
 
   /// Queue of futures containing preprocessed images.
-  std::queue<std::future<cv::Mat>> preprocessed_;
+  std::queue<std::future<tensorflow::Tensor>> preprocessed_;
 
   /// Mutex for handling concurrent access to image queue.
   std::mutex mutex_;

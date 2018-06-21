@@ -3,7 +3,13 @@
 
 #include "find_ruler.h"
 
+#include <future>
+#include <queue>
+#include <mutex>
+
 #include <opencv2/imgproc.hpp>
+#include <tensorflow/core/public/session.h>
+#include <tensorflow/core/platform/env.h>
 
 namespace openem { namespace find_ruler {
 
@@ -21,9 +27,14 @@ tf::Tensor Preprocess(const cv::Mat& image, int width, int height);
 } // namespace
 
 /// Implementation details for RulerMaskFinder.
-struct RulerMaskFinder::RulerMaskFinderImpl {
+class RulerMaskFinder::RulerMaskFinderImpl {
+ public:
   /// Constructor.
   RulerMaskFinderImpl();
+
+  /// Does processing on the current queue.  This is launched by
+  /// Process in a separate thread.
+  tf::Tensor RunModel();
 
   /// Tensorflow session.
   std::unique_ptr<tensorflow::Session> session_;
@@ -48,10 +59,6 @@ struct RulerMaskFinder::RulerMaskFinderImpl {
 
   /// User defined callback, executed when Process completes.
   UserCallback callback_;
-
-  /// Does processing on the current queue.  This is launched by
-  /// Process in a separate thread.
-  tf::Tensor RunModel();
 };
 
 //

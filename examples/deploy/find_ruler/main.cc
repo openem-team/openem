@@ -2,6 +2,9 @@
 ///@brief Example of find_ruler deployment.
 
 #include <iostream>
+#include <atomic>
+#include <thread>
+#include <chrono>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>

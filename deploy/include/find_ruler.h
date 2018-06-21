@@ -6,13 +6,8 @@
 
 #include <memory>
 #include <functional>
-#include <future>
-#include <queue>
-#include <mutex>
 
 #include <opencv2/core.hpp>
-#include <tensorflow/core/public/session.h>
-#include <tensorflow/core/platform/env.h>
 #include "error_codes.h"
 
 namespace openem {
@@ -65,7 +60,7 @@ class RulerMaskFinder {
   ErrorCode Process();
  private:
   /// Forward declaration of implementation struct.
-  struct RulerMaskFinderImpl;
+  class RulerMaskFinderImpl;
 
   /// Pointer to implementation struct.
   std::unique_ptr<RulerMaskFinderImpl> impl_;

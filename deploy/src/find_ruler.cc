@@ -3,9 +3,37 @@
 
 #include "find_ruler.h"
 
+#include <opencv2/imgproc.hpp>
+
 namespace openem { namespace find_ruler {
 
 namespace tf = tensorflow;
+
+namespace {
+
+/// Does preprocessing on an image.
+/// @param image Image to preprocess.
+/// @param width Required width of the image.
+/// @param height Required height of the image.
+/// @return Preprocessed image.
+cv::Mat Preprocess(
+    const cv::Mat& image, 
+    uint64_t width, 
+    uint64_t height) {
+  cv::Mat p_image;
+  if ((image.rows != height) || (image.cols != width)) {
+    cv::resize(image, p_image, cv::Size(width, height));
+  }
+  else {
+    p_image = image.clone();
+  }
+  cv::cvtColor(p_image, p_image, CV_BGR2RGB);
+  p_image /= 128.0;
+  p_image -= 1.0;
+  return p_image;
+}
+
+} // namespace
 
 RulerMaskFinder::RulerMaskFinder() 
     : session_(nullptr),
@@ -55,16 +83,17 @@ ErrorCode RulerMaskFinder::Init(
 }
 
 ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
-  if ((image.rows != height_) || (image.cols != width_)) {
-    cv::Mat im;
-  }
-  else {
-  }
+  if (!initialized_) return kErrorBadInit;
+  auto f = std::async(std::launch::async, Preprocess, image, width_, height_);
+  mutex_.lock();
+  preprocessed_.push(std::move(f));
+  mutex_.unlock();
   return kSuccess;
 }
 
 ErrorCode RulerMaskFinder::Process() {
   if (!initialized_) return kErrorBadInit;
+  preprocessed_ = {};
   return kSuccess;
 }
 

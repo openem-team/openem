@@ -11,7 +11,11 @@
 #include <tensorflow/core/public/session.h>
 #include <tensorflow/core/platform/env.h>
 
+#include <memory>
 #include <functional>
+#include <future>
+#include <queue>
+#include <mutex>
 
 namespace openem {
 namespace find_ruler {
@@ -32,8 +36,16 @@ class RulerMaskFinder {
   /// @return Error code.
   ErrorCode Init(const std::string& model_path, UserCallback callback);
 
+  /// Maximum image batch size.  AddImage may only be called this 
+  /// many times before a call to Process is required, otherwise
+  /// AddImage will return an error.
+  /// @return Maximum image batch size.
+  int MaxImages();
+
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
+  /// The input image is assumed to be in the default channel order
+  /// for OpenCV, which is BGR.
   /// @param image Input image for which mask will be found.
   /// @return Error code.
   ErrorCode AddImage(const cv::Mat& image);
@@ -56,6 +68,12 @@ class RulerMaskFinder {
 
   /// Indicates whether the model has been initialized.
   bool initialized_;
+
+  /// Queue of futures containing preprocessed images.
+  std::queue<std::future<cv::Mat>> preprocessed_;
+
+  /// Mutex for handling concurrent access to image queue.
+  std::mutex mutex_;
 
   /// User defined callback, executed when Process completes.
   UserCallback callback_;

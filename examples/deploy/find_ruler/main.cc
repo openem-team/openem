@@ -1,12 +1,11 @@
 ///@file
 ///@brief Example of find_ruler deployment.
 
-#include "find_ruler.h"
+#include <iostream>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-
-#include <iostream>
+#include "find_ruler.h"
 
 /// Copies a vector of images to another vector of images.  This will
 /// be the callback executed when processing completes.

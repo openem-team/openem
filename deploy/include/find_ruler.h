@@ -4,18 +4,16 @@
 #ifndef OPENEM_DEPLOY_FIND_RULER_H_
 #define OPENEM_DEPLOY_FIND_RULER_H_
 
-#include "error_codes.h"
-
-#include <opencv2/core.hpp>
-
-#include <tensorflow/core/public/session.h>
-#include <tensorflow/core/platform/env.h>
-
 #include <memory>
 #include <functional>
 #include <future>
 #include <queue>
 #include <mutex>
+
+#include <opencv2/core.hpp>
+#include <tensorflow/core/public/session.h>
+#include <tensorflow/core/platform/env.h>
+#include "error_codes.h"
 
 namespace openem {
 namespace find_ruler {

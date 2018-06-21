@@ -27,7 +27,14 @@ class RulerMaskFinder {
   /// Constructor.
   RulerMaskFinder();
 
+  /// Destructor.
+  ~RulerMaskFinder();
+
   /// Initializes U-Net model and registers user-defined callback.
+  /// The callback must be a callable object with the signature:
+  /// @code{c++}
+  /// void(const std::vector<cv::Mat>&)
+  /// @endcode
   /// @param model_path Path to protobuf file containing model.
   /// @param callback Pointer to function that will execute whenever
   /// processing of an image batch completes.
@@ -57,26 +64,11 @@ class RulerMaskFinder {
   /// @return Error code.
   ErrorCode Process();
  private:
-  /// Tensorflow session.
-  std::unique_ptr<tensorflow::Session> session_;
+  /// Forward declaration of implementation struct.
+  struct RulerMaskFinderImpl;
 
-  /// Input image width.
-  uint64_t width_;
-
-  /// Input image height.
-  uint64_t height_;
-
-  /// Indicates whether the model has been initialized.
-  bool initialized_;
-
-  /// Queue of futures containing preprocessed images.
-  std::queue<std::future<tensorflow::Tensor>> preprocessed_;
-
-  /// Mutex for handling concurrent access to image queue.
-  std::mutex mutex_;
-
-  /// User defined callback, executed when Process completes.
-  UserCallback callback_;
+  /// Pointer to implementation struct.
+  std::unique_ptr<RulerMaskFinderImpl> impl_;
 };
 
 /// Determines if a ruler is present in a mask.  If so, finds

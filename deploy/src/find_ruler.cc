@@ -16,6 +16,50 @@ namespace {
 /// @param width Required width of the image.
 /// @param height Required height of the image.
 /// @return Preprocessed image.
+tf::Tensor Preprocess(const cv::Mat& image, int width, int height);
+
+} // namespace
+
+/// Implementation details for RulerMaskFinder.
+struct RulerMaskFinder::RulerMaskFinderImpl {
+  /// Constructor.
+  RulerMaskFinderImpl();
+
+  /// Tensorflow session.
+  std::unique_ptr<tensorflow::Session> session_;
+
+  /// Input image width.
+  uint64_t width_;
+
+  /// Input image height.
+  uint64_t height_;
+
+  /// Batch size, computed from available memory.
+  uint64_t batch_size_;
+
+  /// Indicates whether the model has been initialized.
+  bool initialized_;
+
+  /// Queue of futures containing preprocessed images.
+  std::queue<std::future<tensorflow::Tensor>> preprocessed_;
+
+  /// Mutex for handling concurrent access to image queue.
+  std::mutex mutex_;
+
+  /// User defined callback, executed when Process completes.
+  UserCallback callback_;
+
+  /// Does processing on the current queue.  This is launched by
+  /// Process in a separate thread.
+  tf::Tensor RunModel();
+};
+
+//
+// Implementations
+//
+
+namespace {
+
 tf::Tensor Preprocess(
     const cv::Mat& image, 
     int width, 
@@ -45,18 +89,29 @@ tf::Tensor Preprocess(
 
 } // namespace
 
-RulerMaskFinder::RulerMaskFinder() 
+RulerMaskFinder::RulerMaskFinderImpl::RulerMaskFinderImpl()
     : session_(nullptr),
       width_(0),
       height_(0),
+      batch_size_(64),
       initialized_(false),
+      mutex_(),
       callback_(nullptr) {
 }
+
+tf::Tensor RulerMaskFinder::RulerMaskFinderImpl::RunModel() {
+  tf::Tensor tensor;
+  return tensor;
+}
+
+RulerMaskFinder::RulerMaskFinder() : impl_(new RulerMaskFinderImpl()) {}
+
+RulerMaskFinder::~RulerMaskFinder() {}
 
 ErrorCode RulerMaskFinder::Init(
     const std::string& model_path, 
     UserCallback callback) {
-  initialized_ = false;
+  impl_->initialized_ = false;
 
   // Read in the graph.
   tf::GraphDef graph_def;
@@ -73,8 +128,8 @@ ErrorCode RulerMaskFinder::Init(
       found = true;
       auto shape = p.second.shape();
       if (shape.dim_size() != 4) return kErrorGraphDims;
-      width_ = shape.dim(2).size();
-      height_ = shape.dim(1).size();
+      impl_->width_ = shape.dim(2).size();
+      impl_->height_ = shape.dim(1).size();
     }
   }
   if (!found) return kErrorNoShape;
@@ -83,28 +138,37 @@ ErrorCode RulerMaskFinder::Init(
   tf::Session* session;
   status = tf::NewSession(tf::SessionOptions(), &session);
   if (!status.ok()) return kErrorTfSession;
-  session_.reset(session);
+  impl_->session_.reset(session);
 
   // Create the tensorflow graph.
-  status = session_->Create(graph_def);
+  status = impl_->session_->Create(graph_def);
   if (!status.ok()) return kErrorTfGraph;
-  initialized_ = true;
+  impl_->initialized_ = true;
   return kSuccess;
 }
 
+int RulerMaskFinder::MaxImages() {
+  return impl_->batch_size_;
+}
+
 ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
-  if (!initialized_) return kErrorBadInit;
+  if (!impl_->initialized_) return kErrorBadInit;
   if (!image.isContinuous()) return kErrorNotContinuous;
-  auto f = std::async(std::launch::async, Preprocess, image, width_, height_);
-  mutex_.lock();
-  preprocessed_.push(std::move(f));
-  mutex_.unlock();
+  auto f = std::async(
+      std::launch::async, 
+      Preprocess, 
+      image, 
+      impl_->width_, 
+      impl_->height_);
+  impl_->mutex_.lock();
+  impl_->preprocessed_.push(std::move(f));
+  impl_->mutex_.unlock();
   return kSuccess;
 }
 
 ErrorCode RulerMaskFinder::Process() {
-  if (!initialized_) return kErrorBadInit;
-  preprocessed_ = {};
+  if (!impl_->initialized_) return kErrorBadInit;
+  // TODO(Jon) Kick off a new thread and process the queue.
   return kSuccess;
 }
 

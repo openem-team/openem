@@ -15,60 +15,64 @@ int main(int argc, char* argv[]) {
   namespace ph = std::placeholders;
 
   // Check input arguments.
-  if(argc != 3) {
-    std::cout << "Expected 2 arguments: " << std::endl;
+  if (argc < 3) {
+    std::cout << "Expected at least arguments: " << std::endl;
     std::cout << "  Path to protobuf file containing model" << std::endl;
-    std::cout << "  Path to image file" << std::endl;
+    std::cout << "  Paths to one or more image files" << std::endl;
     return -1;
   }
 
   // Create and initialize the mask finder.
   fr::RulerMaskFinder mask_finder;
   em::ErrorCode status = mask_finder.Init(argv[1]);
-  if(status != em::kSuccess) {
+  if (status != em::kSuccess) {
     std::cout << "Failed to initialize ruler mask finder!" << std::endl;
     return -1;
   }
 
-  // Load in an image.
-  cv::Mat img = cv::imread(argv[2], CV_LOAD_IMAGE_COLOR);
-
-  // Add the image to the processing queue.
-  status = mask_finder.AddImage(img);
-  //status = mask_finder.AddImage(img);
-  //status = mask_finder.AddImage(img);
-  if(status != em::kSuccess) {
-    std::cout << "Failed to add image for processing!" << std::endl;
-    return -1;
+  // Load in images.
+  std::vector<cv::Mat> imgs;
+  for (int i = 2; i < argc; ++i) {
+    imgs.push_back(cv::imread(argv[i], CV_LOAD_IMAGE_COLOR));
   }
 
-  // Process the single loaded image.
+  // Add images to processing queue.
+  for (const auto& img : imgs) {
+    status = mask_finder.AddImage(img);
+    if (status != em::kSuccess) {
+      std::cout << "Failed to add image for processing!" << std::endl;
+      return -1;
+    }
+  }
+
+  // Process the loaded images.
   std::vector<cv::Mat> masks;
   status = mask_finder.Process(&masks);
-  if(status != em::kSuccess) {
+  if (status != em::kSuccess) {
     std::cout << "Failed to process images!" << std::endl;
     return -1;
   }
-  cv::imshow("Ruler mask", masks.back());
-  cv::waitKey(0);
 
-  // Check if the ruler is present.
-  bool present = fr::RulerPresent(masks.back());
-  if(!present) {
-    std::cout << "Could not find ruler in image!  Exiting..." << std::endl;
-    return 0;
+  for (int i = 0; i < masks.size(); ++i) {
+    cv::imshow("Ruler mask", masks[i]);
+    cv::waitKey(0);
+
+    // Check if the ruler is present.
+    bool present = fr::RulerPresent(masks[i]);
+    if (!present) {
+      std::cout << "Could not find ruler in image!  Exiting..." << std::endl;
+      continue;
+    }
+
+    // Find orientation and region of interest based on the mask.
+    double orientation = fr::RulerOrientation(masks[i]);
+    cv::Mat r_mask = fr::Rectify(masks[i], orientation);
+    cv::Rect roi = fr::FindRoi(masks[i]);
+
+    // Rectify, crop, and display the image.
+    cv::Mat r_img = fr::Rectify(imgs[i], orientation);
+    cv::Mat c_img = fr::Crop(imgs[i], roi);
   }
-
-  // Find orientation and region of interest based on the mask.
-  double orientation = fr::RulerOrientation(masks.back());
-  cv::Mat r_mask = fr::Rectify(masks.back(), orientation);
-  cv::Rect roi = fr::FindRoi(masks.back());
-
-  // Rectify, crop, and display the image.
-  cv::Mat r_img = fr::Rectify(img, orientation);
-  cv::Mat c_img = fr::Crop(img, roi);
-  cv::imshow("Region of interest", c_img);
-  cv::waitKey(0);
   return 0;
 }
 

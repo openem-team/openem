@@ -2,26 +2,10 @@
 ///@brief Example of find_ruler deployment.
 
 #include <iostream>
-#include <atomic>
-#include <thread>
-#include <chrono>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "find_ruler.h"
-
-/// Copies a vector of images to another vector of images.  This will
-/// be the callback executed when processing completes.
-/// @param src Source vector of images.
-/// @param dst Destination vector of images.
-/// @param ready Set to true when copy is complete.
-void CopyImages(
-    const std::vector<cv::Mat>& src, 
-    std::vector<cv::Mat>* dst,
-    std::atomic<bool>* ready) {
-  *dst = src;
-  *ready = true;
-}
 
 int main(int argc, char* argv[]) {
 
@@ -38,16 +22,9 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  // The callback used to initialize the mask finder must match 
-  // a specific signature, so we define local variables and bind
-  // them to the callback using std::bind.
-  std::vector<cv::Mat> masks;
-  std::atomic<bool> ready = false;
-  auto CopyImagesBound = std::bind(CopyImages, ph::_1, &masks, &ready);
-
   // Create and initialize the mask finder.
   fr::RulerMaskFinder mask_finder;
-  em::ErrorCode status = mask_finder.Init(argv[1], CopyImagesBound);
+  em::ErrorCode status = mask_finder.Init(argv[1]);
   if(status != em::kSuccess) {
     std::cout << "Failed to initialize ruler mask finder!" << std::endl;
     return -1;
@@ -64,26 +41,24 @@ int main(int argc, char* argv[]) {
   }
 
   // Initiate processing.
-  status = mask_finder.Process();
+  std::vector<cv::Mat> masks;
+  status = mask_finder.Process(&masks);
   if(status != em::kSuccess) {
     std::cout << "Failed to initiate processing!" << std::endl;
     return -1;
   }
 
-  // Wait until processing is complete.
-  while(!ready) std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
   // Check if the ruler is present.
-  bool present = fr::RulerPresent(masks[0]);
+  bool present = fr::RulerPresent(masks.back());
   if(!present) {
     std::cout << "Could not find ruler in image!  Exiting..." << std::endl;
     return 0;
   }
 
   // Find orientation and region of interest based on the mask.
-  double orientation = fr::RulerOrientation(masks[0]);
-  cv::Mat r_mask = fr::Rectify(masks[0], orientation);
-  cv::Rect roi = fr::FindRoi(masks[0]);
+  double orientation = fr::RulerOrientation(masks.back());
+  cv::Mat r_mask = fr::Rectify(masks.back(), orientation);
+  cv::Rect roi = fr::FindRoi(masks.back());
 
   // Rectify, crop, and display the image.
   cv::Mat r_img = fr::Rectify(img, orientation);

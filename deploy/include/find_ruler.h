@@ -5,16 +5,14 @@
 #define OPENEM_DEPLOY_FIND_RULER_H_
 
 #include <memory>
-#include <functional>
+#include <vector>
+#include <string>
 
 #include <opencv2/core.hpp>
 #include "error_codes.h"
 
 namespace openem {
 namespace find_ruler {
-
-/// Function signature for user-defined callback.
-using UserCallback = std::function<void(const std::vector<cv::Mat>&)>;
 
 /// Class for finding ruler masks from raw images.
 class RulerMaskFinder {
@@ -25,16 +23,10 @@ class RulerMaskFinder {
   /// Destructor.
   ~RulerMaskFinder();
 
-  /// Initializes U-Net model and registers user-defined callback.
-  /// The callback must be a callable object with the signature:
-  /// @code{c++}
-  /// void(const std::vector<cv::Mat>&)
-  /// @endcode
+  /// Initializes the mask finder.
   /// @param model_path Path to protobuf file containing model.
-  /// @param callback Pointer to function that will execute whenever
-  /// processing of an image batch completes.
   /// @return Error code.
-  ErrorCode Init(const std::string& model_path, UserCallback callback);
+  ErrorCode Init(const std::string& model_path);
 
   /// Maximum image batch size.  AddImage may only be called this 
   /// many times before a call to Process is required, otherwise
@@ -53,16 +45,15 @@ class RulerMaskFinder {
   ErrorCode AddImage(const cv::Mat& image);
 
   /// Finds the ruler mask on batched images by performing 
-  /// segmentation with U-Net.  This function launches a new thread 
-  /// to execute the model and immediately returns.  The user-defined
-  /// callback registered by Init is called once the thread completes.
+  /// segmentation with U-Net.
+  /// @param masks Output masks.
   /// @return Error code.
-  ErrorCode Process();
+  ErrorCode Process(std::vector<cv::Mat>* masks);
  private:
-  /// Forward declaration of implementation struct.
+  /// Forward declaration of implementation class.
   class RulerMaskFinderImpl;
 
-  /// Pointer to implementation struct.
+  /// Pointer to implementation class.
   std::unique_ptr<RulerMaskFinderImpl> impl_;
 };
 

@@ -45,7 +45,7 @@ class RulerMaskFinder {
   ErrorCode AddImage(const cv::Mat& image);
 
   /// Finds the ruler mask on batched images by performing 
-  /// segmentation with U-Net.  The output parameter masks is cleared,
+  /// segmentation with U-Net.  The output parameter is cleared,
   /// then filled with one segmentation mask per image previously
   /// added with AddImage.  Each mask has data type CV_32F with 
   /// values between 0.0 and 1.0.  Values near 1.0 indicate pixels

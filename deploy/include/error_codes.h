@@ -16,7 +16,8 @@ enum ErrorCode {
   kErrorTfGraph,       ///< Failed to create tensorflow graph.
   kErrorBadInit,       ///< Attempted to use uninitialized object.
   kErrorNotContinuous, ///< cv::Mat expected to be continuous.
-  kErrorRunSession     ///< Failed to run session.
+  kErrorRunSession,    ///< Failed to run session.
+  kErrorMaxBatchSize   ///< Exceeded max batch size.
 };
 
 } // namespace openem

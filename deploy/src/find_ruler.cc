@@ -146,6 +146,7 @@ int RulerMaskFinder::MaxImages() {
 ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
   if (!impl_->initialized_) return kErrorBadInit;
   if (!image.isContinuous()) return kErrorNotContinuous;
+  if (impl_->preprocessed_.size() >= MaxImages()) return kErrorMaxBatchSize;
   auto f = std::async(
       std::launch::async, 
       Preprocess, 
@@ -193,14 +194,14 @@ ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
   for (int n = 0; n < num_img; ++n) {
     masks->emplace_back(cv::Size(impl_->width_, impl_->height_), CV_32FC1);
     float* mat_ptr = masks->back().ptr<float>();
-    std::copy_n(output_flat.data() + offset, output_flat.size(), mat_ptr);
-    offset += output_flat.size();
+    std::copy_n(output_flat.data() + offset, masks->back().total(), mat_ptr);
+    offset += masks->back().total();
   }
   return kSuccess;
 }
 
 bool RulerPresent(const cv::Mat& mask) {
-  return false;
+  return cv::sum(mask)[0] > 1000.0;
 }
 
 double RulerOrientation(const cv::Mat& mask) {

@@ -1,5 +1,5 @@
-///@file
-///@brief Example of find_ruler deployment.
+/// @file
+/// @brief Example of find_ruler deployment.
 
 #include <iostream>
 
@@ -35,18 +35,22 @@ int main(int argc, char* argv[]) {
 
   // Add the image to the processing queue.
   status = mask_finder.AddImage(img);
+  //status = mask_finder.AddImage(img);
+  //status = mask_finder.AddImage(img);
   if(status != em::kSuccess) {
     std::cout << "Failed to add image for processing!" << std::endl;
     return -1;
   }
 
-  // Initiate processing.
+  // Process the single loaded image.
   std::vector<cv::Mat> masks;
   status = mask_finder.Process(&masks);
   if(status != em::kSuccess) {
-    std::cout << "Failed to initiate processing!" << std::endl;
+    std::cout << "Failed to process images!" << std::endl;
     return -1;
   }
+  cv::imshow("Ruler mask", masks.back());
+  cv::waitKey(0);
 
   // Check if the ruler is present.
   bool present = fr::RulerPresent(masks.back());

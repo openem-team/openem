@@ -83,7 +83,7 @@ tf::Tensor Preprocess(
   // Copy into tensor.
   tf::Tensor tensor(tf::DT_FLOAT, tf::TensorShape({1, height, width, 3}));
   auto flat = tensor.flat<float>();
-  std::copy_n(p_image.ptr<float>(), p_image.total(), flat.data());
+  std::copy_n(p_image.ptr<float>(), flat.size(), flat.data());
   return tensor;
 }
 
@@ -160,6 +160,8 @@ ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
 
 ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
   if (!impl_->initialized_) return kErrorBadInit;
+
+  // Copy image queue contents into input tensor.
   impl_->mutex_.lock();
   const int num_img = impl_->preprocessed_.size();
   tf::TensorShape shape({num_img, impl_->height_, impl_->width_, 3});
@@ -174,6 +176,26 @@ ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
     impl_->preprocessed_.pop();
   }
   impl_->mutex_.unlock();
+
+  // Run the model.
+  std::vector<tf::Tensor> outputs;
+  tf::Status status = impl_->session_->Run(
+      {{"input_1", input}}, 
+      {"output_node0:0"}, 
+      {},
+      &outputs);
+  if (!status.ok()) return kErrorRunSession;
+
+  // Copy model outputs into mask images.
+  masks->clear();
+  auto output_flat = outputs.back().flat<float>();
+  offset = 0;
+  for (int n = 0; n < num_img; ++n) {
+    masks->emplace_back(cv::Size(impl_->width_, impl_->height_), CV_32FC1);
+    float* mat_ptr = masks->back().ptr<float>();
+    std::copy_n(output_flat.data() + offset, output_flat.size(), mat_ptr);
+    offset += output_flat.size();
+  }
   return kSuccess;
 }
 

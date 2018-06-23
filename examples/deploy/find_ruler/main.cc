@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "find_ruler.h"
 
@@ -54,7 +55,8 @@ int main(int argc, char* argv[]) {
   }
 
   for (int i = 0; i < masks.size(); ++i) {
-    cv::imshow("Ruler mask", masks[i]);
+    // Resize the masks back into the same size as the images.
+    cv::resize(masks[i], masks[i], cv::Size(imgs[i].cols, imgs[i].rows));
 
     // Check if the ruler is present.
     bool present = fr::RulerPresent(masks[i]);
@@ -66,12 +68,12 @@ int main(int argc, char* argv[]) {
     // Find orientation and region of interest based on the mask.
     cv::Mat transform = fr::RulerOrientation(masks[i]);
     cv::Mat r_mask = fr::Rectify(masks[i], transform);
-    cv::imshow("Rectified mask", r_mask);
     cv::Rect roi = fr::FindRoi(masks[i]);
 
     // Rectify, crop, and display the image.
     cv::Mat r_img = fr::Rectify(imgs[i], transform);
     cv::Mat c_img = fr::Crop(imgs[i], roi);
+    cv::imshow("Region of interest", r_img);
     cv::waitKey(0);
   }
   return 0;

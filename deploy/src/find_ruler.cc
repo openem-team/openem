@@ -34,7 +34,7 @@ class RulerMaskFinder::RulerMaskFinderImpl {
   RulerMaskFinderImpl();
 
   /// Tensorflow session.
-  std::unique_ptr<tensorflow::Session> session_;
+  std::unique_ptr<tf::Session> session_;
 
   /// Input image width.
   int width_;
@@ -49,7 +49,7 @@ class RulerMaskFinder::RulerMaskFinderImpl {
   bool initialized_;
 
   /// Queue of futures containing preprocessed images.
-  std::queue<std::future<tensorflow::Tensor>> preprocessed_;
+  std::queue<std::future<tf::Tensor>> preprocessed_;
 
   /// Mutex for handling concurrent access to image queue.
   std::mutex mutex_;
@@ -224,7 +224,7 @@ cv::Mat RulerOrientation(const cv::Mat& mask) {
   cv::Mat t_matrix(3, 3, CV_64F, t);
   cv::Mat row = t_matrix.row(2);
 
-  // Rotate image, saving off transform with smallest max column sum.
+  // Rotate image, saving off transform with smallest second central moment.
   double min_moment = 1e99;
   cv::Mat rotated, best;
   for (double ang = -90.0; ang < 90.0; ang += 1.0) {

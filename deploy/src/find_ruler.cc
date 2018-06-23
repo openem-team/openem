@@ -148,7 +148,6 @@ ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
   if (!image.isContinuous()) return kErrorNotContinuous;
   if (impl_->preprocessed_.size() >= MaxImages()) return kErrorMaxBatchSize;
   auto f = std::async(
-      std::launch::async, 
       Preprocess, 
       image, 
       impl_->width_, 

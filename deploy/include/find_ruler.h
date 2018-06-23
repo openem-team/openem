@@ -72,16 +72,15 @@ bool RulerPresent(const cv::Mat& mask);
 
 /// Finds ruler orientation in a mask.
 /// @param mask Mask image.
-/// @return Orientation angle in degrees.  Zero corresponds to 
-/// horizontal, positive values are clockwise rotation from zero.
-double RulerOrientation(const cv::Mat& mask);
+/// @return Affine transformation matrix.
+cv::Mat RulerOrientation(const cv::Mat& mask);
 
 /// Rectifies an image by applying specified rotation.  This is
 /// meant to make the ruler horizontal in the image.
 /// @param image Image to be rectified.  May be a mask image.
-/// @param orientation Orientation found with RulerOrientation.
+/// @param transform Transform found with RulerOrientation.
 /// @return Rectified image.
-cv::Mat Rectify(const cv::Mat& image, const double orientation);
+cv::Mat Rectify(const cv::Mat& image, const cv::Mat& transform);
 
 /// Finds region of interest (ROI) on a rectified mask image.
 /// @param mask Rectified mask image.

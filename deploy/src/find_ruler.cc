@@ -204,13 +204,50 @@ bool RulerPresent(const cv::Mat& mask) {
   return cv::sum(mask)[0] > 1000.0;
 }
 
-double RulerOrientation(const cv::Mat& mask) {
-  double orientation = 0.0;
-  return orientation;
+cv::Mat RulerOrientation(const cv::Mat& mask) {
+  // Find center of rotation of the mask.
+  cv::Moments m = cv::moments(mask);
+  double centroid_x = m.m10 / m.m00;
+  double centroid_y = m.m01 / m.m00;
+  cv::Point2f centroid(centroid_x, centroid_y);
+
+  // Find transform to translate image to center of rotation.
+  double center_x = static_cast<double>(mask.cols) / 2.0;
+  double center_y = static_cast<double>(mask.rows) / 2.0;
+  cv::Point2f center(center_x, center_y);
+  double diff_x = center_x - centroid_x;
+  double diff_y = center_y - centroid_y;
+  double t[3][3] = {
+      {1.0, 0.0, diff_x}, 
+      {0.0, 1.0, diff_y}, 
+      {0.0, 0.0, 1.0}};
+  cv::Mat t_matrix(3, 3, CV_64F, t);
+  cv::Mat row = t_matrix.row(2);
+
+  // Rotate image, saving off transform with smallest max column sum.
+  double min_max_col_sum = 1e99;
+  cv::Mat rotated, reduced, best;
+  double min_col_sum, max_col_sum;
+  for (double ang = -90.0; ang < 90.0; ang += 2.0) {
+    cv::Mat r_matrix = cv::getRotationMatrix2D(centroid, ang, 1.0);
+    cv::vconcat(r_matrix, row, r_matrix);
+    r_matrix = t_matrix * r_matrix;
+    r_matrix = r_matrix.rowRange(0, 2);
+    cv::warpAffine(mask, rotated, r_matrix, mask.size());
+    cv::reduce(rotated, reduced, 0, CV_REDUCE_SUM);
+    cv::minMaxLoc(reduced, &min_col_sum, &max_col_sum);
+    // TODO(Jon) Try using k-means instead of max
+    if (max_col_sum < min_max_col_sum) {
+      best = r_matrix.clone();
+      min_max_col_sum = max_col_sum;
+    }
+  }
+  return best;
 }
 
-cv::Mat Rectify(const cv::Mat& image, const double orientation) {
+cv::Mat Rectify(const cv::Mat& image, const cv::Mat& transform) {
   cv::Mat r_image;
+  cv::warpAffine(image, r_image, transform, image.size());
   return r_image;
 }
 

@@ -55,7 +55,6 @@ int main(int argc, char* argv[]) {
 
   for (int i = 0; i < masks.size(); ++i) {
     cv::imshow("Ruler mask", masks[i]);
-    cv::waitKey(0);
 
     // Check if the ruler is present.
     bool present = fr::RulerPresent(masks[i]);
@@ -65,13 +64,15 @@ int main(int argc, char* argv[]) {
     }
 
     // Find orientation and region of interest based on the mask.
-    double orientation = fr::RulerOrientation(masks[i]);
-    cv::Mat r_mask = fr::Rectify(masks[i], orientation);
+    cv::Mat transform = fr::RulerOrientation(masks[i]);
+    cv::Mat r_mask = fr::Rectify(masks[i], transform);
+    cv::imshow("Rectified mask", r_mask);
     cv::Rect roi = fr::FindRoi(masks[i]);
 
     // Rectify, crop, and display the image.
-    cv::Mat r_img = fr::Rectify(imgs[i], orientation);
+    cv::Mat r_img = fr::Rectify(imgs[i], transform);
     cv::Mat c_img = fr::Crop(imgs[i], roi);
+    cv::waitKey(0);
   }
   return 0;
 }

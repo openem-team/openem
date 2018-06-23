@@ -225,21 +225,18 @@ cv::Mat RulerOrientation(const cv::Mat& mask) {
   cv::Mat row = t_matrix.row(2);
 
   // Rotate image, saving off transform with smallest max column sum.
-  double min_max_col_sum = 1e99;
-  cv::Mat rotated, reduced, best;
-  double min_col_sum, max_col_sum;
-  for (double ang = -90.0; ang < 90.0; ang += 2.0) {
+  double min_moment = 1e99;
+  cv::Mat rotated, best;
+  for (double ang = -90.0; ang < 90.0; ang += 1.0) {
     cv::Mat r_matrix = cv::getRotationMatrix2D(centroid, ang, 1.0);
     cv::vconcat(r_matrix, row, r_matrix);
     r_matrix = t_matrix * r_matrix;
     r_matrix = r_matrix.rowRange(0, 2);
     cv::warpAffine(mask, rotated, r_matrix, mask.size());
-    cv::reduce(rotated, reduced, 0, CV_REDUCE_SUM);
-    cv::minMaxLoc(reduced, &min_col_sum, &max_col_sum);
-    // TODO(Jon) Try using k-means instead of max
-    if (max_col_sum < min_max_col_sum) {
+    cv::Moments moments = cv::moments(rotated);
+    if (moments.mu02 < min_moment) {
       best = r_matrix.clone();
-      min_max_col_sum = max_col_sum;
+      min_moment = moments.mu02;
     }
   }
   return best;

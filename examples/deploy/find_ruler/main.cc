@@ -34,7 +34,12 @@ int main(int argc, char* argv[]) {
   // Load in images.
   std::vector<cv::Mat> imgs;
   for (int i = 2; i < argc; ++i) {
-    imgs.push_back(cv::imread(argv[i], CV_LOAD_IMAGE_COLOR));
+    cv::Mat img = cv::imread(argv[i], CV_LOAD_IMAGE_COLOR);
+    if(img.total() == 0) {
+      std::cout << "Failed to load image " << argv[i] << "!" << std::endl;
+      return -1;
+    }
+    imgs.push_back(std::move(img));
   }
 
   // Add images to processing queue.

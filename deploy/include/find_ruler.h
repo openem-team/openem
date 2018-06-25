@@ -47,8 +47,8 @@ class RulerMaskFinder {
   /// Finds the ruler mask on batched images by performing 
   /// segmentation with U-Net.  The output parameter is cleared,
   /// then filled with one segmentation mask per image previously
-  /// added with AddImage.  Each mask has data type CV_32F with 
-  /// values between 0.0 and 1.0.  Values near 1.0 indicate pixels
+  /// added with AddImage.  Each mask has data type CV_8UC1 with 
+  /// values of either 0 or 255.  Values of 255 indicate pixels
   /// with ruler present.  The size of the mask is determined by 
   /// the loaded model; images are resized appropriately when they
   /// are preprocessed.
@@ -82,12 +82,14 @@ cv::Mat RulerOrientation(const cv::Mat& mask);
 /// @return Rectified image.
 cv::Mat Rectify(const cv::Mat& image, const cv::Mat& transform);
 
-/// Finds region of interest (ROI) on a rectified mask image.
+/// Finds region of interest (ROI) on a rectified mask image.  The ROI
+/// will retain the same aspect ratio as the original image.  Size of 
+/// the ROI is parameterized by the horizontal margin from the edge of
+/// the ruler.
 /// @param mask Rectified mask image.
 /// @param h_margin Horizontal margin from edge of ruler.
-/// @param v_margin Vertical margin from edge of ruler.
 /// @return Region of interest.
-cv::Rect FindRoi(const cv::Mat& mask, int h_margin=0, int v_margin=200);
+cv::Rect FindRoi(const cv::Mat& mask, int h_margin=0);
 
 /// Crops an image using the specified ROI.
 /// @param image Rectified image.

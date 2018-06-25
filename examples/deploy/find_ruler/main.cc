@@ -73,12 +73,12 @@ int main(int argc, char* argv[]) {
     // Find orientation and region of interest based on the mask.
     cv::Mat transform = fr::RulerOrientation(masks[i]);
     cv::Mat r_mask = fr::Rectify(masks[i], transform);
-    cv::Rect roi = fr::FindRoi(masks[i]);
+    cv::Rect roi = fr::FindRoi(r_mask);
 
     // Rectify, crop, and display the image.
     cv::Mat r_img = fr::Rectify(imgs[i], transform);
-    cv::Mat c_img = fr::Crop(imgs[i], roi);
-    cv::imshow("Region of interest", r_img);
+    cv::Mat c_img = fr::Crop(r_img, roi);
+    cv::imshow("Region of interest", c_img);
     cv::waitKey(0);
   }
   return 0;

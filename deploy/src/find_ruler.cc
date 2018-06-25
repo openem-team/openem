@@ -190,11 +190,15 @@ ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
   masks->clear();
   auto output_flat = outputs.back().flat<float>();
   offset = 0;
+  cv::Mat mask(impl_->height_, impl_->width_, CV_32FC1);
+  float* mat_ptr = mask.ptr<float>();
   for (int n = 0; n < num_img; ++n) {
-    masks->emplace_back(cv::Size(impl_->width_, impl_->height_), CV_32FC1);
-    float* mat_ptr = masks->back().ptr<float>();
-    std::copy_n(output_flat.data() + offset, masks->back().total(), mat_ptr);
-    offset += masks->back().total();
+    std::copy_n(output_flat.data() + offset, mask.total(), mat_ptr);
+    offset += mask.total();
+    masks->emplace_back(impl_->height_, impl_->width_, CV_8UC1);
+    mask.convertTo(masks->back(), CV_8UC1, 255.0);
+    cv::threshold(masks->back(), masks->back(), 127, 255, cv::THRESH_BINARY);
+    cv::medianBlur(masks->back(), masks->back(), 5);
   }
   return kSuccess;
 }
@@ -247,14 +251,38 @@ cv::Mat Rectify(const cv::Mat& image, const cv::Mat& transform) {
   return r_image;
 }
 
-cv::Rect FindRoi(const cv::Mat& mask, int h_margin, int v_margin) {
-  cv::Rect roi;
+cv::Rect FindRoi(const cv::Mat& mask, int h_margin) {
+  cv::Rect roi = cv::boundingRect(mask);
+
+  // Find unconstrained bounding rect.
+  double aspect = 
+    static_cast<double>(mask.rows) / 
+    static_cast<double>(mask.cols);
+  double v_center = 
+    static_cast<double>(roi.y) + static_cast<double>(roi.height) / 2;
+  double x0, x1, y0, y1;
+  x0 = roi.x - h_margin;
+  x1 = roi.x + roi.width + h_margin;
+  double v_width = (x1 - x0) * aspect / 2.0;
+  y0 = v_center - v_width;
+  y1 = v_center + v_width;
+
+  // Constrain the bounding rect.
+  x0 = x0 >= 0 ? x0 : 0;
+  x1 = x1 < mask.cols ? x1 : mask.cols - 1;
+  y0 = y0 >= 0 ? y0 : 0;
+  y1 = y1 < mask.rows ? y1 : mask.rows - 1;
+
+  // Convert to roi.
+  roi.x = std::lround(x0);
+  roi.width = std::lround(x1 - x0 + 1);
+  roi.y = std::lround(y0);
+  roi.height = std::lround(y1 - y0 + 1);
   return roi;
 }
 
 cv::Mat Crop(const cv::Mat& image, const cv::Rect& roi) {
-  cv::Mat c_image;
-  return c_image;
+  return image(roi);
 }
 
 }} // namespace openem::find_ruler

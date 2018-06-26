@@ -3,9 +3,9 @@
 
 #include <iostream>
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 #include "find_ruler.h"
 
 int main(int argc, char* argv[]) {
@@ -13,11 +13,10 @@ int main(int argc, char* argv[]) {
   // Declare namespace aliases for shorthand.
   namespace em = openem;
   namespace fr = openem::find_ruler;
-  namespace ph = std::placeholders;
 
   // Check input arguments.
   if (argc < 3) {
-    std::cout << "Expected at least arguments: " << std::endl;
+    std::cout << "Expected at least two arguments: " << std::endl;
     std::cout << "  Path to protobuf file containing model" << std::endl;
     std::cout << "  Paths to one or more image files" << std::endl;
     return -1;
@@ -35,7 +34,7 @@ int main(int argc, char* argv[]) {
   std::vector<cv::Mat> imgs;
   for (int i = 2; i < argc; ++i) {
     cv::Mat img = cv::imread(argv[i], CV_LOAD_IMAGE_COLOR);
-    if(img.total() == 0) {
+    if (img.total() == 0) {
       std::cout << "Failed to load image " << argv[i] << "!" << std::endl;
       return -1;
     }

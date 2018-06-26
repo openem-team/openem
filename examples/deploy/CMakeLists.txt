@@ -5,3 +5,4 @@ if(MSVC)
 endif()
 
 add_subdirectory(find_ruler)
+add_subdirectory(detect)

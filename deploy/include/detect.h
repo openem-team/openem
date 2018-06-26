@@ -28,7 +28,7 @@ class Detector {
   /// @param gpu_fraction Fraction of GPU memory that may be allocated to
   /// this object.
   /// @return Error code.
-  ErrorCode Init(const std::string& model_path, double gpu_fraction);
+  ErrorCode Init(const std::string& model_path, double gpu_fraction=1.0);
 
   /// Maximum image batch size.  AddImage may only be called this 
   /// many times before a call to Process is required, otherwise

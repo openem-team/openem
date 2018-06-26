@@ -3,98 +3,19 @@
 
 #include "find_ruler.h"
 
-#include <future>
-#include <queue>
-#include <mutex>
-
 #include <opencv2/imgproc.hpp>
-#include <tensorflow/core/platform/env.h>
-#include <tensorflow/cc/ops/array_ops.h>
+#include "model.h"
 #include "util.h"
 
 namespace openem {
 namespace find_ruler {
 
-namespace tf = tensorflow;
-
-namespace {
-
-/// Does preprocessing on an image.
-/// @param image Image to preprocess.
-/// @param width Required width of the image.
-/// @param height Required height of the image.
-/// @return Preprocessed image.
-tf::Tensor Preprocess(const cv::Mat& image, int width, int height);
-
-} // namespace
-
 /// Implementation details for RulerMaskFinder.
 class RulerMaskFinder::RulerMaskFinderImpl {
  public:
-  /// Constructor.
-  RulerMaskFinderImpl();
-
-  /// Tensorflow session.
-  std::unique_ptr<tf::Session> session_;
-
-  /// Input image width.
-  int width_;
-
-  /// Input image height.
-  int height_;
-
-  /// Batch size, computed from available memory.
-  int batch_size_;
-
-  /// Indicates whether the model has been initialized.
-  bool initialized_;
-
-  /// Queue of futures containing preprocessed images.
-  std::queue<std::future<tf::Tensor>> preprocessed_;
-
-  /// Mutex for handling concurrent access to image queue.
-  std::mutex mutex_;
+   /// Stores and processes the model.
+   detail::Model model_;
 };
-
-//
-// Implementations
-//
-
-namespace {
-
-tf::Tensor Preprocess(
-    const cv::Mat& image, 
-    int width, 
-    int height) {
-
-  // Start by resizing the image if necessary.
-  cv::Mat p_image;
-  if ((image.rows != height) || (image.cols != width)) {
-    cv::resize(image, p_image, cv::Size(width, height));
-  } else {
-    p_image = image.clone();
-  }
-
-  // Convert to RGB as required by the model.
-  cv::cvtColor(p_image, p_image, CV_BGR2RGB);
-
-  // Do image scaling.
-  p_image.convertTo(p_image, CV_32F, 1.0 / 128.0, -1.0);
-
-  // Copy into tensor.
-  return util::MatToTensor(p_image);
-}
-
-} // namespace
-
-RulerMaskFinder::RulerMaskFinderImpl::RulerMaskFinderImpl()
-    : session_(nullptr),
-      width_(0),
-      height_(0),
-      batch_size_(64),
-      initialized_(false),
-      mutex_() {
-}
 
 RulerMaskFinder::RulerMaskFinder() : impl_(new RulerMaskFinderImpl()) {}
 
@@ -102,70 +23,29 @@ RulerMaskFinder::~RulerMaskFinder() {}
 
 ErrorCode RulerMaskFinder::Init(
     const std::string& model_path, double gpu_fraction) {
-  impl_->initialized_ = false;
-
-  // Read in the graph.
-  tf::GraphDef graph_def;
-  tf::Status status = tf::ReadBinaryProto(
-      tf::Env::Default(), model_path, &graph_def);
-  if (!status.ok()) return kErrorLoadingModel;
-  
-  // Get graph input size.
-  ErrorCode status1 = util::InputSize(
-      graph_def, &(impl_->width_), &(impl_->height_));
-  if (status1 != kSuccess) return status1;
-
-  // Create a new tensorflow session.
-  tf::Session* session;
-  status1 = util::GetSession(&session, gpu_fraction);
-  if (status1 != kSuccess) return status1;
-  impl_->session_.reset(session);
-
-  // Create the tensorflow graph.
-  status = impl_->session_->Create(graph_def);
-  if (!status.ok()) return kErrorTfGraph;
-  impl_->initialized_ = true;
-  return kSuccess;
+  return impl_->model_.Init(model_path, gpu_fraction);
 }
 
 int RulerMaskFinder::MaxImages() {
-  return impl_->batch_size_;
+  return impl_->model_.MaxImages();
 }
 
 ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
-  if (!impl_->initialized_) return kErrorBadInit;
-  if (!image.isContinuous()) return kErrorNotContinuous;
-  if (impl_->preprocessed_.size() >= MaxImages()) return kErrorMaxBatchSize;
-  auto f = std::async(
-      Preprocess, 
-      image, 
-      impl_->width_, 
-      impl_->height_);
-  impl_->mutex_.lock();
-  impl_->preprocessed_.push(std::move(f));
-  impl_->mutex_.unlock();
-  return kSuccess;
+  auto preprocess = std::bind(
+      &util::Preprocess, 
+      std::placeholders::_1, 
+      std::placeholders::_2, 
+      std::placeholders::_3, 
+      1.0 / 128.0, 
+      -1.0);
+  return impl_->model_.AddImage(image, preprocess);
 }
 
 ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
-  if (!impl_->initialized_) return kErrorBadInit;
-
-  // Copy image queue contents into input tensor.
-  impl_->mutex_.lock();
-  tf::Tensor input = util::FutureQueueToTensor(
-      &(impl_->preprocessed_), 
-      impl_->width_, 
-      impl_->height_);
-  impl_->mutex_.unlock();
-
   // Run the model.
-  std::vector<tf::Tensor> outputs;
-  tf::Status status = impl_->session_->Run(
-      {{"input_1", input}}, 
-      {"output_node0:0"}, 
-      {},
-      &outputs);
-  if (!status.ok()) return kErrorRunSession;
+  std::vector<tensorflow::Tensor> outputs;
+  ErrorCode status = impl_->model_.Process(&outputs);
+  if (status != kSuccess) return status;
 
   // Copy model outputs into mask images.
   util::TensorToMatVec(outputs.back(), masks, 255.0, 0.0);

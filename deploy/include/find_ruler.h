@@ -25,8 +25,10 @@ class RulerMaskFinder {
 
   /// Initializes the mask finder.
   /// @param model_path Path to protobuf file containing model.
+  /// @param gpu_fraction Fraction of GPU allowed to be used by this
+  /// object.
   /// @return Error code.
-  ErrorCode Init(const std::string& model_path);
+  ErrorCode Init(const std::string& model_path, double gpu_fraction=1.0);
 
   /// Maximum image batch size.  AddImage may only be called this 
   /// many times before a call to Process is required, otherwise
@@ -63,9 +65,7 @@ class RulerMaskFinder {
   std::unique_ptr<RulerMaskFinderImpl> impl_;
 };
 
-/// Determines if a ruler is present in a mask.  If so, finds
-/// the orientation of the ruler and stores it for subsequent
-/// rectification.
+/// Determines if a ruler is present in a mask.
 /// @param mask Mask image.
 /// @return True if ruler is present, false otherwise.
 bool RulerPresent(const cv::Mat& mask);

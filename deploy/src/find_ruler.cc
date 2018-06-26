@@ -8,11 +8,12 @@
 #include <mutex>
 
 #include <opencv2/imgproc.hpp>
-#include <tensorflow/core/public/session.h>
 #include <tensorflow/core/platform/env.h>
 #include <tensorflow/cc/ops/array_ops.h>
+#include "util.h"
 
-namespace openem { namespace find_ruler {
+namespace openem {
+namespace find_ruler {
 
 namespace tf = tensorflow;
 
@@ -81,10 +82,7 @@ tf::Tensor Preprocess(
   p_image.convertTo(p_image, CV_32F, 1.0 / 128.0, -1.0);
 
   // Copy into tensor.
-  tf::Tensor tensor(tf::DT_FLOAT, tf::TensorShape({1, height, width, 3}));
-  auto flat = tensor.flat<float>();
-  std::copy_n(p_image.ptr<float>(), flat.size(), flat.data());
-  return tensor;
+  return util::MatToTensor(p_image);
 }
 
 } // namespace
@@ -102,7 +100,8 @@ RulerMaskFinder::RulerMaskFinder() : impl_(new RulerMaskFinderImpl()) {}
 
 RulerMaskFinder::~RulerMaskFinder() {}
 
-ErrorCode RulerMaskFinder::Init(const std::string& model_path) {
+ErrorCode RulerMaskFinder::Init(
+    const std::string& model_path, double gpu_fraction) {
   impl_->initialized_ = false;
 
   // Read in the graph.
@@ -110,26 +109,16 @@ ErrorCode RulerMaskFinder::Init(const std::string& model_path) {
   tf::Status status = tf::ReadBinaryProto(
       tf::Env::Default(), model_path, &graph_def);
   if (!status.ok()) return kErrorLoadingModel;
-
-  // Find the input shape based on graph definition.  For now we avoid
-  // using protobuf map functions so we don't have to link with 
-  // protobuf.
-  bool found = false;
-  for (auto p : graph_def.node(0).attr()) {
-    if (p.first == "shape") {
-      found = true;
-      auto shape = p.second.shape();
-      if (shape.dim_size() != 4) return kErrorGraphDims;
-      impl_->width_ = shape.dim(2).size();
-      impl_->height_ = shape.dim(1).size();
-    }
-  }
-  if (!found) return kErrorNoShape;
+  
+  // Get graph input size.
+  ErrorCode status1 = util::InputSize(
+      graph_def, &(impl_->width_), &(impl_->height_));
+  if (status1 != kSuccess) return status1;
 
   // Create a new tensorflow session.
   tf::Session* session;
-  status = tf::NewSession(tf::SessionOptions(), &session);
-  if (!status.ok()) return kErrorTfSession;
+  status1 = util::GetSession(&session, gpu_fraction);
+  if (status1 != kSuccess) return status1;
   impl_->session_.reset(session);
 
   // Create the tensorflow graph.
@@ -163,18 +152,10 @@ ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
 
   // Copy image queue contents into input tensor.
   impl_->mutex_.lock();
-  const int num_img = impl_->preprocessed_.size();
-  tf::TensorShape shape({num_img, impl_->height_, impl_->width_, 3});
-  tf::Tensor input(tf::DT_FLOAT, shape);
-  auto input_flat = input.flat<float>();
-  int offset = 0;
-  for (int n = 0; n < num_img; ++n) {
-    tf::Tensor img = impl_->preprocessed_.front().get();
-    auto img_flat = img.flat<float>();
-    std::copy_n(img_flat.data(), img_flat.size(), input_flat.data() + offset);
-    offset += img_flat.size();
-    impl_->preprocessed_.pop();
-  }
+  tf::Tensor input = util::FutureQueueToTensor(
+      &(impl_->preprocessed_), 
+      impl_->width_, 
+      impl_->height_);
   impl_->mutex_.unlock();
 
   // Run the model.
@@ -187,18 +168,12 @@ ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
   if (!status.ok()) return kErrorRunSession;
 
   // Copy model outputs into mask images.
-  masks->clear();
-  auto output_flat = outputs.back().flat<float>();
-  offset = 0;
-  cv::Mat mask(impl_->height_, impl_->width_, CV_32FC1);
-  float* mat_ptr = mask.ptr<float>();
-  for (int n = 0; n < num_img; ++n) {
-    std::copy_n(output_flat.data() + offset, mask.total(), mat_ptr);
-    offset += mask.total();
-    masks->emplace_back(impl_->height_, impl_->width_, CV_8UC1);
-    mask.convertTo(masks->back(), CV_8UC1, 255.0);
-    cv::threshold(masks->back(), masks->back(), 127, 255, cv::THRESH_BINARY);
-    cv::medianBlur(masks->back(), masks->back(), 5);
+  util::TensorToMatVec(outputs.back(), masks, 255.0, 0.0);
+
+  // Do additional processing on the masks.
+  for (auto& mask : *masks) {
+    cv::threshold(mask, mask, 127, 255, cv::THRESH_BINARY);
+    cv::medianBlur(mask, mask, 5);
   }
   return kSuccess;
 }
@@ -285,5 +260,6 @@ cv::Mat Crop(const cv::Mat& image, const cv::Rect& roi) {
   return image(roi);
 }
 
-}} // namespace openem::find_ruler
+} // namespace find_ruler
+} // namespace openem
 

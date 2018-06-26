@@ -3,6 +3,8 @@
 
 #include "util.h"
 
+#include <opencv2/imgproc.hpp>
+
 namespace openem {
 namespace util {
 
@@ -77,6 +79,31 @@ void TensorToMatVec(
     vec->emplace_back(height, width, CV_8UC1);
     mat.convertTo(vec->back(), CV_8UC1, scale, bias);
   }
+}
+
+tf::Tensor Preprocess(
+    const cv::Mat& image, 
+    int width, 
+    int height,
+    double scale,
+    double bias) {
+
+  // Start by resizing the image if necessary.
+  cv::Mat p_image;
+  if ((image.rows != height) || (image.cols != width)) {
+    cv::resize(image, p_image, cv::Size(width, height));
+  } else {
+    p_image = image.clone();
+  }
+
+  // Convert to RGB as required by the model.
+  cv::cvtColor(p_image, p_image, CV_BGR2RGB);
+
+  // Do image scaling.
+  p_image.convertTo(p_image, CV_32F, scale, bias);
+
+  // Copy into tensor.
+  return MatToTensor(p_image);
 }
 
 } // namespace util

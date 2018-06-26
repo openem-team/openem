@@ -39,6 +39,20 @@ void TensorToMatVec(
     double scale,
     double bias);
 
+/// Does preprocessing on an image.
+/// @param image Image to preprocess.
+/// @param width Required width of the image.
+/// @param height Required height of the image.
+/// @param scale Scale factor applied to image after conversion to float.
+/// @param bias Bias applied to image after scaling.
+/// @return Preprocessed image as a tensor.
+tensorflow::Tensor Preprocess(
+    const cv::Mat& image, 
+    int width, 
+    int height, 
+    double scale, 
+    double bias);
+
 } // namespace openem
 } // namespace util
 

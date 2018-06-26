@@ -1,4 +1,8 @@
-add_library(openem find_ruler.cc util.cc model.cc)
+add_library(openem 
+  find_ruler.cc 
+  detect.cc
+  util.cc 
+  model.cc)
 target_include_directories(openem PUBLIC 
   ${PROJECT_SOURCE_DIR}/deploy/include
   ${OpenCV_INCLUDE_DIRS})

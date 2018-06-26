@@ -76,3 +76,4 @@ tensorflow::Tensor Preprocess(
 } // namespace util
 
 #endif // OPENEM_DEPLOY_UTIL_H_
+

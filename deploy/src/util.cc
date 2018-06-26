@@ -64,7 +64,8 @@ void TensorToMatVec(
     const tensorflow::Tensor& tensor, 
     std::vector<cv::Mat>* vec,
     double scale,
-    double bias) {
+    double bias,
+    int dtype) {
   vec->clear();
   const int num_img = tensor.dim_size(0);
   const int height = tensor.dim_size(1);
@@ -76,8 +77,8 @@ void TensorToMatVec(
   for (int n = 0; n < num_img; ++n) {
     std::copy_n(flat.data() + offset, mat.total(), mat_ptr);
     offset += mat.total();
-    vec->emplace_back(height, width, CV_8UC1);
-    mat.convertTo(vec->back(), CV_8UC1, scale, bias);
+    vec->emplace_back(height, width, dtype);
+    mat.convertTo(vec->back(), dtype, scale, bias);
   }
 }
 

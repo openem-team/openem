@@ -48,7 +48,7 @@ ErrorCode RulerMaskFinder::Process(std::vector<cv::Mat>* masks) {
   if (status != kSuccess) return status;
 
   // Copy model outputs into mask images.
-  util::TensorToMatVec(outputs.back(), masks, 255.0, 0.0);
+  util::TensorToMatVec(outputs.back(), masks, 255.0, 0.0, CV_8UC1);
 
   // Do additional processing on the masks.
   for (auto& mask : *masks) {

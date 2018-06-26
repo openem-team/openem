@@ -47,7 +47,16 @@ ErrorCode Detector::Process(std::vector<std::vector<cv::Rect>>* detections) {
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(&outputs);
   if (status != kSuccess) return status;
-  //TODO(Jon) copy outputs into cv rect
+
+  // Convert to mat vector.
+  std::vector<cv::Mat> pred;
+  util::TensorToMatVec(outputs.back(), &pred, 1.0, 0.0, CV_32F);
+
+  // Iterate through results for each image.
+  for (const auto& p : pred) {
+    std::vector<cv::Rect> dets;
+    detections->push_back(std::move(dets));
+  }
   return kSuccess;
 }
 

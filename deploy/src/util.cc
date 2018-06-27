@@ -35,8 +35,8 @@ ErrorCode InputSize(const tf::GraphDef& graph_def, int* width, int* height) {
   return kSuccess;
 }
 
-tf::Tensor MatToTensor(const cv::Mat& mat) {
-  tf::Tensor tensor(tf::DT_FLOAT, tf::TensorShape({1, mat.rows, mat.cols, 3}));
+tf::Tensor MatToTensor(const cv::Mat& mat, const tf::TensorShape& shape) {
+  tf::Tensor tensor(tf::DT_FLOAT, shape);
   auto flat = tensor.flat<float>();
   std::copy_n(mat.ptr<float>(), flat.size(), flat.data());
   return tensor;
@@ -104,7 +104,8 @@ tf::Tensor Preprocess(
   p_image.convertTo(p_image, CV_32F, scale, bias);
 
   // Copy into tensor.
-  return MatToTensor(p_image);
+  tf::TensorShape shape({1, p_image.rows, p_image.cols, p_image.channels()});
+  return MatToTensor(p_image, shape);
 }
 
 } // namespace util

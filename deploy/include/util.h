@@ -33,8 +33,11 @@ ErrorCode InputSize(
 
 /// Copy a Mat to a Tensor.
 /// @param mat Mat to be converted.
+/// @param shape Shape of the output tensor.
 /// @return Tensor containing mat data.
-tensorflow::Tensor MatToTensor(const cv::Mat& mat);
+tensorflow::Tensor MatToTensor(
+    const cv::Mat& mat, 
+    const tensorflow::TensorShape& shape);
 
 /// Copy queue of future Tensors to Tensor.  The queue is emptied 
 /// in the process.

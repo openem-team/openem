@@ -75,7 +75,7 @@ tensorflow::Tensor Preprocess(
     int width, 
     int height, 
     double scale, 
-    double bias);
+    const cv::Scalar& bias);
 
 } // namespace openem
 } // namespace util

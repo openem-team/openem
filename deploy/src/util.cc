@@ -87,7 +87,7 @@ tf::Tensor Preprocess(
     int width, 
     int height,
     double scale,
-    double bias) {
+    const cv::Scalar& bias) {
 
   // Start by resizing the image if necessary.
   cv::Mat p_image;
@@ -101,7 +101,10 @@ tf::Tensor Preprocess(
   cv::cvtColor(p_image, p_image, CV_BGR2RGB);
 
   // Do image scaling.
-  p_image.convertTo(p_image, CV_32F, scale, bias);
+  p_image.convertTo(p_image, CV_32F, scale, 0.0);
+
+  // Apply channel by channel bias.
+  p_image += bias;
 
   // Copy into tensor.
   tf::TensorShape shape({1, p_image.rows, p_image.cols, p_image.channels()});

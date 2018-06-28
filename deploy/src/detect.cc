@@ -72,8 +72,8 @@ ErrorCode Detector::AddImage(const cv::Mat& image) {
       std::placeholders::_1,
       std::placeholders::_2,
       std::placeholders::_3,
-      1.0 / 128.0,
-      -1.0);
+      1.0,
+      cv::Scalar(-103.939, -116.779, -123.68));
   return impl_->model_.AddImage(image, preprocess);
 }
 

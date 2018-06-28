@@ -54,6 +54,10 @@ int Model::MaxImages() {
   return batch_size_;
 }
 
+cv::Size Model::ImageSize() {
+  return cv::Size(width_, height_);
+}
+
 ErrorCode Model::AddImage(
     const cv::Mat& image, 
     std::function<tf::Tensor(const cv::Mat&, int, int)> preprocess) {

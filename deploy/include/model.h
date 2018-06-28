@@ -35,6 +35,11 @@ class Model {
   /// @return Maximum image batch size.
   int MaxImages();
 
+  /// Input image size.  Images that are added without having this size
+  /// will be resized.  This only returns a valid value if the model
+  /// has been initialized.
+  cv::Size ImageSize();
+
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
   /// The input image is assumed to be 8-bit, 3-channel with colors 

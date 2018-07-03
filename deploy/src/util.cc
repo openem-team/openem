@@ -87,7 +87,8 @@ tf::Tensor Preprocess(
     int width, 
     int height,
     double scale,
-    const cv::Scalar& bias) {
+    const cv::Scalar& bias,
+    bool rgb) {
 
   // Start by resizing the image if necessary.
   cv::Mat p_image;
@@ -98,7 +99,9 @@ tf::Tensor Preprocess(
   }
 
   // Convert to RGB as required by the model.
-  cv::cvtColor(p_image, p_image, CV_BGR2RGB);
+  if (rgb) {
+    cv::cvtColor(p_image, p_image, CV_BGR2RGB);
+  }
 
   // Do image scaling.
   p_image.convertTo(p_image, CV_32F, scale, 0.0);

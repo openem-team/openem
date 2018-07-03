@@ -64,18 +64,20 @@ void TensorToMatVec(
     int dtype);
 
 /// Does preprocessing on an image.
-/// @param image Image to preprocess.
+/// @param image Image to preprocess.  Channels are BGR.
 /// @param width Required width of the image.
 /// @param height Required height of the image.
 /// @param scale Scale factor applied to image after conversion to float.
 /// @param bias Bias applied to image after scaling.
+/// @param rgb True if image needs to be converted to RGB.
 /// @return Preprocessed image as a tensor.
 tensorflow::Tensor Preprocess(
     const cv::Mat& image, 
     int width, 
     int height, 
     double scale, 
-    const cv::Scalar& bias);
+    const cv::Scalar& bias,
+    bool rgb);
 
 } // namespace openem
 } // namespace util

@@ -37,7 +37,8 @@ ErrorCode RulerMaskFinder::AddImage(const cv::Mat& image) {
       std::placeholders::_2, 
       std::placeholders::_3, 
       1.0 / 128.0, 
-      cv::Scalar(-1.0, -1.0, -1.0));
+      cv::Scalar(-1.0, -1.0, -1.0),
+      true);
   return impl_->model_.AddImage(image, preprocess);
 }
 

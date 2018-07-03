@@ -111,6 +111,8 @@ ErrorCode Detector::AddImage(const cv::Mat& image) {
 }
 
 ErrorCode Detector::Process(std::vector<std::vector<cv::Rect>>* detections) {
+  constexpr int kBackgroundClass = 0;
+
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(&outputs);
@@ -139,6 +141,7 @@ ErrorCode Detector::Process(std::vector<std::vector<cv::Rect>>* detections) {
     boxes = DecodeBoxes(loc, anchors, variances, impl_->model_.ImageSize());
     std::vector<cv::Rect> dets;
     for (int c = 0; c < conf.cols; ++c) {
+      if (c == kBackgroundClass) continue;
       cv::Mat& c_conf = conf.col(c);
       scores.assign(c_conf.begin<float>(), c_conf.end<float>());
       cv::dnn::NMSBoxes(boxes, scores, 0.01, 0.45, indices, 1.0, 200);

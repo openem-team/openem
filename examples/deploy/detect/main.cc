@@ -33,7 +33,9 @@ int main(int argc, char* argv[]) {
   // Load in images.
   std::vector<cv::Mat> imgs;
   for (int i = 2; i < argc; ++i) {
+    cv::Size size = detector.ImageSize();
     cv::Mat img = cv::imread(argv[i], CV_LOAD_IMAGE_COLOR);
+    cv::resize(img, img, size);
     if (img.total() == 0) {
       std::cout << "Failed to load image " << argv[i] << "!" << std::endl;
       return -1;

@@ -4,6 +4,7 @@
 #include "detect.h"
 
 #include <opencv2/imgproc.hpp>
+#include <opencv2/dnn.hpp>
 #include "model.h"
 #include "util.h"
 
@@ -19,6 +20,23 @@ namespace {
 /// @param anchors Anchor box parameters, one box per row.
 /// @param variances Variances corresponding to each anchor box param.
 /// @return Decoded bounding boxes.
+std::vector<cv::Rect> DecodeBoxes(
+    const cv::Mat& loc, 
+    const cv::Mat& anchors, 
+    const cv::Mat& variances,
+    const cv::Size& img_size);
+  
+} // namespace
+
+/// Implementation details for Detector.
+class Detector::DetectorImpl {
+ public:
+  /// Stores and processes the model.
+  detail::Model model_;
+};
+
+namespace {
+
 std::vector<cv::Rect> DecodeBoxes(
     const cv::Mat& loc, 
     const cv::Mat& anchors, 

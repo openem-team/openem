@@ -36,6 +36,10 @@ class Detector {
   /// @return Maximum image batch size.
   int MaxImages();
 
+  /// Expected image size.  Not valid until the model has been initialized.
+  /// @return Expected image size.
+  cv::Size ImageSize();
+
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
   /// The input image is assumed to be 8-bit, 3-channel with colors 

@@ -79,15 +79,8 @@ std::vector<cv::Rect> DecodeBoxes(
   }
   return decoded;
 }
-  
-} // namespace
 
-/// Implementation details for Detector.
-class Detector::DetectorImpl {
- public:
-  /// Stores and processes the model.
-  detail::Model model_;
-};
+} // namespace
 
 Detector::Detector() : impl_(new DetectorImpl()) {}
 
@@ -100,6 +93,10 @@ ErrorCode Detector::Init(
 
 int Detector::MaxImages() {
   return impl_->model_.MaxImages();
+}
+
+cv::Size Detector::ImageSize() {
+  return impl_->model_.ImageSize();
 }
 
 ErrorCode Detector::AddImage(const cv::Mat& image) {

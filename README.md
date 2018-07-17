@@ -1,4 +1,4 @@
-## OpenEM: Open source Electronic Monitoring Library
+## OpenEM: Open Source Electronic Monitoring Library
 
 ### Introduction
 

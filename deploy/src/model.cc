@@ -1,11 +1,11 @@
 /// @file
 /// @brief Implementation for tensorflow models.
 
-#include "model.h"
+#include "detail/model.h"
 
 #include <tensorflow/core/platform/env.h>
 #include <tensorflow/cc/ops/array_ops.h>
-#include "util.h"
+#include "detail/util.h"
 
 namespace openem {
 namespace detail {

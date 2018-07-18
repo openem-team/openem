@@ -1,7 +1,7 @@
 /// @file
 /// @brief Implementation for utility functions.
 
-#include "util.h"
+#include "detail/util.h"
 
 #include <opencv2/imgproc.hpp>
 

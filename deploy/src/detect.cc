@@ -5,8 +5,8 @@
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
-#include "model.h"
-#include "util.h"
+#include "detail/model.h"
+#include "detail/util.h"
 
 namespace openem {
 namespace detect {

@@ -4,9 +4,8 @@
 #include "find_ruler.h"
 
 #include <opencv2/imgproc.hpp>
-#include "model.h"
-#include "util.h"
-#include <iostream> // DELETE ME
+#include "detail/model.h"
+#include "detail/util.h"
 
 namespace openem {
 namespace find_ruler {

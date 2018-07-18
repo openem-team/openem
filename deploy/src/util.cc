@@ -6,7 +6,7 @@
 #include <opencv2/imgproc.hpp>
 
 namespace openem {
-namespace util {
+namespace detail {
 
 namespace tf = tensorflow;
 
@@ -130,5 +130,5 @@ tf::Tensor Preprocess(
   return ImageToTensor(p_image, shape);
 }
 
-} // namespace util
+} // namespace detail
 } // namespace openem

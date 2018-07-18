@@ -4,6 +4,10 @@
 #ifndef OPENEM_DEPLOY_IMAGE_H_
 #define OPENEM_DEPLOY_IMAGE_H_
 
+#include <string>
+#include <vector>
+#include <memory>
+
 #include "error_codes.h"
 
 namespace openem {
@@ -37,7 +41,9 @@ class Image {
   ~Image();
 
   /// Loads an image file.
-  ErrorCode FromFile(const std::string& image_path);
+  /// @param image_path Path to image file.
+  /// @param color If true, load a color image.
+  ErrorCode FromFile(const std::string& image_path, bool color=true);
 
   /// Creates an image from existing data.  Data is copied.
   ///
@@ -69,6 +75,9 @@ class Image {
 
   /// Returns number of image channels.
   int Channels();
+
+  /// Resizes the image to the specified width and height.
+  void Resize(int width, int height);
 
   /// Returns pointer that can be can be converted to a pointer to the 
   /// underlying cv::Mat via reinterpret_cast.

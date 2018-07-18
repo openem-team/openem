@@ -1,13 +1,20 @@
 /// @file
 /// @brief Implementation for image class.
 
+#include "image.h"
+
 #include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 namespace openem {
 
 /// Implementation details for Image.
 class Image::ImageImpl {
  public:
+  /// Default constructor.
+  ImageImpl();
+
   /// Constructor from an existing cv::Mat.
   ImageImpl(const cv::Mat& mat);
 
@@ -15,31 +22,37 @@ class Image::ImageImpl {
   cv::Mat mat_;
 };
 
-Image::ImageImpl(const cv::Mat& mat) : mat_(mat) {}
+Image::ImageImpl::ImageImpl() : mat_() {}
+
+Image::ImageImpl::ImageImpl(const cv::Mat& mat) : mat_(mat) {}
 
 Image::Image() : impl_(new ImageImpl()) {}
 
-Image::Image(Image&& other) : impl_(new ImageImpl(other->impl_.mat_)) {}
+Image::Image(Image&& other) : impl_(new ImageImpl(other.impl_->mat_)) {}
 
-Image& Image::operator(Image&& other) {
+Image& Image::operator=(Image&& other) {
   impl_->mat_ = other.impl_->mat_;
+  return *this;
 }
 
 Image::Image(const Image& other) 
-  : impl_(new ImageImpl(other->impl_.mat_.clone())) {
+  : impl_(new ImageImpl(other.impl_->mat_.clone())) {
 }
 
 Image& Image::operator=(const Image& other) {
   impl_->mat_ = other.impl_->mat_.clone();
+  return *this;
 }
-
-Image Image::operator() 
 
 Image::~Image() {}
 
-ErrorCode Image::FromFile(const std::string& image_path) {
-  impl_->mat_ = cv::imread(image_path);
-  if (!impl_->mat_->data) return kErrorReadingImage;
+ErrorCode Image::FromFile(const std::string& image_path, bool color) {
+  if (color) {
+    impl_->mat_ = cv::imread(image_path, cv::IMREAD_COLOR);
+  } else {
+    impl_->mat_ = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
+  }
+  if (!impl_->mat_.data) return kErrorReadingImage;
   return kSuccess;
 }
 
@@ -57,7 +70,8 @@ ErrorCode Image::FromData(
   } else {
     return kErrorNumChann;
   }
-  impl_->mat_.resize(height, width, dtype);
+  impl_->mat_.convertTo(impl_->mat_, dtype);
+  Resize(width, height);
   std::memcpy(impl_->mat_.data, data.data(), data.size() * sizeof(uint8_t));
 }
 
@@ -75,6 +89,10 @@ int Image::Height() {
 
 int Image::Channels() {
   return impl_->mat_.channels();
+}
+
+void Image::Resize(int width, int height) {
+  cv::resize(impl_->mat_, impl_->mat_, cv::Size(width, height));
 }
 
 void* Image::MatPtr() {

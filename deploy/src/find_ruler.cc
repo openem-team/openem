@@ -6,6 +6,7 @@
 #include <opencv2/imgproc.hpp>
 #include "model.h"
 #include "util.h"
+#include <iostream> // DELETE ME
 
 namespace openem {
 namespace find_ruler {
@@ -109,7 +110,7 @@ Image Rectify(const Image& image, const std::vector<double>& transform) {
   Image r_image;
   cv::Mat* r_mat = detail::MatFromImage(&r_image);
   const cv::Mat* mat = detail::MatFromImage(&image);
-  cv::Mat t_mat(3, 3, CV_64F);
+  cv::Mat t_mat(2, 3, CV_64F);
   std::memcpy(t_mat.data, transform.data(), transform.size() * sizeof(double));
   cv::warpAffine(*mat, *r_mat, t_mat, r_mat->size());
   return std::move(r_image);

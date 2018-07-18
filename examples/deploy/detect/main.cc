@@ -31,15 +31,16 @@ int main(int argc, char* argv[]) {
   }
 
   // Load in images.
-  std::vector<cv::Mat> imgs;
+  std::vector<em::Image> imgs;
   for (int i = 2; i < argc; ++i) {
-    cv::Size size = detector.ImageSize();
-    cv::Mat img = cv::imread(argv[i], CV_LOAD_IMAGE_COLOR);
-    cv::resize(img, img, size);
-    if (img.total() == 0) {
+    em::Image img;
+    status = img.FromFile(argv[i]);
+    if (status != em::kSuccess) {
       std::cout << "Failed to load image " << argv[i] << "!" << std::endl;
       return -1;
     }
+    auto size = detector.ImageSize();
+    img.Resize(size.first, size.second);
     imgs.push_back(std::move(img));
   }
 
@@ -53,7 +54,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Process the loaded images.
-  std::vector<std::vector<cv::Rect>> detections;
+  std::vector<std::vector<std::array<int, 4>>> detections;
   status = detector.Process(&detections);
   if (status != em::kSuccess) {
     std::cout << "Error when attempting to do detection!" << std::endl;
@@ -62,16 +63,18 @@ int main(int argc, char* argv[]) {
 
   // Display the detections on the image.
   for (int i = 0; i < detections.size(); ++i) {
-    cv::Mat img = imgs[i];
-    std::vector<cv::Rect> dets = detections[i];
+    em::Image img = imgs[i];
+    std::vector<std::array<int, 4>> dets = detections[i];
     if (dets.size() == 0) {
       std::cout << "No detections found for image " << i << std::endl;
       continue;
     }
+    cv::Mat disp_img = *(reinterpret_cast<cv::Mat*>(img.MatPtr()));
     for (auto det : dets) {
-      cv::rectangle(img, det, cv::Scalar(0, 0, 255));
+      cv::Rect rect(det[0], det[1], det[2], det[3]);
+      cv::rectangle(disp_img, rect, cv::Scalar(0, 0, 255));
     }
-    cv::imshow("Detections", img);
+    cv::imshow("Detections", disp_img);
     cv::waitKey(0);
   }
 }

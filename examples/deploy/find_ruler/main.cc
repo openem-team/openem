@@ -31,10 +31,11 @@ int main(int argc, char* argv[]) {
   }
 
   // Load in images.
-  std::vector<cv::Mat> imgs;
+  std::vector<em::Image> imgs;
   for (int i = 2; i < argc; ++i) {
-    cv::Mat img = cv::imread(argv[i], CV_LOAD_IMAGE_COLOR);
-    if (img.total() == 0) {
+    em::Image img;
+    status = img.FromFile(argv[i]);
+    if (status != em::kSuccess) {
       std::cout << "Failed to load image " << argv[i] << "!" << std::endl;
       return -1;
     }
@@ -51,7 +52,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Process the loaded images.
-  std::vector<cv::Mat> masks;
+  std::vector<em::Image> masks;
   status = mask_finder.Process(&masks);
   if (status != em::kSuccess) {
     std::cout << "Failed to process images!" << std::endl;
@@ -60,7 +61,7 @@ int main(int argc, char* argv[]) {
 
   for (int i = 0; i < masks.size(); ++i) {
     // Resize the masks back into the same size as the images.
-    cv::resize(masks[i], masks[i], cv::Size(imgs[i].cols, imgs[i].rows));
+    masks[i].Resize(imgs[i].Width(), imgs[i].Height());
 
     // Check if the ruler is present.
     bool present = fr::RulerPresent(masks[i]);
@@ -70,14 +71,15 @@ int main(int argc, char* argv[]) {
     }
 
     // Find orientation and region of interest based on the mask.
-    cv::Mat transform = fr::RulerOrientation(masks[i]);
-    cv::Mat r_mask = fr::Rectify(masks[i], transform);
-    cv::Rect roi = fr::FindRoi(r_mask);
+    std::vector<double> transform = fr::RulerOrientation(masks[i]);
+    em::Image r_mask = fr::Rectify(masks[i], transform);
+    std::array<int, 4> roi = fr::FindRoi(r_mask);
 
     // Rectify, crop, and display the image.
-    cv::Mat r_img = fr::Rectify(imgs[i], transform);
-    cv::Mat c_img = fr::Crop(r_img, roi);
-    cv::imshow("Region of interest", c_img);
+    em::Image r_img = fr::Rectify(imgs[i], transform);
+    em::Image c_img = fr::Crop(r_img, roi);
+    cv::Mat disp_img = *(reinterpret_cast<cv::Mat*>(c_img.MatPtr()));
+    cv::imshow("Region of interest", disp_img);
     cv::waitKey(0);
   }
   return 0;

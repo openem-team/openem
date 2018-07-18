@@ -33,13 +33,13 @@ ErrorCode Model::Init(
   if (!status.ok()) return kErrorLoadingModel;
   
   // Get graph input size.
-  ErrorCode status1 = util::InputSize(
+  ErrorCode status1 = InputSize(
       graph_def, &(width_), &(height_));
   if (status1 != kSuccess) return status1;
 
   // Create a new tensorflow session.
   tf::Session* session;
-  status1 = util::GetSession(&session, gpu_fraction);
+  status1 = GetSession(&session, gpu_fraction);
   if (status1 != kSuccess) return status1;
   session_.reset(session);
 
@@ -59,7 +59,7 @@ cv::Size Model::ImageSize() {
 }
 
 ErrorCode Model::AddImage(
-    const cv::Mat& image, 
+    const cv::Mat& image,
     std::function<tf::Tensor(const cv::Mat&, int, int)> preprocess) {
   if (!initialized_) return kErrorBadInit;
   if (!image.isContinuous()) return kErrorNotContinuous;
@@ -76,7 +76,7 @@ ErrorCode Model::Process(std::vector<tf::Tensor>* outputs) {
 
   // Copy image queue contents into input tensor.
   mutex_.lock();
-  tf::Tensor input = util::FutureQueueToTensor(
+  tf::Tensor input = FutureQueueToTensor(
       &preprocessed_, 
       width_, 
       height_);

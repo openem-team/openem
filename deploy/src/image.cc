@@ -73,10 +73,16 @@ ErrorCode Image::FromData(
   impl_->mat_.convertTo(impl_->mat_, dtype);
   Resize(width, height);
   std::memcpy(impl_->mat_.data, data.data(), data.size() * sizeof(uint8_t));
+  return kSuccess;
 }
 
 const uint8_t* Image::Data() {
   return impl_->mat_.data;
+}
+
+std::vector<uint8_t> Image::DataCopy() {
+  uint64_t size = Width() * Height() * Channels();
+  return std::vector<uint8_t>(impl_->mat_.data, impl_->mat_.data + size);
 }
 
 int Image::Width() {

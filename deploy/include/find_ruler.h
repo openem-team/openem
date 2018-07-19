@@ -93,13 +93,13 @@ Image Rectify(const Image& image, const std::vector<double>& transform);
 /// @param mask Rectified mask image.
 /// @param h_margin Horizontal margin from edge of ruler.
 /// @return Region of interest.
-std::array<int, 4> FindRoi(const Image& mask, int h_margin=0);
+Rect FindRoi(const Image& mask, int h_margin=0);
 
 /// Crops an image using the specified ROI.
 /// @param image Rectified image.
 /// @param roi Region of interest found with FindRoi.
 /// @return Cropped image.
-Image Crop(const Image& image, const std::array<int, 4>& roi);
+Image Crop(const Image& image, const Rect& roi);
 
 } // namespace find_ruler
 } // namespace openem

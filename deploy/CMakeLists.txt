@@ -8,3 +8,7 @@ if(MSVC)
 endif()
 
 add_subdirectory(src)
+
+if(BUILD_BINDINGS)
+  add_subdirectory(bindings)
+endif()

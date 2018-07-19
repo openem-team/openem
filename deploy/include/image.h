@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <memory>
 
 #include "error_codes.h"
@@ -67,6 +68,9 @@ class Image {
   /// Returns pointer to image data.
   const uint8_t* Data();
 
+  /// Returns copy of image data.
+  std::vector<uint8_t> DataCopy();
+
   /// Returns image width.
   int Width();
 
@@ -93,6 +97,9 @@ class Image {
   /// Pointer to implementation.
   std::unique_ptr<ImageImpl> impl_;
 };
+
+/// Type for storing x, y, w, h.
+using Rect = std::array<int, 4>;
 
 } // namespace openem
 

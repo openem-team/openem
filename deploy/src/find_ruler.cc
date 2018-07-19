@@ -26,6 +26,11 @@ ErrorCode RulerMaskFinder::Init(
   return impl_->model_.Init(model_path, gpu_fraction);
 }
 
+std::pair<int, int> RulerMaskFinder::ImageSize() {
+  cv::Size size = impl_->model_.ImageSize();
+  return {size.width, size.height};
+}
+
 int RulerMaskFinder::MaxImages() {
   return impl_->model_.MaxImages();
 }
@@ -115,7 +120,7 @@ Image Rectify(const Image& image, const std::vector<double>& transform) {
   return std::move(r_image);
 }
 
-std::array<int, 4> FindRoi(const Image& mask, int h_margin) {
+Rect FindRoi(const Image& mask, int h_margin) {
   const cv::Mat* mat = detail::MatFromImage(&mask);
   cv::Rect roi = cv::boundingRect(*mat);
 
@@ -146,7 +151,7 @@ std::array<int, 4> FindRoi(const Image& mask, int h_margin) {
     std::lround(y1 - y0 + 1)};
 }
 
-Image Crop(const Image& image, const std::array<int, 4>& roi) {
+Image Crop(const Image& image, const Rect& roi) {
   Image image_out;
   const cv::Mat* mat_in = detail::MatFromImage(&image);
   cv::Mat* mat_out = detail::MatFromImage(&image_out);

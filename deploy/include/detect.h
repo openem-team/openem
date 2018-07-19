@@ -52,7 +52,7 @@ class Detector {
 
   /// Finds fish in batched images by performing object detection
   /// with Single Shot Detector (SSD).
-  ErrorCode Process(std::vector<std::vector<std::array<int, 4>>>* detections);
+  ErrorCode Process(std::vector<std::vector<Rect>>* detections);
  private:
   /// Forward declaration of implementation class.
   class DetectorImpl;

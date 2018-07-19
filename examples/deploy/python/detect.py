@@ -5,6 +5,7 @@ import sys
 sys.path.append("../../../modules")
 import openem
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from util import image_to_numpy
 
 if __name__ == "__main__":
@@ -18,50 +19,45 @@ if __name__ == "__main__":
         type=str)
     args = parser.parse_args()
 
-    # Create and initialize the mask finder.
-    mask_finder = openem.RulerMaskFinder()
-    status = mask_finder.Init(args.pb_file)
+    # Create and initialize detector.
+    detector = openem.Detector()
+    status = detector.Init(args.pb_file)
     if not status == openem.kSuccess:
         raise IOError("Failed to initialize ruler mask finder!")
 
     # Load in images.
     imgs = [openem.Image() for _ in args.image_files]
+    w, h = detector.ImageSize()
     for img, p in zip(imgs, args.image_files):
         status = img.FromFile(p)
         if not status == openem.kSuccess:
             raise IOError("Failed to load image {}".format(p))
+        img.Resize(w, h)
 
     # Add images to processing queue.
     for img in imgs:
-        status = mask_finder.AddImage(img)
+        status = detector.AddImage(img)
         if not status == openem.kSuccess:
             raise RuntimeError("Failed to add image for processing!")
 
     # Process the loaded images.
-    masks = openem.vector_image()
-    status = mask_finder.Process(masks)
+    detections = openem.vector_vector_rect()
+    status = detector.Process(detections)
     if not status == openem.kSuccess:
         raise RuntimeError("Failed to process images!")
 
-    for mask, img in zip(masks, imgs):
-        # Resize the masks back into the same size as the images.
-        mask.Resize(img.Width(), img.Height())
-
-        # Check if ruler is present.
-        present = openem.RulerPresent(mask)
-        if not present:
-            print("Could not find ruler in image!  Skipping...")
-            continue
-
-        # Find orientation and region of interest based on the mask.
-        transform = openem.RulerOrientation(mask)
-        r_mask = openem.Rectify(mask, transform)
-        roi = openem.FindRoi(r_mask)
-
-        # Rectify, crop, and display the image.
-        r_img = openem.Rectify(img, transform)
-        c_img = openem.Crop(r_img, roi)
-        disp_img = image_to_numpy(c_img)
-        plt.imshow(disp_img)
+    # Display the detections on the image.
+    for dets, img in zip(detections, imgs):
+        disp_img = image_to_numpy(img)
+        f = plt.figure()
+        ax = f.add_subplot(111)
+        ax.imshow(disp_img)
+        for det in dets:
+            x, y, w, h = det
+            rect = patches.Rectangle((x, y), w, h, 
+                facecolor="none", 
+                linewidth=2, 
+                edgecolor="r")
+            ax.add_patch(rect)
         plt.show()
 

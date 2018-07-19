@@ -10,4 +10,8 @@ target_include_directories(openem PUBLIC
 target_link_libraries(openem
   tensorflow
   ${OpenCV_LIBS})
+install(TARGETS openem
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin)
 

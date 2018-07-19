@@ -6,6 +6,10 @@ endif()
 
 add_subdirectory(cc)
 
-if(BUILD_BINDINGS)
+if(BUILD_PYTHON)
   add_subdirectory(python)
+endif()
+
+if(BUILD_CSHARP)
+  add_subdirectory(csharp)
 endif()

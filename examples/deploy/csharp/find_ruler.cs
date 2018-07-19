@@ -11,6 +11,9 @@ class Program {
       return -1;
     }
 
+    // Create and initialize the mask finder.
+    RulerMaskFinder mask_finder;
+
     return 0;
   }
 }

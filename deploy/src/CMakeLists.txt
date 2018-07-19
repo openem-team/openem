@@ -1,3 +1,4 @@
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 add_library(openem 
   find_ruler.cc 
   detect.cc
@@ -14,4 +15,5 @@ install(TARGETS openem
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin)
+install(DIRECTORY ../include DESTINATION .)
 

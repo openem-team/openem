@@ -25,4 +25,8 @@ if(BUILD_CSHARP)
     ARCHIVE DESTINATION csharp/lib
     RUNTIME DESTINATION csharp/bin)
   install(FILES ${CS_SRC} DESTINATION csharp/src)
+  if(BUILD_EXAMPLES)
+    install(TARGETS openem_cs
+      RUNTIME DESTINATION examples/deploy/csharp)
+  endif()
 endif()

@@ -8,3 +8,6 @@ if(MSVC)
 endif()
 
 add_subdirectory(src)
+if(BUILD_PYTHON OR BUILD_CSHARP)
+  add_subdirectory(bindings)
+endif()

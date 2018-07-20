@@ -5,8 +5,8 @@
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
-#include "model.h"
-#include "util.h"
+#include "detail/model.h"
+#include "detail/util.h"
 
 namespace openem {
 namespace detect {
@@ -95,23 +95,26 @@ int Detector::MaxImages() {
   return impl_->model_.MaxImages();
 }
 
-cv::Size Detector::ImageSize() {
-  return impl_->model_.ImageSize();
+std::pair<int, int> Detector::ImageSize() {
+  cv::Size size = impl_->model_.ImageSize();
+  return {size.width, size.height};
 }
 
-ErrorCode Detector::AddImage(const cv::Mat& image) {
+ErrorCode Detector::AddImage(const Image& image) {
+  const cv::Mat* mat = detail::MatFromImage(&image);
   auto preprocess = std::bind(
-      &util::Preprocess,
+      &detail::Preprocess,
       std::placeholders::_1,
       std::placeholders::_2,
       std::placeholders::_3,
       1.0,
       cv::Scalar(-103.939, -116.779, -123.68),
       false);
-  return impl_->model_.AddImage(image, preprocess);
+  return impl_->model_.AddImage(*mat, preprocess);
 }
 
-ErrorCode Detector::Process(std::vector<std::vector<cv::Rect>>* detections) {
+ErrorCode Detector::Process(
+    std::vector<std::vector<std::array<int, 4>>>* detections) {
   constexpr int kBackgroundClass = 0;
 
   // Run the model.
@@ -120,8 +123,8 @@ ErrorCode Detector::Process(std::vector<std::vector<cv::Rect>>* detections) {
   if (status != kSuccess) return status;
 
   // Convert to mat vector.
-  std::vector<cv::Mat> pred;
-  util::TensorToMatVec(outputs.back(), &pred, 1.0, 0.0, CV_32F);
+  std::vector<Image> pred;
+  detail::TensorToImageVec(outputs.back(), &pred, 1.0, 0.0, CV_32F);
 
   // Iterate through results for each image.
   int pred_stop = 4;
@@ -133,21 +136,26 @@ ErrorCode Detector::Process(std::vector<std::vector<cv::Rect>>* detections) {
   std::vector<float> scores;
   std::vector<int> indices;
   double min, max;
-  for (const auto& p : pred) {
+  for (auto& p_img : pred) {
+    const cv::Mat& p = *(detail::MatFromImage(&p_img));
     loc = p(cv::Range::all(), cv::Range(0, pred_stop));
     conf = p(cv::Range::all(), cv::Range(pred_stop, conf_stop));
     cv::minMaxLoc(loc, &min, &max);
     anchors = p(cv::Range::all(), cv::Range(conf_stop, anc_stop));
     variances = p(cv::Range::all(), cv::Range(anc_stop, var_stop));
     boxes = DecodeBoxes(loc, anchors, variances, impl_->model_.ImageSize());
-    std::vector<cv::Rect> dets;
+    std::vector<std::array<int, 4>> dets;
     for (int c = 0; c < conf.cols; ++c) {
       if (c == kBackgroundClass) continue;
       cv::Mat& c_conf = conf.col(c);
       scores.assign(c_conf.begin<float>(), c_conf.end<float>());
       cv::dnn::NMSBoxes(boxes, scores, 0.01, 0.45, indices, 1.0, 200);
       for (int idx : indices) {
-        dets.push_back(boxes[idx]);
+        dets.emplace_back(std::array<int, 4>{
+            boxes[idx].x,
+            boxes[idx].y,
+            boxes[idx].width,
+            boxes[idx].height});
       }
     }
     detections->push_back(std::move(dets));

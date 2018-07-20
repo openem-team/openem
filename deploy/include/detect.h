@@ -8,7 +8,7 @@
 #include <vector>
 #include <string>
 
-#include <opencv2/core.hpp>
+#include "image.h"
 #include "error_codes.h"
 
 namespace openem {
@@ -37,8 +37,8 @@ class Detector {
   int MaxImages();
 
   /// Expected image size.  Not valid until the model has been initialized.
-  /// @return Expected image size.
-  cv::Size ImageSize();
+  /// @return Expected image size (rows, columns).
+  std::pair<int, int> ImageSize();
 
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
@@ -48,11 +48,11 @@ class Detector {
   /// true.
   /// @param image Input image for which mask will be found.
   /// @return Error code.
-  ErrorCode AddImage(const cv::Mat& image);
+  ErrorCode AddImage(const Image& image);
 
   /// Finds fish in batched images by performing object detection
   /// with Single Shot Detector (SSD).
-  ErrorCode Process(std::vector<std::vector<cv::Rect>>* detections);
+  ErrorCode Process(std::vector<std::vector<Rect>>* detections);
  private:
   /// Forward declaration of implementation class.
   class DetectorImpl;

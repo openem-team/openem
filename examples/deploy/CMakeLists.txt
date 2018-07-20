@@ -4,5 +4,12 @@ if(MSVC)
   add_definitions(-DCOMPILER_MSVC)
 endif()
 
-add_subdirectory(find_ruler)
-add_subdirectory(detect)
+add_subdirectory(cc)
+
+if(BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
+
+if(BUILD_CSHARP)
+  add_subdirectory(csharp)
+endif()

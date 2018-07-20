@@ -1,14 +1,22 @@
 /// @file
 /// @brief Implementation for utility functions.
 
-#include "util.h"
+#include "detail/util.h"
 
 #include <opencv2/imgproc.hpp>
 
 namespace openem {
-namespace util {
+namespace detail {
 
 namespace tf = tensorflow;
+
+cv::Mat* MatFromImage(Image* image) {
+  return reinterpret_cast<cv::Mat*>(image->MatPtr());
+}
+
+const cv::Mat* MatFromImage(const Image* image) {
+  return MatFromImage(const_cast<Image*>(image));
+}
 
 ErrorCode GetSession(tf::Session** session, double gpu_fraction) {
   tf::SessionOptions options;
@@ -35,10 +43,11 @@ ErrorCode InputSize(const tf::GraphDef& graph_def, int* width, int* height) {
   return kSuccess;
 }
 
-tf::Tensor MatToTensor(const cv::Mat& mat, const tf::TensorShape& shape) {
+tf::Tensor ImageToTensor(const Image& image, const tf::TensorShape& shape) {
   tf::Tensor tensor(tf::DT_FLOAT, shape);
   auto flat = tensor.flat<float>();
-  std::copy_n(mat.ptr<float>(), flat.size(), flat.data());
+  const cv::Mat* mat = MatFromImage(&image);
+  std::copy_n(mat->ptr<float>(), flat.size(), flat.data());
   return tensor;
 }
 
@@ -60,9 +69,9 @@ tf::Tensor FutureQueueToTensor(
   return tensor;
 }
 
-void TensorToMatVec(
+void TensorToImageVec(
     const tensorflow::Tensor& tensor, 
-    std::vector<cv::Mat>* vec,
+    std::vector<Image>* vec,
     double scale,
     double bias,
     int dtype) {
@@ -77,8 +86,10 @@ void TensorToMatVec(
   for (int n = 0; n < num_img; ++n) {
     std::copy_n(flat.data() + offset, mat.total(), mat_ptr);
     offset += mat.total();
-    vec->emplace_back(height, width, dtype);
-    mat.convertTo(vec->back(), dtype, scale, bias);
+    Image image;
+    cv::Mat* img_mat = MatFromImage(&image);
+    mat.convertTo(*img_mat, dtype, scale, bias);
+    vec->push_back(std::move(image));
   }
 }
 
@@ -91,28 +102,33 @@ tf::Tensor Preprocess(
     bool rgb) {
 
   // Start by resizing the image if necessary.
-  cv::Mat p_image;
+  Image p_image;
+  cv::Mat* p_mat = MatFromImage(&p_image);
   if ((image.rows != height) || (image.cols != width)) {
-    cv::resize(image, p_image, cv::Size(width, height));
+    cv::resize(image, *p_mat, cv::Size(width, height));
   } else {
-    p_image = image.clone();
+    *p_mat = image.clone();
   }
 
   // Convert to RGB as required by the model.
   if (rgb) {
-    cv::cvtColor(p_image, p_image, CV_BGR2RGB);
+    cv::cvtColor(*p_mat, *p_mat, CV_BGR2RGB);
   }
 
   // Do image scaling.
-  p_image.convertTo(p_image, CV_32F, scale, 0.0);
+  p_mat->convertTo(*p_mat, CV_32F, scale, 0.0);
 
   // Apply channel by channel bias.
-  p_image += bias;
+  (*p_mat) += bias;
 
   // Copy into tensor.
-  tf::TensorShape shape({1, p_image.rows, p_image.cols, p_image.channels()});
-  return MatToTensor(p_image, shape);
+  tf::TensorShape shape({
+      1, 
+      p_image.Height(), 
+      p_image.Width(), 
+      p_image.Channels()});
+  return ImageToTensor(p_image, shape);
 }
 
-} // namespace util
+} // namespace detail
 } // namespace openem

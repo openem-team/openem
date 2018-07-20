@@ -9,10 +9,21 @@
 
 #include <opencv2/core.hpp>
 #include <tensorflow/core/public/session.h>
+#include "image.h"
 #include "error_codes.h"
 
 namespace openem {
-namespace util {
+namespace detail {
+
+/// Gets pointer to cv::Mat from Image.
+/// @param image Pointer to an image.
+/// @return Pointer to underlying cv::Mat.
+cv::Mat* MatFromImage(Image* image);
+
+/// Gets const pointer to cv::Mat from Image.
+/// @param image Pointer to an image.
+/// @return Pointer to underlying cv::Mat.
+const cv::Mat* MatFromImage(const Image* image);
 
 /// Gets a Tensorflow session.
 /// @param session Pointer to session address.
@@ -31,12 +42,12 @@ ErrorCode InputSize(
     int* width, 
     int* height);
 
-/// Copy a Mat to a Tensor.
-/// @param mat Mat to be converted.
+/// Copy an Image to a Tensor.
+/// @param image Image to be converted.
 /// @param shape Shape of the output tensor.
 /// @return Tensor containing mat data.
-tensorflow::Tensor MatToTensor(
-    const cv::Mat& mat, 
+tensorflow::Tensor ImageToTensor(
+    const Image& image, 
     const tensorflow::TensorShape& shape);
 
 /// Copy queue of future Tensors to Tensor.  The queue is emptied 
@@ -50,15 +61,15 @@ tensorflow::Tensor FutureQueueToTensor(
     int width,
     int height);
 
-/// Copy a tensor to a vector of Mat.
+/// Copy a tensor to a vector of Image.
 /// @param tensor Input tensor.
-/// @param vec Vector of Mat containing the tensor data.
+/// @param vec Vector of Image containing the tensor data.
 /// @param scale Scale factor applied to the tensor data.
 /// @param bias Bias applied to the tensor data.
 /// @param dtype OpenCV data type.
-void TensorToMatVec(
+void TensorToImageVec(
     const tensorflow::Tensor& tensor, 
-    std::vector<cv::Mat>* vec,
+    std::vector<Image>* vec,
     double scale,
     double bias,
     int dtype);
@@ -79,8 +90,8 @@ tensorflow::Tensor Preprocess(
     const cv::Scalar& bias,
     bool rgb);
 
+} // namespace detail 
 } // namespace openem
-} // namespace util
 
 #endif // OPENEM_DEPLOY_UTIL_H_
 

@@ -74,6 +74,19 @@ void TensorToImageVec(
     double bias,
     int dtype);
 
+/// Copy a tensor to a vector of Mat.
+/// @param tensor Input tensor.
+/// @param vec Vector of Mat containing the tensor data.
+/// @param scale Scale factor applied to the tensor data.
+/// @param bias Bias applied to the tensor data.
+/// @param dtype OpenCV data type.
+void TensorToMatVec(
+    const tensorflow::Tensor& tensor, 
+    std::vector<cv::Mat>* vec,
+    double scale,
+    double bias,
+    int dtype);
+
 /// Does preprocessing on an image.
 /// @param image Image to preprocess.  Channels are BGR.
 /// @param width Required width of the image.

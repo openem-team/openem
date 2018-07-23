@@ -123,8 +123,8 @@ ErrorCode Detector::Process(
   if (status != kSuccess) return status;
 
   // Convert to mat vector.
-  std::vector<Image> pred;
-  detail::TensorToImageVec(outputs.back(), &pred, 1.0, 0.0, CV_32F);
+  std::vector<cv::Mat> pred;
+  detail::TensorToMatVec(outputs.back(), &pred, 1.0, 0.0, CV_32F);
 
   // Iterate through results for each image.
   int pred_stop = 4;
@@ -136,8 +136,7 @@ ErrorCode Detector::Process(
   std::vector<float> scores;
   std::vector<int> indices;
   double min, max;
-  for (auto& p_img : pred) {
-    const cv::Mat& p = *(detail::MatFromImage(&p_img));
+  for (const auto& p : pred) {
     loc = p(cv::Range::all(), cv::Range(0, pred_stop));
     conf = p(cv::Range::all(), cv::Range(pred_stop, conf_stop));
     cv::minMaxLoc(loc, &min, &max);

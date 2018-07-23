@@ -93,6 +93,27 @@ void TensorToImageVec(
   }
 }
 
+void TensorToMatVec(
+    const tensorflow::Tensor& tensor, 
+    std::vector<cv::Mat>* vec,
+    double scale,
+    double bias,
+    int dtype) {
+  vec->clear();
+  const int num_img = tensor.dim_size(0);
+  const int height = tensor.dim_size(1);
+  const int width = tensor.dim_size(2);
+  auto flat = tensor.flat<float>();
+  int offset = 0;
+  for (int n = 0; n < num_img; ++n) {
+    vec->emplace_back(height, width, CV_32FC1);
+    cv::Mat& mat = vec->back();
+    std::copy_n(flat.data() + offset, mat.total(), mat.ptr<float>());
+    mat.convertTo(mat, dtype, scale, bias);
+    offset += mat.total();
+  }
+}
+
 tf::Tensor Preprocess(
     const cv::Mat& image, 
     int width, 

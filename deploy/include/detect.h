@@ -42,10 +42,6 @@ class Detector {
 
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
-  /// The input image is assumed to be 8-bit, 3-channel with colors 
-  /// in the default channel order for OpenCV, which is BGR.  It must
-  /// also have continuous storage, i.e. image.isContinuous() returns
-  /// true.
   /// @param image Input image for which mask will be found.
   /// @return Error code.
   ErrorCode AddImage(const Image& image);

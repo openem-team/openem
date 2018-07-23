@@ -1,6 +1,14 @@
 using System.Windows.Forms;
 
+/// <summary>
+/// Utility functions for working with OpenEM images.
+/// </summary>
 class Util {
+  /// <summary>
+  /// Converts an OpenEM image to a Bitmap.
+  /// </summary>
+  /// <param name="img"> OpenEM image object. </param>
+  /// <returns> System.Drawing.Bitmap object. </returns>
   public static System.Drawing.Bitmap ImageToBitmap(Image img) {
     vector_uint8 img_data = img.DataCopy();
     int w = img.Width();
@@ -22,6 +30,11 @@ class Util {
     return new_img;
   }
 
+  /// <summary>
+  /// Displays a Bitmap in a Windows Form.
+  /// </summary>
+  /// <param name="title"> Title of the display window. </param>
+  /// <param name="img"> Bitmap object. </param>
   public static void ShowBitmap(string title, System.Drawing.Bitmap img) {
     Form form = new Form();
     form.Text = title;

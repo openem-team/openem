@@ -1,7 +1,13 @@
 using System;
-using System.Windows.Forms;
 
+/// <summary>
+/// Example demonstrating FindRuler class.
+/// </summary>
 class Program {
+
+  /// <summary>
+  /// Main program.
+  /// </summary>
   static int Main(string[] args) {
 
     // Check input arguments.

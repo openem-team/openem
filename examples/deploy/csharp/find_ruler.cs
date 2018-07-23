@@ -68,33 +68,8 @@ class Program {
       // Rectify, crop, and display the image.
       Image r_img = openem.Rectify(imgs[i], transform);
       Image c_img = openem.Crop(r_img, roi);
-      vector_uint8 img_data = c_img.DataCopy();
-      int w = c_img.Width();
-      int h = c_img.Height();
-      int ch = c_img.Channels();
-      int nbytes = w * h * ch;
-      System.Drawing.Bitmap disp_img = new System.Drawing.Bitmap(w, h,
-          System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-      int k = 0;
-      for (int r = 0; r < h; r++) {
-        for (int c = 0; c < w; c++) {
-          disp_img.SetPixel(c, r, System.Drawing.Color.FromArgb(
-              img_data[k + 2],
-              img_data[k + 1],
-              img_data[k]));
-          k += 3;
-        }
-      }
-      System.Drawing.Size size = new System.Drawing.Size(w, h);
-      Form form = new Form();
-      form.Text = "Ruler Finder Example";
-      form.ClientSize = size;
-      PictureBox box = new PictureBox();
-      box.Size = size;
-      box.Image = disp_img;
-      box.Dock = DockStyle.Fill;
-      form.Controls.Add(box);
-      form.ShowDialog();
+      System.Drawing.Bitmap disp_img = Util.ImageToBitmap(c_img);
+      Util.ShowBitmap("Find ruler example", disp_img);
     }
 
     return 0;

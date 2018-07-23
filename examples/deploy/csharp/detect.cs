@@ -53,23 +53,7 @@ class Program {
 
     // Display the detections on the image.
     for (int i = 0; i < detections.Count; ++i) {
-      vector_uint8 img_data = imgs[i].DataCopy();
-      int w = imgs[i].Width();
-      int h = imgs[i].Height();
-      int ch = imgs[i].Channels();
-      int nbytes = w * h * ch;
-      System.Drawing.Bitmap disp_img = new System.Drawing.Bitmap(w, h,
-          System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-      int k = 0;
-      for (int r = 0; r < h; r++) {
-        for (int c = 0; c < w; c++) {
-          disp_img.SetPixel(c, r, System.Drawing.Color.FromArgb(
-              img_data[k + 2],
-              img_data[k + 1],
-              img_data[k]));
-          k += 3;
-        }
-      }
+      System.Drawing.Bitmap disp_img = Util.ImageToBitmap(imgs[i]);
       using (System.Drawing.Graphics g = 
           System.Drawing.Graphics.FromImage(disp_img)) {
         System.Drawing.Color red = System.Drawing.Color.Red;
@@ -78,16 +62,7 @@ class Program {
           g.DrawRectangle(pen, det[0], det[1], det[2], det[3]);
         }
       }
-      System.Drawing.Size size = new System.Drawing.Size(w, h);
-      Form form = new Form();
-      form.Text = "Ruler Finder Example";
-      form.ClientSize = size;
-      PictureBox box = new PictureBox();
-      box.Size = size;
-      box.Image = disp_img;
-      box.Dock = DockStyle.Fill;
-      form.Controls.Add(box);
-      form.ShowDialog();
+      Util.ShowBitmap("Detect Example", disp_img);
     }
 
     return 0;

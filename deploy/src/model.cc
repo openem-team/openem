@@ -73,7 +73,8 @@ ErrorCode Model::AddImage(
 
 ErrorCode Model::Process(
     std::vector<tf::Tensor>* outputs, 
-    const std::string& input_name) {
+    const std::string& input_name,
+    const std::vector<std::string>& output_names) {
   if (!initialized_) return kErrorBadInit;
 
   // Copy image queue contents into input tensor.
@@ -87,7 +88,7 @@ ErrorCode Model::Process(
   // Run the model.
   tf::Status status = session_->Run(
       {{input_name, input}}, 
-      {"output_node0:0"}, 
+      output_names, 
       {},
       outputs);
   if (!status.ok()) return kErrorRunSession;

@@ -51,19 +51,26 @@ ErrorCode Classifier::AddImage(const Image& image) {
 ErrorCode Classifier::Process(std::vector<std::vector<float>>* scores) {
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
-  ErrorCode status = impl_->model_.Process(&outputs, "data");
+  ErrorCode status = impl_->model_.Process(
+      &outputs, 
+      "data", 
+      {"cat_species_1:0", "cat_cover_1:0"});
   if (status != kSuccess) return status;
 
   // Convert to mat vector.
-  std::vector<cv::Mat> pred;
-  detail::TensorToMatVec(outputs.back(), &pred, 1.0, 0.0, CV_32F);
+  std::vector<cv::Mat> species;
+  detail::TensorToMatVec(outputs[0], &species, 1.0, 0.0, CV_32F);
+  std::vector<cv::Mat> quality;
+  detail::TensorToMatVec(outputs[1], &quality, 1.0, 0.0, CV_32F);
 
   // Clear input results.
   scores->clear();
 
   // Iterate through results for each image.
-  for(const auto& p : pred) {
-    scores->emplace_back(p.begin<float>(), p.end<float>());
+  for(int i = 0; i < species.size(); ++i) {
+    std::vector<float> vec(quality[i].begin<float>(), quality[i].end<float>());
+    vec.insert(vec.end(), species[i].begin<float>(), species[i].end<float>());
+    scores->push_back(std::move(vec));
   }
   return kSuccess;
 }

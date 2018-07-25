@@ -119,7 +119,10 @@ ErrorCode Detector::Process(
 
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
-  ErrorCode status = impl_->model_.Process(&outputs, "input_1");
+  ErrorCode status = impl_->model_.Process(
+      &outputs, 
+      "input_1",
+      {"output_node0:0"});
   if (status != kSuccess) return status;
 
   // Convert to mat vector.

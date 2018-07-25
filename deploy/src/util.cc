@@ -100,9 +100,10 @@ void TensorToMatVec(
     double bias,
     int dtype) {
   vec->clear();
+  const int num_dims = tensor.dims();
   const int num_img = tensor.dim_size(0);
   const int height = tensor.dim_size(1);
-  const int width = tensor.dim_size(2);
+  const int width = num_dims < 3 ? 1 : tensor.dim_size(2);
   auto flat = tensor.flat<float>();
   int offset = 0;
   for (int n = 0; n < num_img; ++n) {

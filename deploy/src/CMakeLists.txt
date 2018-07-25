@@ -2,6 +2,7 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 add_library(openem 
   find_ruler.cc 
   detect.cc
+  classify.cc
   util.cc 
   model.cc
   image.cc)

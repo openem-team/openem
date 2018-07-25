@@ -4,6 +4,13 @@
 #ifndef OPENEM_DEPLOY_CLASSIFY_H_
 #define OPENEM_DEPLOY_CLASSIFY_H_
 
+#include <memory>
+#include <vector>
+#include <string>
+
+#include "image.h"
+#include "error_codes.h"
+
 namespace openem {
 namespace classify {
 
@@ -32,17 +39,13 @@ class Classifier {
 
   /// Expected image size.  Not valid until the model has been initialized.
   /// @return Expected image size.
-  cv::Size ImageSize();
+  std::pair<int, int> ImageSize();
 
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
-  /// The input image is assumed to be 8-bit, 3-channel with colors 
-  /// in the default channel order for OpenCV, which is BGR.  It must
-  /// also have continuous storage, i.e. image.isContinuous() returns
-  /// true.
-  /// @param image Input image for which mask will be found.
+  /// @param image Input image that will be classified.
   /// @return Error code.
-  ErrorCode AddImage(const cv::Mat& image);
+  ErrorCode AddImage(const Image& image);
 
   /// Determines fish species and whether the fish is covered by a hand,
   /// clear, or not a fish.
@@ -54,8 +57,13 @@ class Classifier {
   /// * If the fish is actually not a fish.
   /// The remaining vector elements correspond to the species used to train
   /// the loaded model.
-  ErrorCode Process(std::vector<std::vector<double>>* scores);
+  ErrorCode Process(std::vector<std::vector<float>>* scores);
  private:
+  /// Forward declaration of implementation class.
+  class ClassifierImpl;
+
+  /// Pointer to implementation.
+  std::unique_ptr<ClassifierImpl> impl_;
 }; 
 
 } // namespace openem

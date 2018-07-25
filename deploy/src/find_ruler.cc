@@ -51,7 +51,7 @@ ErrorCode RulerMaskFinder::AddImage(const Image& image) {
 ErrorCode RulerMaskFinder::Process(std::vector<Image>* masks) {
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
-  ErrorCode status = impl_->model_.Process(&outputs);
+  ErrorCode status = impl_->model_.Process(&outputs, "input_1");
   if (status != kSuccess) return status;
 
   // Copy model outputs into mask images.

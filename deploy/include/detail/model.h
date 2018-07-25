@@ -55,8 +55,11 @@ class Model {
 
   /// Processes the model on the current batch.
   /// @param outputs Output of the model.
+  /// @param input_name Name of input layer.
   /// @return Error code.
-  ErrorCode Process(std::vector<tensorflow::Tensor>* outputs);
+  ErrorCode Process(
+      std::vector<tensorflow::Tensor>* outputs, 
+      const std::string& input_name);
  private:
   /// Tensorflow session.
   std::unique_ptr<tensorflow::Session> session_;

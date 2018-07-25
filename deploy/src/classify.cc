@@ -51,7 +51,7 @@ ErrorCode Classifier::AddImage(const Image& image) {
 ErrorCode Classifier::Process(std::vector<std::vector<float>>* scores) {
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
-  ErrorCode status = impl_->model_.Process(&outputs);
+  ErrorCode status = impl_->model_.Process(&outputs, "data");
   if (status != kSuccess) return status;
 
   // Convert to mat vector.

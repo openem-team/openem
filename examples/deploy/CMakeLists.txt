@@ -4,6 +4,7 @@ if(MSVC)
   add_definitions(-DCOMPILER_MSVC)
 endif()
 
+install(FILES run_all.py DESTINATION examples/deploy)
 add_subdirectory(cc)
 
 if(BUILD_PYTHON)

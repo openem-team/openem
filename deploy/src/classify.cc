@@ -42,9 +42,9 @@ ErrorCode Classifier::AddImage(const Image& image) {
       std::placeholders::_1,
       std::placeholders::_2,
       std::placeholders::_3,
-      127.5,
+      1.0 / 127.5,
       cv::Scalar(-1.0, -1.0, -1.0),
-      false);
+      true);
   return impl_->model_.AddImage(*mat, preprocess);
 }
 

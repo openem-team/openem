@@ -52,9 +52,9 @@ class Classifier {
   /// @param scores Vector of double vectors.  Each double vector
   /// corresponds to one of the images in the image queue.  The first
   /// three numbers in the double vector correspond to:
-  /// * If the fish is covered.
-  /// * If the fish is not covered.
-  /// * If the fish is actually not a fish.
+  /// * No fish in the image.
+  /// * Fish is covered by a hand.
+  /// * Fish is not covered.
   /// The remaining vector elements correspond to the species used to train
   /// the loaded model.
   ErrorCode Process(std::vector<std::vector<float>>* scores);

@@ -159,6 +159,7 @@ Image Crop(const Image& image, const Rect& roi) {
   const cv::Mat* mat_in = detail::MatFromImage(&image);
   cv::Mat* mat_out = detail::MatFromImage(&image_out);
   *mat_out = mat_in->operator()(cv::Rect(roi[0], roi[1], roi[2], roi[3]));
+  *mat_out = mat_out->clone(); // To ensure continuous.
   return std::move(image_out);
 }
 

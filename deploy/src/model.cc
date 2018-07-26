@@ -16,7 +16,7 @@ Model::Model()
   : session_(nullptr),
     width_(0),
     height_(0),
-    batch_size_(64),
+    batch_size_(4),
     initialized_(false),
     preprocessed_(),
     mutex_() {

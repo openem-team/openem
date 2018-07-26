@@ -3,7 +3,6 @@
 
 #include <iostream>
 
-#include <opencv2/highgui.hpp>
 #include "classify.h"
 
 int main(int argc, char* argv[]) {
@@ -63,8 +62,6 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < scores.size(); ++i) {
     em::Image img = imgs[i];
     const std::vector<float>& score = scores[i];
-    cv::Mat disp_img = *(reinterpret_cast<cv::Mat*>(img.MatPtr()));
-    cv::imshow("Detection", disp_img);
     std::cout << "*******************************************" << std::endl;
     std::cout << "Detection quality scores:" << std::endl;
     std::cout << "No fish:        " << score[0] << std::endl;
@@ -80,7 +77,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Windowpane: " << score[8] << std::endl;
     std::cout << "Winter:     " << score[9] << std::endl;
     std::cout << std::endl;
-    cv::waitKey(0);
+    img.Show();
   }
 }
 

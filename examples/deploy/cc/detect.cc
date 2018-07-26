@@ -3,9 +3,6 @@
 
 #include <iostream>
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
 #include "detect.h"
 
 int main(int argc, char* argv[]) {
@@ -69,13 +66,10 @@ int main(int argc, char* argv[]) {
       std::cout << "No detections found for image " << i << std::endl;
       continue;
     }
-    cv::Mat disp_img = *(reinterpret_cast<cv::Mat*>(img.MatPtr()));
     for (auto det : dets) {
-      cv::Rect rect(det[0], det[1], det[2], det[3]);
-      cv::rectangle(disp_img, rect, cv::Scalar(0, 0, 255));
+      img.DrawRect(det);
     }
-    cv::imshow("Detections", disp_img);
-    cv::waitKey(0);
+    img.Show();
   }
 }
 

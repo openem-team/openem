@@ -3,9 +3,6 @@
 
 #include <iostream>
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
 #include "find_ruler.h"
 
 int main(int argc, char* argv[]) {
@@ -78,9 +75,7 @@ int main(int argc, char* argv[]) {
     // Rectify, crop, and display the image.
     em::Image r_img = fr::Rectify(imgs[i], transform);
     em::Image c_img = fr::Crop(r_img, roi);
-    cv::Mat disp_img = *(reinterpret_cast<cv::Mat*>(c_img.MatPtr()));
-    cv::imshow("Region of interest", disp_img);
-    cv::waitKey(0);
+    c_img.Show();
   }
   return 0;
 }

@@ -112,7 +112,7 @@ class Image {
   ///
   /// Window will be displayed until user closes it.
   /// @param window_name Name of the window.
-  void Show(const std::string& window_name);
+  void Show(const std::string& window_name="");
 
   /// Returns pointer that can be can be converted to a pointer to the 
   /// underlying cv::Mat via reinterpret_cast.

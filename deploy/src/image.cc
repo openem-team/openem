@@ -114,6 +114,14 @@ std::vector<double> Image::Sum() const {
   return out;
 }
 
+Image Image::operator()(const Rect& rect) const {
+  Image img;
+  cv::Rect r(rect[0], rect[1], rect[2], rect[3]);
+  img.impl_->mat_ = impl_->mat_(r);
+  img.impl_->mat_ = img.impl_->mat_.clone(); // To ensure continuous.
+  return img;
+}
+
 void Image::DrawRect(
     const Rect& rect, 
     const Color& color, 

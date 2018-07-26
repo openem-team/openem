@@ -93,6 +93,10 @@ class Image {
   /// @return Image sum.  Size is equal to number of channels.
   std::vector<double> Sum() const;
 
+  /// Gets a subimage specified by the give Rect.
+  /// @param rect Rect for which subimage is requested.
+  Image operator()(const Rect& rect) const;
+
   /// Draws a rectangle on top of the image.
   /// @param rect Rectangle to draw.
   /// @param color Color of the rectangle.

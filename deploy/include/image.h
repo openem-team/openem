@@ -13,7 +13,13 @@
 
 namespace openem {
 
-/// @brief Class for holding image data and dimensions.
+/// Type for storing x, y, w, h.
+using Rect = std::array<int, 4>;
+
+/// Type for storing RGB color.
+using Color = std::array<uint8_t, 3>;
+
+/// Class for holding image data.
 ///
 /// This class is a thin wrapper around a cv::Mat.  We avoid using
 /// cv::Mat directly for two reasons:
@@ -83,6 +89,31 @@ class Image {
   /// Resizes the image to the specified width and height.
   void Resize(int width, int height);
 
+  /// Returns sum of the image.
+  /// @return Image sum.  Size is equal to number of channels.
+  std::vector<double> Sum();
+
+  /// Draws a rectangle on top of the image.
+  /// @param rect Rectangle to draw.
+  /// @param color Color of the rectangle.
+  /// @param linewidth Width of the line used to draw rectangle.
+  /// @param transform Transform from find_ruler::RulerOrientation.  Use
+  /// this to draw a rect on the original image where a ruler was found.
+  /// @param roi ROI from find_ruler::FindRoi.  Use this to draw a rect
+  /// on the original image where a ruler was found.
+  void DrawRect(
+      const Rect& rect, 
+      const Color& color={255, 0, 0}, 
+      int linewidth=2,
+      const std::vector<double>& transform={1.0, 0.0, 0.0, 0.0, 1.0, 0.0},
+      const Rect& roi={0, 0, 0, 0}); 
+
+  /// Displays the image in a named window.
+  ///
+  /// Window will be displayed until user closes it.
+  /// @param window_name Name of the window.
+  void Show(const std::string& window_name);
+
   /// Returns pointer that can be can be converted to a pointer to the 
   /// underlying cv::Mat via reinterpret_cast.
   ///
@@ -97,9 +128,6 @@ class Image {
   /// Pointer to implementation.
   std::unique_ptr<ImageImpl> impl_;
 };
-
-/// Type for storing x, y, w, h.
-using Rect = std::array<int, 4>;
 
 } // namespace openem
 

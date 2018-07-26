@@ -3,9 +3,12 @@
 
 #include "image.h"
 
+#include <cmath>
+
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
 
 namespace openem {
 
@@ -99,6 +102,50 @@ int Image::Channels() {
 
 void Image::Resize(int width, int height) {
   cv::resize(impl_->mat_, impl_->mat_, cv::Size(width, height));
+}
+
+std::vector<double> Image::Sum() {
+  cv::Scalar sum = cv::sum(impl_->mat_);
+  const int num_chan = Channels();
+  std::vector<double> out(num_chan);
+  for (int i = 0; i < num_chan; ++i) {
+    out[i] = sum[i];
+  }
+  return out;
+}
+
+void Image::DrawRect(
+    const Rect& rect, 
+    const Color& color, 
+    int linewidth,
+    const std::vector<double>& transform,
+    const Rect& roi) {
+  cv::Scalar c(color[0], color[1], color[2]);
+  cv::Mat t(2, 3, CV_64F);
+  std::memcpy(t.data, transform.data(), transform.size() * sizeof(double));
+  cv::invertAffineTransform(t, t);
+  double x = static_cast<double>(rect[0]);
+  double y = static_cast<double>(rect[1]);
+  double w = static_cast<double>(rect[2]);
+  double h = static_cast<double>(rect[3]);
+  double x0 = x + roi[0];
+  double x1 = x0 + w;
+  double y0 = y + roi[1];
+  double y1 = y0 + h;
+  std::vector<cv::Point2d> v(4);
+  v[0] = cv::Point2d(x0, y0);
+  v[1] = cv::Point2d(x0, y1);
+  v[2] = cv::Point2d(x1, y1);
+  v[3] = cv::Point2d(x1, y0);
+  cv::transform(v, v, t);
+  for (int i = 0; i < 4; ++i) {
+    cv::line(impl_->mat_, v[i], v[(i+1)%4], c, linewidth);
+  }
+}
+
+void Image::Show(const std::string& window_name) {
+  cv::imshow(window_name, impl_->mat_);
+  cv::waitKey(0);
 }
 
 void* Image::MatPtr() {

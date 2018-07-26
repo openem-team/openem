@@ -5,6 +5,7 @@ add_library(openem
   classify.cc
   util.cc 
   model.cc
+  video.cc
   image.cc)
 target_include_directories(openem PUBLIC 
   ${PROJECT_SOURCE_DIR}/deploy/include

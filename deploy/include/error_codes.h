@@ -20,7 +20,10 @@ enum ErrorCode {
   kErrorMaxBatchSize,  ///< Exceeded max batch size.
   kErrorReadingImage,  ///< Failed to read image.
   kErrorImageSize,     ///< Invalid image data size for given dimensions.
-  kErrorNumChann       ///< Invalid number of image channels.
+  kErrorNumChann,      ///< Invalid number of image channels.
+  kErrorVidFileOpen,   ///< Failed to open video file.
+  kErrorVidNotOpen,    ///< Tried to read from unopened video.
+  kErrorVidFrame       ///< Failed to read video frame.
 };
 
 } // namespace openem

@@ -57,6 +57,16 @@ class Detector {
   std::unique_ptr<DetectorImpl> impl_;
 };
 
+/// Retrieves a detection image.
+///
+/// Note this is not a simple crop to the detection bounding box.
+/// The image extracted uses the x coordinate and width of the
+/// input detection, but the y coordinate and height are adjusted
+/// such that a square image is extracted.
+/// @param image Image used to extract the detection.
+/// @param det Detection for which image should be extracted.
+Image GetDetImage(const Image& image, const Rect& det);
+
 } // namespace detect
 } // namespace openem
 

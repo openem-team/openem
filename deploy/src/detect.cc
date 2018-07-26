@@ -165,6 +165,18 @@ ErrorCode Detector::Process(
   return kSuccess;
 }
 
+Image GetDetImage(const Image& image, const Rect& det) {
+  Rect adj = det;
+  int diff = adj[3] - adj[2];
+  adj[1] = adj[1] + diff / 2;
+  if (adj[1] < 0) adj[1] = 0;
+  adj[3] = adj[2];
+  if ((adj[1] + adj[3] - 1) > image.Height()) {
+    adj[3] = image.Height() - adj[1];
+  }
+  return image(adj);
+}
+
 } // namespace detect
 } // namespace openem
 

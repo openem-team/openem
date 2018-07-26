@@ -18,13 +18,14 @@
 %include "std_pair.i"
 %include "std_vector.i"
 namespace std {
-  %template(vector_double) vector<double>;
-  %template(vector_uint8) vector<uint8_t>;
-  %template(pair_int_int) pair<int, int>;
-  %template(rect) array<int, 4>;
-  %template(vector_rect) vector<array<int, 4>>;
-  %template(vector_vector_rect) vector<vector<array<int, 4>>>;
-  %template(vector_image) vector<openem::Image>;
+  %template(VectorDouble) vector<double>;
+  %template(VectorUint8) vector<uint8_t>;
+  %template(PairIntInt) pair<int, int>;
+  %template(Rect) array<int, 4>;
+  %template(Color) array<uint8_t, 3>;
+  %template(VectorRect) vector<array<int, 4>>;
+  %template(VectorVectorRect) vector<vector<array<int, 4>>>;
+  %template(VectorImage) vector<openem::Image>;
 };
 
 %include "error_codes.h"

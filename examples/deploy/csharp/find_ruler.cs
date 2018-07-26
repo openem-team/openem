@@ -27,7 +27,7 @@ class Program {
     }
 
     // Load in images.
-    vector_image imgs = new vector_image();
+    VectorImage imgs = new VectorImage();
     for (int i = 1; i < args.Length; i++) {
       Image img = new Image();
       status = img.FromFile(args[i]);
@@ -48,7 +48,7 @@ class Program {
     }
 
     // Process the loaded images.
-    vector_image masks = new vector_image();
+    VectorImage masks = new VectorImage();
     status = mask_finder.Process(masks);
     if (status != ErrorCode.kSuccess) {
       Console.Write("Failed to process images!");
@@ -67,15 +67,14 @@ class Program {
       }
 
       // Find orientation and region of interest based on the mask.
-      vector_double transform = openem.RulerOrientation(masks[i]);
+      VectorDouble transform = openem.RulerOrientation(masks[i]);
       Image r_mask = openem.Rectify(masks[i], transform);
-      rect roi = openem.FindRoi(r_mask);
+      Rect roi = openem.FindRoi(r_mask);
 
       // Rectify, crop, and display the image.
       Image r_img = openem.Rectify(imgs[i], transform);
       Image c_img = openem.Crop(r_img, roi);
-      System.Drawing.Bitmap disp_img = Util.ImageToBitmap(c_img);
-      Util.ShowBitmap("Find ruler example", disp_img);
+      c_img.Show();
     }
 
     return 0;

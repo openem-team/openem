@@ -2,10 +2,9 @@
 
 import argparse
 import sys
-sys.path.append("../../../modules")
+sys.path.append("../../../python")
+sys.path.append("../../python")
 import openem
-import matplotlib.pyplot as plt
-from util import image_to_numpy
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Find ruler example.")
@@ -38,7 +37,7 @@ if __name__ == "__main__":
             raise RuntimeError("Failed to add image for processing!")
 
     # Process the loaded images.
-    masks = openem.vector_image()
+    masks = openem.VectorImage()
     status = mask_finder.Process(masks)
     if not status == openem.kSuccess:
         raise RuntimeError("Failed to process images!")
@@ -61,7 +60,5 @@ if __name__ == "__main__":
         # Rectify, crop, and display the image.
         r_img = openem.Rectify(img, transform)
         c_img = openem.Crop(r_img, roi)
-        disp_img = image_to_numpy(c_img)
-        plt.imshow(disp_img)
-        plt.show()
+        c_img.Show()
 

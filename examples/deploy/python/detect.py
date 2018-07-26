@@ -2,11 +2,9 @@
 
 import argparse
 import sys
-sys.path.append("../../../modules")
+sys.path.append("../../../python")
+sys.path.append("../../python")
 import openem
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from util import image_to_numpy
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Find ruler example.")
@@ -41,23 +39,14 @@ if __name__ == "__main__":
             raise RuntimeError("Failed to add image for processing!")
 
     # Process the loaded images.
-    detections = openem.vector_vector_rect()
+    detections = openem.VectorVectorRect()
     status = detector.Process(detections)
     if not status == openem.kSuccess:
         raise RuntimeError("Failed to process images!")
 
     # Display the detections on the image.
     for dets, img in zip(detections, imgs):
-        disp_img = image_to_numpy(img)
-        f = plt.figure()
-        ax = f.add_subplot(111)
-        ax.imshow(disp_img)
         for det in dets:
-            x, y, w, h = det
-            rect = patches.Rectangle((x, y), w, h, 
-                facecolor="none", 
-                linewidth=2, 
-                edgecolor="r")
-            ax.add_patch(rect)
-        plt.show()
+            img.DrawRect(det)
+        img.Show()
 

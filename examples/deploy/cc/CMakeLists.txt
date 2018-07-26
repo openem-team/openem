@@ -15,3 +15,10 @@ target_include_directories(classify PUBLIC
   ${PROJECT_SOURCE_DIR}/deploy/include)
 target_link_libraries(classify openem)
 install(TARGETS classify DESTINATION examples/deploy/cc)
+
+add_executable(video video.cc)
+target_include_directories(video PUBLIC
+  ${PROJECT_SOURCE_DIR}/deploy/include)
+target_link_libraries(video openem)
+install(TARGETS video DESTINATION examples/deploy/cc)
+

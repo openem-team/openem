@@ -88,15 +88,15 @@ std::vector<uint8_t> Image::DataCopy() {
   return std::vector<uint8_t>(impl_->mat_.data, impl_->mat_.data + size);
 }
 
-int Image::Width() {
+int Image::Width() const {
   return impl_->mat_.cols;
 }
 
-int Image::Height() {
+int Image::Height() const {
   return impl_->mat_.rows;
 }
 
-int Image::Channels() {
+int Image::Channels() const {
   return impl_->mat_.channels();
 }
 
@@ -104,7 +104,7 @@ void Image::Resize(int width, int height) {
   cv::resize(impl_->mat_, impl_->mat_, cv::Size(width, height));
 }
 
-std::vector<double> Image::Sum() {
+std::vector<double> Image::Sum() const {
   cv::Scalar sum = cv::sum(impl_->mat_);
   const int num_chan = Channels();
   std::vector<double> out(num_chan);

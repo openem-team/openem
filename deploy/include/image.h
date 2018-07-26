@@ -78,20 +78,20 @@ class Image {
   std::vector<uint8_t> DataCopy();
 
   /// Returns image width.
-  int Width();
+  int Width() const;
 
   /// Returns image height.
-  int Height();
+  int Height() const;
 
   /// Returns number of image channels.
-  int Channels();
+  int Channels() const;
 
   /// Resizes the image to the specified width and height.
   void Resize(int width, int height);
 
   /// Returns sum of the image.
   /// @return Image sum.  Size is equal to number of channels.
-  std::vector<double> Sum();
+  std::vector<double> Sum() const;
 
   /// Draws a rectangle on top of the image.
   /// @param rect Rectangle to draw.

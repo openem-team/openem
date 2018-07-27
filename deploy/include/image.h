@@ -107,10 +107,20 @@ class Image {
   /// on the original image where a ruler was found.
   void DrawRect(
       const Rect& rect, 
-      const Color& color={255, 0, 0}, 
+      const Color& color={0, 0, 255}, 
       int linewidth=2,
       const std::vector<double>& transform={1.0, 0.0, 0.0, 0.0, 1.0, 0.0},
-      const Rect& roi={0, 0, 0, 0}); 
+      const Rect& roi={0, 0, 0, 0});
+
+  /// Draws text in the image.
+  /// @param text Text to write.
+  /// @param loc Bottom left text corner location on the image.
+  /// @param color Color of the text.
+  void DrawText(
+      const std::string& text,
+      const std::pair<int, int>& loc={0, 0},
+      const Color& color={0, 0, 255},
+      double scale=10.0);
 
   /// Displays the image in a named window.
   ///

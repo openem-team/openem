@@ -151,6 +151,20 @@ void Image::DrawRect(
   }
 }
 
+void Image::DrawText(
+    const std::string& text,
+    const std::pair<int, int>& loc,
+    const Color& color,
+    double scale) {
+  cv::putText(
+      impl_->mat_,
+      text,
+      cv::Point2d(loc.first, loc.second),
+      cv::FONT_HERSHEY_SIMPLEX,
+      scale,
+      cv::Scalar(color[0], color[1], color[2]));
+}
+
 void Image::Show(const std::string& window_name) {
   cv::imshow(window_name, impl_->mat_);
   cv::waitKey(0);

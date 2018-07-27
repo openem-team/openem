@@ -21,7 +21,7 @@ if __name__ == "__main__":
     detector = openem.Detector()
     status = detector.Init(args.pb_file)
     if not status == openem.kSuccess:
-        raise IOError("Failed to initialize ruler mask finder!")
+        raise IOError("Failed to initialize detector!")
 
     # Load in images.
     imgs = [openem.Image() for _ in args.image_files]

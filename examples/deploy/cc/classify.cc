@@ -60,10 +60,9 @@ int main(int argc, char* argv[]) {
 
   // Display the images and print scores to console.
   for (int i = 0; i < scores.size(); ++i) {
-    em::Image img = imgs[i];
     const std::vector<float>& score = scores[i];
     std::cout << "*******************************************" << std::endl;
-    std::cout << "Detection quality scores:" << std::endl;
+    std::cout << "Fish cover scores:" << std::endl;
     std::cout << "No fish:        " << score[0] << std::endl;
     std::cout << "Hand over fish: " << score[1] << std::endl;
     std::cout << "Fish clear:     " << score[2] << std::endl;
@@ -77,7 +76,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Windowpane: " << score[8] << std::endl;
     std::cout << "Winter:     " << score[9] << std::endl;
     std::cout << std::endl;
-    img.Show();
+    imgs[i].Show();
   }
 }
 

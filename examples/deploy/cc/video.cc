@@ -2,6 +2,7 @@
 /// @brief End to end example on a video clip.
 
 #include <iostream>
+#include <sstream>
 
 #include "find_ruler.h"
 #include "detect.h"
@@ -40,6 +41,21 @@ em::ErrorCode DetectAndClassify(
     std::vector<std::vector<em::Rect>>* detections, 
     std::vector<std::vector<std::vector<float>>>* scores);
 
+/// Writes a new video with bounding boxes around detections.
+/// @param vid_path Path to the original video.
+/// @param out_path Path to the output video.
+/// @param roi Region of interest output from FindRoi.
+/// @param transform Transform output from FindRoi.
+/// @param detections Detections for each frame.
+/// @param scores Cover and species scores for each detection.
+em::ErrorCode WriteVideo(
+    const std::string& vid_path,
+    const std::string& out_path,
+    const em::Rect& roi,
+    const std::vector<double>& transform,
+    const std::vector<std::vector<em::Rect>>& detections,
+    const std::vector<std::vector<std::vector<float>>>& scores);
+
 int main(int argc, char* argv[]) {
 
   // Check input arguments.
@@ -51,19 +67,42 @@ int main(int argc, char* argv[]) {
     std::cout << "  Path to one or more video files." << std::endl;
   }
 
-  // Find the roi.
-  std::cout << "Finding region of interest..." << std::endl;
-  em::Rect roi;
-  std::vector<double> transform;
-  em::ErrorCode status = FindRoi(argv[1], argv[4], &roi, &transform);
-  if (status != em::kSuccess) return -1;
+  for (int vid_idx = 4; vid_idx < argc; ++vid_idx) {
+    // Find the roi.
+    std::cout << "Finding region of interest..." << std::endl;
+    em::Rect roi;
+    std::vector<double> transform;
+    em::ErrorCode status = FindRoi(argv[1], argv[4], &roi, &transform);
+    if (status != em::kSuccess) return -1;
 
-  // Find detections and classify them.
-  std::cout << "Performing detection and classification..." << std::endl;
-  std::vector<std::vector<em::Rect>> detections;
-  std::vector<std::vector<std::vector<float>>> scores;
-  status = DetectAndClassify(
-      argv[2], argv[3], argv[4], roi, transform, &detections, &scores);
+    // Find detections and classify them.
+    std::cout << "Performing detection and classification..." << std::endl;
+    std::vector<std::vector<em::Rect>> detections;
+    std::vector<std::vector<std::vector<float>>> scores;
+    status = DetectAndClassify(
+        argv[2], 
+        argv[3], 
+        argv[vid_idx], 
+        roi, 
+        transform, 
+        &detections, 
+        &scores);
+    if (status != em::kSuccess) return -1;
+
+    // Write annotated video to file.
+    std::cout << "Writing video to file..." << std::endl;
+    std::stringstream ss;
+    ss << "annotated_video_" << vid_idx - 4 << ".avi";
+    status = WriteVideo(
+        argv[vid_idx],
+        ss.str(),
+        roi,
+        transform,
+        detections,
+        scores);
+    if (status != em::kSuccess) return -1;
+  }
+  return 0;
 }
 
 //
@@ -155,7 +194,7 @@ em::ErrorCode DetectAndClassify(
   em::classify::Classifier classifier;
   status = classifier.Init(classify_path, 0.5);
   if (status != em::kSuccess) {
-    std::cout << "Failed to intialize classifier!" << std::endl;
+    std::cout << "Failed to initialize classifier!" << std::endl;
     return status;
   }
 
@@ -198,7 +237,11 @@ em::ErrorCode DetectAndClassify(
       std::vector<std::vector<float>> score_batch;
       for (int j = 0; j < dets[i].size(); ++j) {
         em::Image det_img = em::detect::GetDetImage(imgs[i], dets[i][j]);
-        classifier.AddImage(det_img);
+        status = classifier.AddImage(det_img);
+        if (status != em::kSuccess) {
+          std::cout << "Failed to add frame to classifier!" << std::endl;
+          return status;
+        }
       }
       classifier.Process(&score_batch);
       scores->push_back(std::move(score_batch));
@@ -208,3 +251,63 @@ em::ErrorCode DetectAndClassify(
   return em::kSuccess;
 }
 
+em::ErrorCode WriteVideo(
+    const std::string& vid_path,
+    const std::string& out_path,
+    const em::Rect& roi,
+    const std::vector<double>& transform,
+    const std::vector<std::vector<em::Rect>>& detections,
+    const std::vector<std::vector<std::vector<float>>>& scores) {
+
+  // Initialize the video reader.
+  em::VideoReader cap;
+  em::ErrorCode status = cap.Init(vid_path);
+  if (status != em::kSuccess) {
+    std::cout << "Failed to read video " << vid_path << "!" << std::endl;
+    return status;
+  }
+
+  // Initialize the video writer.
+  em::VideoWriter writer;
+  status = writer.Init(
+      out_path, 
+      cap.FrameRate(), 
+      em::kWmv2, 
+      {cap.Width(), cap.Height()});
+  if (status != em::kSuccess) {
+    std::cout << "Failed to write video " << out_path << "!" << std::endl;
+    return status;
+  }
+
+  // Iterate through frames.
+  for (int i = 0; i < detections.size(); ++i) {
+    em::Image frame;
+    status = cap.GetFrame(&frame);
+    if (status != em::kSuccess) {
+      std::cout << "Error: More det frames than vid frames!" << std::endl;
+      return status;
+    }
+    frame.DrawRect(roi, {255, 0, 0}, 1, transform);
+    for (int j = 0; j < detections[i].size(); ++j) {
+      em::Color det_color;
+      double clear = scores[i][j][2];
+      double hand = scores[i][j][1];
+      if (j == 0) {
+        if (clear > hand) {
+          frame.DrawText("Clear", {0, 0}, {0, 255, 0});
+          det_color = {0, 255, 0};
+        } else {
+          frame.DrawText("Hand", {0, 0}, {0, 0, 255});
+          det_color = {0, 0, 255};
+        }
+      }
+      frame.DrawRect(detections[i][j], det_color, 2, transform, roi);
+    }
+    status = writer.AddFrame(frame);
+    if (status != em::kSuccess) {
+      std::cout << "Error adding frame to video!" << std::endl;
+      return status;
+    }
+  }
+  return em::kSuccess;
+}

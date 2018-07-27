@@ -91,10 +91,6 @@ ErrorCode Detector::Init(
   return impl_->model_.Init(model_path, gpu_fraction);
 }
 
-int Detector::MaxImages() {
-  return impl_->model_.MaxImages();
-}
-
 std::pair<int, int> Detector::ImageSize() {
   cv::Size size = impl_->model_.ImageSize();
   return {size.width, size.height};
@@ -174,7 +170,7 @@ Image GetDetImage(const Image& image, const Rect& det) {
   if ((adj[1] + adj[3] - 1) > image.Height()) {
     adj[3] = image.Height() - adj[1];
   }
-  return image(adj);
+  return image.GetSub(adj);
 }
 
 } // namespace detect

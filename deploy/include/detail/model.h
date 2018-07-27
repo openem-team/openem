@@ -29,12 +29,6 @@ class Model {
   /// @return Error code.
   ErrorCode Init(const std::string& model_path, double gpu_fraction);
 
-  /// Maximum image batch size.  AddImage may only be called this 
-  /// many times before a call to Process is required, otherwise
-  /// AddImage will return an error.
-  /// @return Maximum image batch size.
-  int MaxImages();
-
   /// Input image size.  Images that are added without having this size
   /// will be resized.  This only returns a valid value if the model
   /// has been initialized.
@@ -42,10 +36,6 @@ class Model {
 
   /// Adds an image to batch for processing.  This function launches 
   /// a new thread to do image preprocessing and immediately returns.
-  /// The input image is assumed to be 8-bit, 3-channel with colors 
-  /// in the default channel order for OpenCV, which is BGR.  It must
-  /// also have continuous storage, i.e. image.isContinuous() returns
-  /// true.
   /// @param image Input image for which mask will be found.
   /// @param preprocess Function object to do preprocessing.
   /// @return Error code.
@@ -71,9 +61,6 @@ class Model {
 
   /// Input image height.
   int height_;
-
-  /// Batch size, computed from available memory.
-  int batch_size_;
 
   /// Indicates whether the model has been initialized.
   bool initialized_;

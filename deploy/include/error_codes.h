@@ -17,7 +17,6 @@ enum ErrorCode {
   kErrorBadInit,       ///< Attempted to use uninitialized object.
   kErrorNotContinuous, ///< cv::Mat expected to be continuous.
   kErrorRunSession,    ///< Failed to run session.
-  kErrorMaxBatchSize,  ///< Exceeded max batch size.
   kErrorReadingImage,  ///< Failed to read image.
   kErrorImageSize,     ///< Invalid image data size for given dimensions.
   kErrorNumChann,      ///< Invalid number of image channels.

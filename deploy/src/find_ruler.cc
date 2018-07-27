@@ -31,10 +31,6 @@ std::pair<int, int> RulerMaskFinder::ImageSize() {
   return {size.width, size.height};
 }
 
-int RulerMaskFinder::MaxImages() {
-  return impl_->model_.MaxImages();
-}
-
 ErrorCode RulerMaskFinder::AddImage(const Image& image) {
   const cv::Mat* mat = detail::MatFromImage(&image);
   auto preprocess = std::bind(

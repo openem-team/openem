@@ -16,7 +16,6 @@ Model::Model()
   : session_(nullptr),
     width_(0),
     height_(0),
-    batch_size_(8),
     initialized_(false),
     preprocessed_(),
     mutex_() {
@@ -50,10 +49,6 @@ ErrorCode Model::Init(
   return kSuccess;
 }
 
-int Model::MaxImages() {
-  return batch_size_;
-}
-
 cv::Size Model::ImageSize() {
   return cv::Size(width_, height_);
 }
@@ -63,7 +58,6 @@ ErrorCode Model::AddImage(
     std::function<tf::Tensor(const cv::Mat&, int, int)> preprocess) {
   if (!initialized_) return kErrorBadInit;
   if (!image.isContinuous()) return kErrorNotContinuous;
-  if (preprocessed_.size() >= MaxImages()) return kErrorMaxBatchSize;
   auto f = std::async(preprocess, image, width_, height_);
   mutex_.lock();
   preprocessed_.push(std::move(f));

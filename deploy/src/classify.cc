@@ -26,10 +26,6 @@ ErrorCode Classifier::Init(
   return impl_->model_.Init(model_path, gpu_fraction);
 }
 
-int Classifier::MaxImages() {
-  return impl_->model_.MaxImages();
-}
-
 std::pair<int, int> Classifier::ImageSize() {
   cv::Size size = impl_->model_.ImageSize();
   return {size.width, size.height};

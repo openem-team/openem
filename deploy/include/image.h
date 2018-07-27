@@ -95,7 +95,7 @@ class Image {
 
   /// Gets a subimage specified by the give Rect.
   /// @param rect Rect for which subimage is requested.
-  Image operator()(const Rect& rect) const;
+  Image GetSub(const Rect& rect) const;
 
   /// Draws a rectangle on top of the image.
   /// @param rect Rectangle to draw.

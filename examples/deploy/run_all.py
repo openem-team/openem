@@ -17,7 +17,7 @@ def run_example(lang, ex, base_path):
         model_paths = [find_model(base_path, m) for m in models]
         inputs = glob.glob(os.path.join(base_path, "deploy", ex, "*.mp4"))
     else:
-        model_path = [find_model(base_path, ex)]
+        model_paths = [find_model(base_path, ex)]
         inputs = glob.glob(os.path.join(base_path, "deploy", ex, "*.jpg"))
     if not os.path.exists(exe_path):
         print("Searched for exe at {}".format(exe_path))

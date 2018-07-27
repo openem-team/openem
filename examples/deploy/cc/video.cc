@@ -114,6 +114,8 @@ em::ErrorCode FindRoi(
     const std::string& vid_path, 
     em::Rect* roi, 
     std::vector<double>* transform) {
+  // Determined by experimentation with GPU having 8GB memory.
+  static const int kMaxImg = 8;
 
   // Create and initialize the mask finder.
   em::find_ruler::RulerMaskFinder mask_finder;
@@ -131,13 +133,12 @@ em::ErrorCode FindRoi(
     std::cout << "Failed to open video " << vid_path << "!" << std::endl;
     return status;
   }
-  int max_img = mask_finder.MaxImages();
   std::vector<em::Image> masks;
   em::Image best_mask;
   double max_mask_sum = 0;
   bool vid_end = false;
-  for (int i = 0; i < 100 / max_img; ++i) {
-    for (int j = 0; j < max_img; ++j) {
+  for (int i = 0; i < 100 / kMaxImg; ++i) {
+    for (int j = 0; j < kMaxImg; ++j) {
       em::Image img;
       status = cap.GetFrame(&img);
       if (status != em::kSuccess) {
@@ -181,6 +182,8 @@ em::ErrorCode DetectAndClassify(
     const std::vector<double>& transform,
     std::vector<std::vector<em::Rect>>* detections, 
     std::vector<std::vector<std::vector<float>>>* scores) {
+  // Determined by experimentation with GPU having 8GB memory.
+  static const int kMaxImg = 32;
 
   // Create and initialize the detector.
   em::detect::Detector detector;
@@ -213,7 +216,7 @@ em::ErrorCode DetectAndClassify(
     // Find detections.
     std::vector<std::vector<em::Rect>> dets;
     std::vector<em::Image> imgs;
-    for (int i = 0; i < detector.MaxImages(); ++i) {
+    for (int i = 0; i < kMaxImg; ++i) {
       em::Image img;
       status = cap.GetFrame(&img);
       if (status != em::kSuccess) {

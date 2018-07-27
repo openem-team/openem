@@ -30,18 +30,20 @@ class Detector {
   /// @return Error code.
   ErrorCode Init(const std::string& model_path, double gpu_fraction=1.0);
 
-  /// Maximum image batch size.  AddImage may only be called this 
-  /// many times before a call to Process is required, otherwise
-  /// AddImage will return an error.
-  /// @return Maximum image batch size.
-  int MaxImages();
-
   /// Expected image size.  Not valid until the model has been initialized.
   /// @return Expected image size (rows, columns).
   std::pair<int, int> ImageSize();
 
-  /// Adds an image to batch for processing.  This function launches 
-  /// a new thread to do image preprocessing and immediately returns.
+  /// Adds an image to batch for processing.  
+  ///
+  /// This function launches a new thread to do image preprocessing 
+  /// and immediately returns.  Each call to this function consumes 
+  /// additional GPU memory which is cleared when Process is called.  
+  /// All images are processed as one batch, so for speed it is 
+  /// recommended to call AddImage as many times as possible before 
+  /// Process without exceeding available GPU memory.  It is the 
+  /// responsibility of the caller to know an appropriate batch size 
+  /// for their processing hardware.
   /// @param image Input image for which mask will be found.
   /// @return Error code.
   ErrorCode AddImage(const Image& image);

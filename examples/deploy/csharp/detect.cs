@@ -11,7 +11,7 @@ class Program {
   static int Main(string[] args) {
 
     // Check input arguments.
-    if(args.Length < 2) {
+    if (args.Length < 2) {
       Console.WriteLine("Expected at least two arguments:");
       Console.WriteLine("  Path to protobuf file containing model");
       Console.WriteLine("  Paths to one or more image files");
@@ -33,7 +33,7 @@ class Program {
       Image img = new Image();
       status = img.FromFile(args[i]);
       if (status != ErrorCode.kSuccess) {
-        Console.Write("Failed to load image {0}!", args[i]);
+        Console.WriteLine("Failed to load image {0}!", args[i]);
         return -1;
       }
       img.Resize(img_size.first, img_size.second);
@@ -44,7 +44,7 @@ class Program {
     foreach (var img in imgs) {
       status = detector.AddImage(img);
       if (status != ErrorCode.kSuccess) {
-        Console.Write("Failed to add image for processing!");
+        Console.WriteLine("Failed to add image for processing!");
         return -1;
       }
     }
@@ -53,7 +53,7 @@ class Program {
     VectorVectorRect detections = new VectorVectorRect();
     status = detector.Process(detections);
     if (status != ErrorCode.kSuccess) {
-      Console.Write("Failed to process images!");
+      Console.WriteLine("Failed to process images!");
       return -1;
     }
 

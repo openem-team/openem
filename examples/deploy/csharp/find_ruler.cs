@@ -32,7 +32,7 @@ class Program {
       Image img = new Image();
       status = img.FromFile(args[i]);
       if (status != ErrorCode.kSuccess) {
-        Console.Write("Failed to load image {0}!", args[i]);
+        Console.WriteLine("Failed to load image {0}!", args[i]);
         return -1;
       }
       imgs.Add(img);
@@ -42,7 +42,7 @@ class Program {
     foreach (var img in imgs) {
       status = mask_finder.AddImage(img);
       if (status != ErrorCode.kSuccess) {
-        Console.Write("Failed to add image for processing!");
+        Console.WriteLine("Failed to add image for processing!");
         return -1;
       }
     }
@@ -51,7 +51,7 @@ class Program {
     VectorImage masks = new VectorImage();
     status = mask_finder.Process(masks);
     if (status != ErrorCode.kSuccess) {
-      Console.Write("Failed to process images!");
+      Console.WriteLine("Failed to process images!");
       return -1;
     }
 
@@ -62,7 +62,7 @@ class Program {
       // Check if the ruler is present.
       bool present = openem.RulerPresent(masks[i]);
       if (!present) {
-        Console.Write("Could not find ruler in image!  Skipping...");
+        Console.WriteLine("Could not find ruler in image!  Skipping...");
         continue;
       }
 

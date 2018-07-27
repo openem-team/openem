@@ -18,3 +18,10 @@ set_property(TARGET detect_cs PROPERTY VS_DOTNET_REFERENCES
   "System.Windows.Forms"
   "System.Drawing")
 install(TARGETS detect_cs DESTINATION examples/deploy/csharp)
+
+add_executable(classify_cs classify.cs ${SWIG_SRC})
+set_property(TARGET classify_cs PROPERTY VS_DOTNET_REFERENCES
+  "System"
+  "System.Windows.Forms"
+  "System.Drawing")
+install(TARGETS classify_cs DESTINATION examples/deploy/csharp)

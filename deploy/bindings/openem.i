@@ -9,6 +9,7 @@
 #include "image.h"
 #include "find_ruler.h"
 #include "detect.h"
+#include "classify.h"
 %}
 
 %include "pointer.i"
@@ -19,6 +20,8 @@
 %include "std_vector.i"
 namespace std {
   %template(VectorDouble) vector<double>;
+  %template(VectorFloat) vector<float>;
+  %template(VectorVectorFloat) vector<vector<float>>;
   %template(VectorUint8) vector<uint8_t>;
   %template(PairIntInt) pair<int, int>;
   %template(Rect) array<int, 4>;
@@ -32,4 +35,5 @@ namespace std {
 %include "image.h"
 %include "find_ruler.h"
 %include "detect.h"
+%include "classify.h"
 

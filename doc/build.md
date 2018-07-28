@@ -3,6 +3,6 @@
 Choose your operating system:
 
 * [Windows](build/windows/build.md)
-* [Ubuntu](build/ubuntu/build.md)
-* [macOS](build/mac/build.md)
+* Ubuntu (Coming soon)
+* macOS (Coming soon)
 

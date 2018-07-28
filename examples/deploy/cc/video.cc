@@ -127,8 +127,8 @@ em::ErrorCode FindRoi(
 
   // Decode the first 100 frames and find the mask that corresponds
   // to the largest ruler area.
-  em::VideoReader cap;
-  status = cap.Init(vid_path);
+  em::VideoReader reader;
+  status = reader.Init(vid_path);
   if (status != em::kSuccess) {
     std::cout << "Failed to open video " << vid_path << "!" << std::endl;
     return status;
@@ -140,7 +140,7 @@ em::ErrorCode FindRoi(
   for (int i = 0; i < 100 / kMaxImg; ++i) {
     for (int j = 0; j < kMaxImg; ++j) {
       em::Image img;
-      status = cap.GetFrame(&img);
+      status = reader.GetFrame(&img);
       if (status != em::kSuccess) {
         vid_end = true;
         break;
@@ -167,7 +167,7 @@ em::ErrorCode FindRoi(
   }
 
   // Now that we have the best mask, use this to compute the ROI.
-  best_mask.Resize(cap.Width(), cap.Height());
+  best_mask.Resize(reader.Width(), reader.Height());
   *transform = em::find_ruler::RulerOrientation(best_mask);
   em::Image r_mask = em::find_ruler::Rectify(best_mask, *transform);
   *roi = em::find_ruler::FindRoi(r_mask);
@@ -202,8 +202,8 @@ em::ErrorCode DetectAndClassify(
   }
 
   // Initialize the video reader.
-  em::VideoReader cap;
-  status = cap.Init(vid_path);
+  em::VideoReader reader;
+  status = reader.Init(vid_path);
   if (status != em::kSuccess) {
     std::cout << "Failed to open video " << vid_path << "!" << std::endl;
     return status;
@@ -218,7 +218,7 @@ em::ErrorCode DetectAndClassify(
     std::vector<em::Image> imgs;
     for (int i = 0; i < kMaxImg; ++i) {
       em::Image img;
-      status = cap.GetFrame(&img);
+      status = reader.GetFrame(&img);
       if (status != em::kSuccess) {
         vid_end = true;
         break;
@@ -232,7 +232,11 @@ em::ErrorCode DetectAndClassify(
         return status;
       }
     }
-    detector.Process(&dets);
+    status = detector.Process(&dets);
+    if (status != em::kSuccess) {
+      std::cout << "Failed to process detector!" << std::endl;
+      return status;
+    }
     detections->insert(detections->end(), dets.begin(), dets.end());
 
     // Classify detections.
@@ -246,7 +250,11 @@ em::ErrorCode DetectAndClassify(
           return status;
         }
       }
-      classifier.Process(&score_batch);
+      status = classifier.Process(&score_batch);
+      if (status != em::kSuccess) {
+        std::cout << "Failed to add frame to classifier!" << std::endl;
+        return status;
+      }
       scores->push_back(std::move(score_batch));
     }
     if (vid_end) break;
@@ -263,8 +271,8 @@ em::ErrorCode WriteVideo(
     const std::vector<std::vector<std::vector<float>>>& scores) {
 
   // Initialize the video reader.
-  em::VideoReader cap;
-  em::ErrorCode status = cap.Init(vid_path);
+  em::VideoReader reader;
+  em::ErrorCode status = reader.Init(vid_path);
   if (status != em::kSuccess) {
     std::cout << "Failed to read video " << vid_path << "!" << std::endl;
     return status;
@@ -274,9 +282,9 @@ em::ErrorCode WriteVideo(
   em::VideoWriter writer;
   status = writer.Init(
       out_path, 
-      cap.FrameRate(), 
+      reader.FrameRate(), 
       em::kWmv2, 
-      {cap.Width(), cap.Height()});
+      {reader.Width(), reader.Height()});
   if (status != em::kSuccess) {
     std::cout << "Failed to write video " << out_path << "!" << std::endl;
     return status;
@@ -285,9 +293,9 @@ em::ErrorCode WriteVideo(
   // Iterate through frames.
   for (int i = 0; i < detections.size(); ++i) {
     em::Image frame;
-    status = cap.GetFrame(&frame);
+    status = reader.GetFrame(&frame);
     if (status != em::kSuccess) {
-      std::cout << "Error: More det frames than vid frames!" << std::endl;
+      std::cout << "Error retrieving video frame!" << std::endl;
       return status;
     }
     frame.DrawRect(roi, {255, 0, 0}, 1, transform);

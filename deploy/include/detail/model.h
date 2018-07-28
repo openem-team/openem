@@ -13,7 +13,7 @@
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with this OpenEM.  If not, see <http://www.gnu.org/licenses/>.
+//  along with OpenEM.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifndef OPENEM_DEPLOY_MODEL_H_
 #define OPENEM_DEPLOY_MODEL_H_

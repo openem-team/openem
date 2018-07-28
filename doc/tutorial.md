@@ -2,7 +2,7 @@
 
 This tutorial will guide you through some examples.  Before you get 
 started, make sure you have built the library, including its examples by
-following the [build instructions](../build.md) for your operating
+following the [build instructions](build.md) for your operating
 system.
 
 First, you will need to download the [OpenEM example data][ExampleData].  The

@@ -162,15 +162,17 @@ ErrorCode Detector::Process(
 }
 
 Image GetDetImage(const Image& image, const Rect& det) {
-  Rect adj = det;
-  int diff = adj[3] - adj[2];
-  adj[1] = adj[1] + diff / 2;
-  if (adj[1] < 0) adj[1] = 0;
-  adj[3] = adj[2];
-  if ((adj[1] + adj[3] - 1) > image.Height()) {
-    adj[3] = image.Height() - adj[1];
-  }
-  return image.GetSub(adj);
+  int x = det[0];
+  int y = det[1];
+  int w = det[2];
+  int h = det[3];
+  int diff = w - h;
+  y -= diff / 2;
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  if ((x + w) > image.Width()) w = image.Width() - x;
+  if ((y + h) > image.Height()) h = image.Height() - y;
+  return image.GetSub({x, y, w, h});
 }
 
 } // namespace detect

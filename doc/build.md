@@ -2,7 +2,7 @@
 
 Choose your operating system:
 
-* [Windows](windows/build.md)
-* [Ubuntu](ubuntu/build.md)
-* [macOS](mac/build.md)
+* [Windows](build/windows/build.md)
+* [Ubuntu](build/ubuntu/build.md)
+* [macOS](build/mac/build.md)
 

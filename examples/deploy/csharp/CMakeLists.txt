@@ -25,3 +25,11 @@ set_property(TARGET classify_cs PROPERTY VS_DOTNET_REFERENCES
   "System.Windows.Forms"
   "System.Drawing")
 install(TARGETS classify_cs DESTINATION examples/deploy/csharp)
+
+add_executable(video_cs video.cs ${SWIG_SRC})
+set_property(TARGET video_cs PROPERTY VS_DOTNET_REFERENCES
+  "System"
+  "System.Windows.Forms"
+  "System.Drawing")
+install(TARGETS video_cs DESTINATION examples/deploy/csharp)
+

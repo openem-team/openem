@@ -7,6 +7,7 @@
 %{
 #include "error_codes.h"
 #include "image.h"
+#include "video.h"
 #include "find_ruler.h"
 #include "detect.h"
 #include "classify.h"
@@ -33,6 +34,7 @@ namespace std {
 
 %include "error_codes.h"
 %include "image.h"
+%include "video.h"
 %include "find_ruler.h"
 %include "detect.h"
 %include "classify.h"

@@ -5,7 +5,7 @@
 Before starting you will need to install the following:
 
 * [Visual Studio](visual_studio.md) 2017
-* [CMake][CMake] 3.5.1 or later
+* [CMake][CMake] 3.8.2 or later
 * [Git][Git] 2.15 or later
 * [CUDA][CUDA] 9.2
 * [cuDNN][cuDNN] 7.1

@@ -30,30 +30,18 @@ csharp_set_windows_forms_properties(
   detect.cs)
 
 add_executable(find_ruler_cs find_ruler.cs ${SWIG_SRC})
-set_property(TARGET find_ruler_cs PROPERTY VS_DOTNET_REFERENCES
-  "System"
-  "System.Windows.Forms"
-  "System.Drawing")
+set_property(TARGET find_ruler_cs PROPERTY VS_DOTNET_REFERENCES "System")
 install(TARGETS find_ruler_cs DESTINATION examples/deploy/csharp)
 
 add_executable(detect_cs detect.cs ${SWIG_SRC})
-set_property(TARGET detect_cs PROPERTY VS_DOTNET_REFERENCES
-  "System"
-  "System.Windows.Forms"
-  "System.Drawing")
+set_property(TARGET detect_cs PROPERTY VS_DOTNET_REFERENCES "System")
 install(TARGETS detect_cs DESTINATION examples/deploy/csharp)
 
 add_executable(classify_cs classify.cs ${SWIG_SRC})
-set_property(TARGET classify_cs PROPERTY VS_DOTNET_REFERENCES
-  "System"
-  "System.Windows.Forms"
-  "System.Drawing")
+set_property(TARGET classify_cs PROPERTY VS_DOTNET_REFERENCES "System")
 install(TARGETS classify_cs DESTINATION examples/deploy/csharp)
 
 add_executable(video_cs video.cs ${SWIG_SRC})
-set_property(TARGET video_cs PROPERTY VS_DOTNET_REFERENCES
-  "System"
-  "System.Windows.Forms"
-  "System.Drawing")
+set_property(TARGET video_cs PROPERTY VS_DOTNET_REFERENCES "System")
 install(TARGETS video_cs DESTINATION examples/deploy/csharp)
 

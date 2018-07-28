@@ -1,6 +1,30 @@
 enable_language(CSharp)
 include(CSharpUtilities)
-file(GLOB SWIG_SRC "${PROJECT_BINARY_DIR}/deploy/bindings/*.cs")
+set(SWIG_SRC
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VideoWriter.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VideoReader.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorVectorVectorFloat.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorVectorRect.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorVectorFloat.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorUint8.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorRect.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorImage.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorFloat.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorDouble.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/SWIGTYPE_p_void.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/SWIGTYPE_p_unsigned_char.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/SWIGTYPE_p_std__vectorT_float_t.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/RulerMaskFinder.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Rect.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/PairIntInt.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/openemPINVOKE.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/openem.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Image.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/ErrorCode.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Detector.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Color.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Codec.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Classifier.cs)
 csharp_set_windows_forms_properties(
   find_ruler.cs
   detect.cs)

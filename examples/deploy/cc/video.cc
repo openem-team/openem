@@ -252,7 +252,7 @@ em::ErrorCode DetectAndClassify(
       }
       status = classifier.Process(&score_batch);
       if (status != em::kSuccess) {
-        std::cout << "Failed to add frame to classifier!" << std::endl;
+        std::cout << "Failed to process classifier!" << std::endl;
         return status;
       }
       scores->push_back(std::move(score_batch));

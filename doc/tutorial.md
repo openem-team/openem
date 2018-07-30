@@ -12,14 +12,15 @@ format, as well as input data that can be used to run the examples.
 After you have built your library, you should end up with a subdirectory
 called examples/deploy in the top level install directory.  This contains
 the examples for the main library in the cc directory, plus python and csharp
-if you built the bindings to the main library.  In addition, there is a
+if you built the bindings to the main library.  Source files for these examples 
+are located [here][ExampleSources] for your inspection.In addition, there is a
 script that will run all of the examples for you if you point it to the
-location of the example data.
+location of the example data.  This script is called [run_all.py][RunAll].  
 
 To run this script, you will need to have Python installed.  We recommend
 downloading the latest version of [Anaconda][Anaconda].  Open a command prompt
 that has access to python and change directories to the examples/deploy 
-subdirectory.  Now invoke the run_all.py script to see how to run it:
+subdirectory.  Now invoke the [run_all.py][RunAll] script to see how to run it:
 
 ```shell
 python run_all.py -h
@@ -40,5 +41,7 @@ Once you are able to run the examples, you are encouraged to inspect the
 source code for the language that you plan to use for your application.
 
 [ExampleData]:https://drive.google.com/drive/folders/18silAFzXaP27VHLS0texHJz1ZxSMGhjx?usp=sharing
+[ExampleSources]: ../examples/deploy
 [Anaconda]: https://www.anaconda.com/download/
+[RunAll]: ../examples/deploy/run_all.py
 

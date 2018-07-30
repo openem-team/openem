@@ -43,7 +43,6 @@ int main(int argc, char* argv[]) {
 
   // Load in images.
   std::vector<em::Image> imgs;
-  auto size = detector.ImageSize();
   for (int i = 2; i < argc; ++i) {
     em::Image img;
     status = img.FromFile(argv[i]);
@@ -51,7 +50,6 @@ int main(int argc, char* argv[]) {
       std::cout << "Failed to load image " << argv[i] << "!" << std::endl;
       return -1;
     }
-    img.Resize(size.first, size.second);
     imgs.push_back(std::move(img));
   }
 

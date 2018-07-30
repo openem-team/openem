@@ -45,7 +45,6 @@ class Program {
 
     // Load in images.
     VectorImage imgs = new VectorImage();
-    PairIntInt img_size = detector.ImageSize();
     for (int i = 1; i < args.Length; i++) {
       Image img = new Image();
       status = img.FromFile(args[i]);
@@ -53,7 +52,6 @@ class Program {
         Console.WriteLine("Failed to load image {0}!", args[i]);
         return -1;
       }
-      img.Resize(img_size.first, img_size.second);
       imgs.Add(img);
     }
 

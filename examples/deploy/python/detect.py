@@ -41,12 +41,10 @@ if __name__ == "__main__":
 
     # Load in images.
     imgs = [openem.Image() for _ in args.image_files]
-    w, h = detector.ImageSize()
     for img, p in zip(imgs, args.image_files):
         status = img.FromFile(p)
         if not status == openem.kSuccess:
             raise IOError("Failed to load image {}".format(p))
-        img.Resize(w, h)
 
     # Add images to processing queue.
     for img in imgs:

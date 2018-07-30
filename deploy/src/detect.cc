@@ -47,6 +47,9 @@ class Detector::DetectorImpl {
  public:
   /// Stores and processes the model.
   detail::Model model_;
+
+  /// Stores image scale factors.
+  std::vector<std::pair<double, double>> img_scale_;
 };
 
 namespace {
@@ -120,6 +123,10 @@ ErrorCode Detector::AddImage(const Image& image) {
       1.0,
       cv::Scalar(-103.939, -116.779, -123.68),
       false);
+  auto size = ImageSize();
+  impl_->img_scale_.emplace_back(
+      double(image.Width()) / double(size.first),
+      double(image.Height()) / double(size.second));
   return impl_->model_.AddImage(*mat, preprocess);
 }
 
@@ -149,7 +156,8 @@ ErrorCode Detector::Process(
   std::vector<float> scores;
   std::vector<int> indices;
   double min, max;
-  for (const auto& p : pred) {
+  for (int i = 0; i < pred.size(); ++i) {
+    auto& p = pred[i];
     loc = p(cv::Range::all(), cv::Range(0, pred_stop));
     conf = p(cv::Range::all(), cv::Range(pred_stop, conf_stop));
     cv::minMaxLoc(loc, &min, &max);
@@ -164,12 +172,13 @@ ErrorCode Detector::Process(
       cv::dnn::NMSBoxes(boxes, scores, 0.01, 0.45, indices, 1.0, 200);
       for (int idx : indices) {
         dets.emplace_back(std::array<int, 4>{
-            boxes[idx].x,
-            boxes[idx].y,
-            boxes[idx].width,
-            boxes[idx].height});
+            int(boxes[idx].x * impl_->img_scale_[i].first),
+            int(boxes[idx].y * impl_->img_scale_[i].second),
+            int(boxes[idx].width * impl_->img_scale_[i].first),
+            int(boxes[idx].height * impl_->img_scale_[i].second)});
       }
     }
+    impl_->img_scale_.clear();
     detections->push_back(std::move(dets));
   }
   return kSuccess;
@@ -182,6 +191,7 @@ Image GetDetImage(const Image& image, const Rect& det) {
   int h = det[3];
   int diff = w - h;
   y -= diff / 2;
+  h = w;
   if (x < 0) x = 0;
   if (y < 0) y = 0;
   if ((x + w) > image.Width()) w = image.Width() - x;

@@ -15,6 +15,10 @@ can build their own models on their own data, and to add counting
 functionality.  Currently builds have only been tested on Windows.  We plan
 to support both Ubuntu and macOS in the future.
 
+Click the image below to see a video of OpenEM in action:
+
+[![OpenEM detection example](https://img.youtube.com/vi/EZ1Xyg_mnhM/0.jpg)](https://youtu.be/EZ1Xyg_mnhM)
+
 ### Contents
 
 * [Building and Testing](doc/build.md)

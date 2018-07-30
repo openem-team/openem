@@ -272,7 +272,7 @@ class Program {
       Console.WriteLine("Finding region of interest...");
       Rect roi;
       VectorDouble transform;
-      FindVideoRoi(args[0], args[3], out roi, out transform);
+      FindVideoRoi(args[0], args[vid_idx], out roi, out transform);
 
       // Find detections and classify them.
       Console.WriteLine("Performing detection and classification...");

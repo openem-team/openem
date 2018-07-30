@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Finding region of interest..." << std::endl;
     em::Rect roi;
     std::vector<double> transform;
-    em::ErrorCode status = FindRoi(argv[1], argv[4], &roi, &transform);
+    em::ErrorCode status = FindRoi(argv[1], argv[vid_idx], &roi, &transform);
     if (status != em::kSuccess) return -1;
 
     // Find detections and classify them.

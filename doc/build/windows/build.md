@@ -22,6 +22,11 @@ the documentation target.
 * [TensorFlow](tensorflow.md) 1.8.0
 * [OpenCV](opencv.md) 3.4.1
 
+It is up to you whether you want to use static or dynamic libraries.
+OpenEM does not include third party library headers in any examples
+or header files, so if you choose to use static libraries OpenEM will
+act as a standalone dependency.
+
 ### Run CMake
 
 First navigate to the top level OpenEM directory in a Visual Studio
@@ -44,6 +49,8 @@ Your paths may differ depending on where you installed the libraries.
 To disable python bindings, include the option -DBUILD_PYTHON=OFF.
 To disable C# bindings, include the option -DBUILD_CSHARP=OFF.
 To disable the documentation target, include the option -DBUILD_DOCS=OFF.
+To build a shared library, include the option -DBUILD_SHARED_LIBS=ON.
+Otherwise, a static library will be built.
 
 ### Building
 

@@ -67,7 +67,7 @@ class Program {
     }
 
     // Process the loaded images.
-    VectorVectorFloat scores = new VectorVectorFloat();
+    VectorClassification scores = new VectorClassification();
     status = classifier.Process(scores);
     if (status != ErrorCode.kSuccess) {
       Console.WriteLine("Failed to process images!");
@@ -78,18 +78,18 @@ class Program {
     for (int i = 0; i < scores.Count; ++i) {
       Console.WriteLine("*******************************************");
       Console.WriteLine("Fish cover scores:");
-      Console.WriteLine("No fish:        {0}", scores[i][0]);
-      Console.WriteLine("Hand over fish: {0}", scores[i][1]);
-      Console.WriteLine("Fish clear:     {0}", scores[i][2]);
+      Console.WriteLine("No fish:        {0}", scores[i].cover[0]);
+      Console.WriteLine("Hand over fish: {0}", scores[i].cover[1]);
+      Console.WriteLine("Fish clear:     {0}", scores[i].cover[2]);
       Console.WriteLine("*******************************************");
       Console.WriteLine("Fish species scores:");
-      Console.WriteLine("Fourspot:   {0}", scores[i][3]);
-      Console.WriteLine("Grey sole:  {0}", scores[i][4]);
-      Console.WriteLine("Other:      {0}", scores[i][5]);
-      Console.WriteLine("Plaice:     {0}", scores[i][6]);
-      Console.WriteLine("Summer:     {0}", scores[i][7]);
-      Console.WriteLine("Windowpane: {0}", scores[i][8]);
-      Console.WriteLine("Winter:     {0}", scores[i][9]);
+      Console.WriteLine("Fourspot:   {0}", scores[i].species[0]);
+      Console.WriteLine("Grey sole:  {0}", scores[i].species[1]);
+      Console.WriteLine("Other:      {0}", scores[i].species[2]);
+      Console.WriteLine("Plaice:     {0}", scores[i].species[3]);
+      Console.WriteLine("Summer:     {0}", scores[i].species[4]);
+      Console.WriteLine("Windowpane: {0}", scores[i].species[5]);
+      Console.WriteLine("Winter:     {0}", scores[i].species[6]);
       Console.WriteLine("");
       imgs[i].Show();
     }

@@ -53,7 +53,7 @@ if __name__ == "__main__":
             raise RuntimeError("Failed to add image for processing!")
 
     # Process the loaded images.
-    detections = openem.VectorVectorRect()
+    detections = openem.VectorVectorDetection()
     status = detector.Process(detections)
     if not status == openem.kSuccess:
         raise RuntimeError("Failed to process images!")
@@ -61,6 +61,6 @@ if __name__ == "__main__":
     # Display the detections on the image.
     for dets, img in zip(detections, imgs):
         for det in dets:
-            img.DrawRect(det)
+            img.DrawRect(det.location)
         img.Show()
 

@@ -10,6 +10,10 @@ set(SWIG_SRC
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorUint8.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorRect.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorImage.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorDetection.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorVectorDetection.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorClassification.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorVectorClassification.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorFloat.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorDouble.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/SWIGTYPE_p_void.cs
@@ -20,10 +24,13 @@ set(SWIG_SRC
   ${PROJECT_BINARY_DIR}/deploy/bindings/openemPINVOKE.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/openem.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Image.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Detection.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Classification.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/ErrorCode.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Detector.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Color.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Codec.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/ArrayFloat3.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Classifier.cs)
 add_custom_target(swig_source_gen 
   COMMAND ""

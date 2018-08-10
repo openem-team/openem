@@ -129,7 +129,7 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
     while True:
 
         # Find detections.
-        dets = openem.VectorVectorRect()
+        dets = openem.VectorVectorDetection()
         imgs = [openem.Image() for _ in range(max_img)]
         for i, img in enumerate(imgs):
             status = reader.GetFrame(img)
@@ -149,9 +149,9 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
 
         # Classify detections
         for det_frame, img in zip(dets, imgs):
-            score_batch = openem.VectorVectorFloat()
+            score_batch = openem.VectorClassification()
             for det in det_frame:
-                det_img = openem.GetDetImage(img, det)
+                det_img = openem.GetDetImage(img, det.location)
                 status = classifier.AddImage(det_img)
                 if not status == openem.kSuccess:
                     raise RuntimeError("Failed to add frame to classifier!")
@@ -198,8 +198,8 @@ def write_video(vid_path, out_path, roi, transform, detections, scores):
             raise RuntimeError("Error retrieving video frame!")
         frame.DrawRect(roi, (255, 0, 0), 1, transform)
         for j, (det, score) in enumerate(zip(det_frame, score_frame)):
-            clear = score[2]
-            hand = score[1]
+            clear = score.cover[2]
+            hand = score.cover[1]
             if j == 0:
                 if clear > hand:
                     frame.DrawText("Clear", (0, 0), (0, 255, 0))
@@ -207,7 +207,7 @@ def write_video(vid_path, out_path, roi, transform, detections, scores):
                 else:
                     frame.DrawText("Hand", (0, 0), (0, 0, 255))
                     det_color = (0, 0, 255)
-            frame.DrawRect(det, det_color, 2, transform, roi)
+            frame.DrawRect(det.location, det_color, 2, transform, roi)
         status = writer.AddFrame(frame)
         if not status == openem.kSuccess:
             raise RuntimeError("Error adding frame to video!")

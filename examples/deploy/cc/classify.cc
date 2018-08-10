@@ -65,30 +65,30 @@ int main(int argc, char* argv[]) {
   }
 
   // Process the loaded images.
-  std::vector<std::vector<float>> scores;
-  status = classifier.Process(&scores);
+  std::vector<cl::Classification> classifications;
+  status = classifier.Process(&classifications);
   if (status != em::kSuccess) {
     std::cout << "Error when attempting to do classification!" << std::endl;
     return -1;
   }
 
   // Display the images and print scores to console.
-  for (int i = 0; i < scores.size(); ++i) {
-    const std::vector<float>& score = scores[i];
+  for (int i = 0; i < classifications.size(); ++i) {
+    const cl::Classification& classification = classifications[i];
     std::cout << "*******************************************" << std::endl;
     std::cout << "Fish cover scores:" << std::endl;
-    std::cout << "No fish:        " << score[0] << std::endl;
-    std::cout << "Hand over fish: " << score[1] << std::endl;
-    std::cout << "Fish clear:     " << score[2] << std::endl;
+    std::cout << "No fish:        " << classification.cover[0] << std::endl;
+    std::cout << "Hand over fish: " << classification.cover[1] << std::endl;
+    std::cout << "Fish clear:     " << classification.cover[2] << std::endl;
     std::cout << "*******************************************" << std::endl;
     std::cout << "Fish species scores:" << std::endl;
-    std::cout << "Fourspot:   " << score[3] << std::endl;
-    std::cout << "Grey sole:  " << score[4] << std::endl;
-    std::cout << "Other:      " << score[5] << std::endl;
-    std::cout << "Plaice:     " << score[6] << std::endl;
-    std::cout << "Summer:     " << score[7] << std::endl;
-    std::cout << "Windowpane: " << score[8] << std::endl;
-    std::cout << "Winter:     " << score[9] << std::endl;
+    std::cout << "Fourspot:   " << classification.species[0] << std::endl;
+    std::cout << "Grey sole:  " << classification.species[1] << std::endl;
+    std::cout << "Other:      " << classification.species[2] << std::endl;
+    std::cout << "Plaice:     " << classification.species[3] << std::endl;
+    std::cout << "Summer:     " << classification.species[4] << std::endl;
+    std::cout << "Windowpane: " << classification.species[5] << std::endl;
+    std::cout << "Winter:     " << classification.species[6] << std::endl;
     std::cout << std::endl;
     imgs[i].Show();
   }

@@ -65,7 +65,7 @@ class Program {
     }
 
     // Process the loaded images.
-    VectorVectorRect detections = new VectorVectorRect();
+    VectorVectorDetection detections = new VectorVectorDetection();
     status = detector.Process(detections);
     if (status != ErrorCode.kSuccess) {
       Console.WriteLine("Failed to process images!");
@@ -75,7 +75,7 @@ class Program {
     // Display the detections on the image.
     for (int i = 0; i < detections.Count; ++i) {
       foreach (var det in detections[i]) {
-        imgs[i].DrawRect(det);
+        imgs[i].DrawRect(det.location);
       }
       imgs[i].Show();
     }

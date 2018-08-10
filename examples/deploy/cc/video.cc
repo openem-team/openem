@@ -52,8 +52,8 @@ em::ErrorCode DetectAndClassify(
     const std::string& vid_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    std::vector<std::vector<em::Rect>>* detections, 
-    std::vector<std::vector<std::vector<float>>>* scores);
+    std::vector<std::vector<em::detect::Detection>>* detections, 
+    std::vector<std::vector<em::classify::Classification>>* scores);
 
 /// Writes a new video with bounding boxes around detections.
 /// @param vid_path Path to the original video.
@@ -67,8 +67,8 @@ em::ErrorCode WriteVideo(
     const std::string& out_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    const std::vector<std::vector<em::Rect>>& detections,
-    const std::vector<std::vector<std::vector<float>>>& scores);
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores);
 
 int main(int argc, char* argv[]) {
 
@@ -91,8 +91,8 @@ int main(int argc, char* argv[]) {
 
     // Find detections and classify them.
     std::cout << "Performing detection and classification..." << std::endl;
-    std::vector<std::vector<em::Rect>> detections;
-    std::vector<std::vector<std::vector<float>>> scores;
+    std::vector<std::vector<em::detect::Detection>> detections;
+    std::vector<std::vector<em::classify::Classification>> scores;
     status = DetectAndClassify(
         argv[2], 
         argv[3], 
@@ -194,8 +194,8 @@ em::ErrorCode DetectAndClassify(
     const std::string& vid_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    std::vector<std::vector<em::Rect>>* detections, 
-    std::vector<std::vector<std::vector<float>>>* scores) {
+    std::vector<std::vector<em::detect::Detection>>* detections, 
+    std::vector<std::vector<em::classify::Classification>>* scores) {
   // Determined by experimentation with GPU having 8GB memory.
   static const int kMaxImg = 32;
 
@@ -228,7 +228,7 @@ em::ErrorCode DetectAndClassify(
   while (true) {
 
     // Find detections.
-    std::vector<std::vector<em::Rect>> dets;
+    std::vector<std::vector<em::detect::Detection>> dets;
     std::vector<em::Image> imgs;
     for (int i = 0; i < kMaxImg; ++i) {
       em::Image img;
@@ -255,9 +255,11 @@ em::ErrorCode DetectAndClassify(
 
     // Classify detections.
     for (int i = 0; i < dets.size(); ++i) {
-      std::vector<std::vector<float>> score_batch;
+      std::vector<em::classify::Classification> score_batch;
       for (int j = 0; j < dets[i].size(); ++j) {
-        em::Image det_img = em::detect::GetDetImage(imgs[i], dets[i][j]);
+        em::Image det_img = em::detect::GetDetImage(
+            imgs[i], 
+            dets[i][j].location);
         status = classifier.AddImage(det_img);
         if (status != em::kSuccess) {
           std::cout << "Failed to add frame to classifier!" << std::endl;
@@ -281,8 +283,8 @@ em::ErrorCode WriteVideo(
     const std::string& out_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    const std::vector<std::vector<em::Rect>>& detections,
-    const std::vector<std::vector<std::vector<float>>>& scores) {
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores) {
 
   // Initialize the video reader.
   em::VideoReader reader;
@@ -315,8 +317,8 @@ em::ErrorCode WriteVideo(
     frame.DrawRect(roi, {255, 0, 0}, 1, transform);
     for (int j = 0; j < detections[i].size(); ++j) {
       em::Color det_color;
-      double clear = scores[i][j][2];
-      double hand = scores[i][j][1];
+      double clear = scores[i][j].cover[2];
+      double hand = scores[i][j].cover[1];
       if (j == 0) {
         if (clear > hand) {
           frame.DrawText("Clear", {0, 0}, {0, 255, 0});
@@ -326,7 +328,7 @@ em::ErrorCode WriteVideo(
           det_color = {0, 0, 255};
         }
       }
-      frame.DrawRect(detections[i][j], det_color, 2, transform, roi);
+      frame.DrawRect(detections[i][j].location, det_color, 2, transform, roi);
     }
     status = writer.AddFrame(frame);
     if (status != em::kSuccess) {

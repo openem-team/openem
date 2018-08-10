@@ -103,14 +103,14 @@ class Program {
       string vid_path,
       Rect roi,
       VectorDouble transform,
-      out VectorVectorRect detections,
-      out VectorVectorVectorFloat scores) {
+      out VectorVectorDetection detections,
+      out VectorVectorClassification scores) {
     // Determined by experimentation with GPU having 8GB memory.
     const int kMaxImg = 32;
 
     // Initialize the outputs.
-    detections = new VectorVectorRect();
-    scores = new VectorVectorVectorFloat();
+    detections = new VectorVectorDetection();
+    scores = new VectorVectorClassification();
 
     // Create and initialize the detector.
     Detector detector = new Detector();
@@ -138,7 +138,7 @@ class Program {
     while (true) {
 
       // Find detections.
-      VectorVectorRect dets = new VectorVectorRect();
+      VectorVectorDetection dets = new VectorVectorDetection();
       VectorImage imgs = new VectorImage();
       for (int i = 0; i < kMaxImg; ++i) {
         Image img = new Image();
@@ -167,9 +167,9 @@ class Program {
 
       // Classify detections.
       for (int i = 0; i < dets.Count; ++i) {
-        VectorVectorFloat score_batch = new VectorVectorFloat();
+        VectorClassification score_batch = new VectorClassification();
         for (int j = 0; j < dets[i].Count; ++j) {
-          Image det_img = openem.GetDetImage(imgs[i], dets[i][j]);
+          Image det_img = openem.GetDetImage(imgs[i], dets[i][j].location);
           status = classifier.AddImage(det_img);
           if (status != ErrorCode.kSuccess) {
             throw new Exception("Failed to add frame to classifier!");
@@ -199,8 +199,8 @@ class Program {
       string out_path,
       Rect roi,
       VectorDouble transform,
-      VectorVectorRect detections,
-      VectorVectorVectorFloat scores) {
+      VectorVectorDetection detections,
+      VectorVectorClassification scores) {
 
     // Initialize the video reader.
     VideoReader reader = new VideoReader();
@@ -233,8 +233,8 @@ class Program {
       frame.DrawRect(roi, blue, 1, transform);
       for (int j = 0; j < detections[i].Count; ++j) {
         Color det_color = red;
-        double clear = scores[i][j][2];
-        double hand = scores[i][j][1];
+        double clear = scores[i][j].cover[2];
+        double hand = scores[i][j].cover[1];
         if (j == 0) {
           if (clear > hand) {
             frame.DrawText("Clear", new PairIntInt(0, 0), green);
@@ -244,7 +244,7 @@ class Program {
             det_color = red;
           }
         }
-        frame.DrawRect(detections[i][j], det_color, 2, transform, roi);
+        frame.DrawRect(detections[i][j].location, det_color, 2, transform, roi);
       }
       status = writer.AddFrame(frame);
       if (status != ErrorCode.kSuccess) {
@@ -276,8 +276,8 @@ class Program {
 
       // Find detections and classify them.
       Console.WriteLine("Performing detection and classification...");
-      VectorVectorRect detections;
-      VectorVectorVectorFloat scores;
+      VectorVectorDetection detections;
+      VectorVectorClassification scores;
       DetectAndClassify(
           args[1], 
           args[2], 

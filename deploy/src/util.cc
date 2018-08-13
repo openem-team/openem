@@ -42,18 +42,32 @@ ErrorCode GetSession(tf::Session** session, double gpu_fraction) {
   return kSuccess;
 }
 
-ErrorCode InputSize(const tf::GraphDef& graph_def, int* width, int* height) {
+ErrorCode InputSize(
+    const tf::GraphDef& graph_def,
+    std::vector<int>* input_size) {
   bool found = false;
   for (auto p : graph_def.node(0).attr()) {
     if (p.first == "shape") {
       found = true;
       auto shape = p.second.shape();
-      if (shape.dim_size() != 4) return kErrorGraphDims;
-      *width = static_cast<int>(shape.dim(2).size());
-      *height = static_cast<int>(shape.dim(1).size());
+      if (shape.dim_size() < 1) return kErrorGraphDims;
+      input_size->resize(shape.dim_size());
+      for (int i = 0; i < input_size->size(); ++i) {
+        (*input_size)[i] = static_cast<int>(shape.dim(i).size());
+      }
     }
   }
   if (!found) return kErrorNoShape;
+  return kSuccess;
+}
+
+ErrorCode ImageSize(
+    const std::vector<int>& input_size, 
+    int* width, 
+    int* height) {
+  if (input_size.size() != 4) return kErrorGraphDims;
+  *width = input_size[2];
+  *height = input_size[1];
   return kSuccess;
 }
 

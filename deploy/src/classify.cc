@@ -27,7 +27,7 @@ namespace classify {
 class Classifier::ClassifierImpl {
  public:
   /// Stores and processes the model.
-  detail::Model model_;
+  detail::ImageModel model_;
 };
 
 Classifier::Classifier() : impl_(new ClassifierImpl()) {}
@@ -62,9 +62,9 @@ ErrorCode Classifier::Process(std::vector<Classification>* results) {
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(
-      &outputs, 
       "data", 
-      {"cat_species_1:0", "cat_cover_1:0"});
+      {"cat_species_1:0", "cat_cover_1:0"},
+      &outputs);
   if (status != kSuccess) return status;
 
   // Convert to mat vector.

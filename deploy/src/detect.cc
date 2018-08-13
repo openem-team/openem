@@ -46,7 +46,7 @@ std::vector<cv::Rect> DecodeBoxes(
 class Detector::DetectorImpl {
  public:
   /// Stores and processes the model.
-  detail::Model model_;
+  detail::ImageModel model_;
 
   /// Stores image scale factors.
   std::vector<std::pair<double, double>> img_scale_;
@@ -136,9 +136,9 @@ ErrorCode Detector::Process(std::vector<std::vector<Detection>>* detections) {
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(
-      &outputs, 
       "input_1",
-      {"output_node0:0"});
+      {"output_node0:0"},
+      &outputs);
   if (status != kSuccess) return status;
 
   // Convert to mat vector.

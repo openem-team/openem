@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
     // Write fish counts to file.
     std::cout << "Writing counts to file..." << std::endl;
     std::stringstream ss1;
-    ss1 << "fish_counts_" << vid_idx - 4 << ".csv";
+    ss1 << "fish_counts_" << vid_idx - 5 << ".csv";
     status = WriteCounts(
         argv[4],
         ss1.str(),
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
     // Write annotated video to file.
     std::cout << "Writing video to file..." << std::endl;
     std::stringstream ss;
-    ss << "annotated_video_" << vid_idx - 4 << ".avi";
+    ss << "annotated_video_" << vid_idx - 5 << ".avi";
     status = WriteVideo(
         argv[vid_idx],
         ss.str(),
@@ -330,7 +330,7 @@ em::ErrorCode WriteCounts(
 
   // Write the keyframes out.
   std::ofstream csv(out_path);
-  csv << "id,index,species" << std::endl;
+  csv << "id,frame,species_index" << std::endl;
   int id = 0;
   for (auto i : keyframes) {
     csv << id << "," << i << ",";

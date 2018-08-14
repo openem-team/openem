@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <fstream>
 
 #include "find_ruler.h"
 #include "detect.h"
@@ -325,6 +326,25 @@ em::ErrorCode WriteCounts(
   if (status != em::kSuccess) {
     std::cout << "Failed to process keyframe finder!" << std::endl;
     return status;
+  }
+
+  // Write the keyframes out.
+  std::ofstream csv(out_path);
+  csv << "id,index,species" << std::endl;
+  int id = 0;
+  for (auto i : keyframes) {
+    csv << id << "," << i << ",";
+    const auto& c = scores[i][0];
+    float max_score = 0.0;
+    int species_index = 0;
+    for (int j = 0; j < c.species.size(); ++j) {
+      if (c.species[j] > max_score) {
+        max_score = c.species[j];
+        species_index = j;
+      }
+    }
+    csv << species_index << std::endl;
+    id++;
   }
   return em::kSuccess;
 }

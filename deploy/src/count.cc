@@ -64,7 +64,8 @@ ErrorCode KeyframeFinder::Process(
     const std::vector<std::vector<classify::Classification>>& classifications,
     const std::vector<std::vector<detect::Detection>>& detections,
     std::vector<int>* keyframes) {
-  constexpr float kKeyframeThresh = 0.2;
+  constexpr float kKeyframeThresh = 0.05;
+  constexpr int kKeyframeOffset = 32;
 
   // Get tensor size and do size checks.
   if (classifications.size() != detections.size()) return kErrorLenMismatch;
@@ -126,7 +127,7 @@ ErrorCode KeyframeFinder::Process(
   auto out = outputs[0].tensor<float, 2>();
   for (int i = 0; i < detections.size(); ++i) {
     if (out(0, i) > kKeyframeThresh) {
-      keyframes->push_back(i);
+      keyframes->push_back(i + kKeyframeOffset);
     }
   }
   return kSuccess;

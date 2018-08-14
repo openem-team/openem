@@ -13,7 +13,7 @@ def find_model(base_path, ex):
 def run_example(lang, ex, base_path):
     exe_path = os.path.join(os.getcwd(), lang, ex + EXE_EXTENSIONS[lang])
     if ex == "video":
-        models = ["find_ruler", "detect", "classify"]
+        models = ["find_ruler", "detect", "classify", "count"]
         model_paths = [find_model(base_path, m) for m in models]
         inputs = glob.glob(os.path.join(base_path, "deploy", ex, "*.mp4"))
     else:

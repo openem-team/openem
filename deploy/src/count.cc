@@ -34,6 +34,9 @@ class KeyframeFinder::KeyframeFinderImpl {
 
   /// Stores image height.  Needed for feature normalization.
   double height_;
+
+  /// Model input size.
+  int input_size_;
 };
 
 KeyframeFinder::KeyframeFinder() : impl_(new KeyframeFinderImpl()) {}
@@ -50,7 +53,7 @@ ErrorCode KeyframeFinder::Init(
   return impl_->model_.Init(model_path, gpu_fraction);
 }
 
-ErrorCode Process(
+ErrorCode KeyframeFinder::Process(
     const std::vector<classify::Classification>& classifications,
     const std::vector<detect::Detection>& detections,
     std::vector<int>* keyframes) {

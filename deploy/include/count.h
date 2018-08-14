@@ -55,7 +55,9 @@ class KeyframeFinder {
   /// @param classifications Sequence of outputs from classifier.
   /// @param detections Sequence of outputs from detector.
   /// @param keyframes Vector of keyframes in the sequence.  The length of
-  /// this vector is the number of fish in the sequence.
+  /// this vector is the number of fish in the sequence.  The values 
+  /// are the indices of the classification and detection vectors, not
+  /// the frame numbers.
   /// @return Error code.
   ErrorCode Process(
       const std::vector<classify::Classification>& classifications,

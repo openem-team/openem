@@ -21,6 +21,7 @@
 #include "find_ruler.h"
 #include "detect.h"
 #include "classify.h"
+#include "count.h"
 #include "video.h"
 
 // Declare namespace alias for shorthand.
@@ -55,6 +56,19 @@ em::ErrorCode DetectAndClassify(
     std::vector<std::vector<em::detect::Detection>>* detections, 
     std::vector<std::vector<em::classify::Classification>>* scores);
 
+/// Writes a csv file containing fish species and frame numbers.
+/// @param count_path Path to count model file.
+/// @param out_path Path to output csv file.
+/// @param roi Region of interest, needed for image width and height.
+/// @param detections Detections for each frame.
+/// @param scores Cover and species scores for each detection.
+em::ErrorCode WriteCounts(
+    const std::string& count_path,
+    const std::string& out_path,
+    const em::Rect& roi,
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores);
+
 /// Writes a new video with bounding boxes around detections.
 /// @param vid_path Path to the original video.
 /// @param out_path Path to the output video.
@@ -73,15 +87,16 @@ em::ErrorCode WriteVideo(
 int main(int argc, char* argv[]) {
 
   // Check input arguments.
-  if (argc < 5) {
+  if (argc < 6) {
     std::cout << "Expected at least four arguments: " << std::endl;
     std::cout << "  Path to pb file with find_ruler model." << std::endl;
     std::cout << "  Path to pb file with detect model." << std::endl;
     std::cout << "  Path to pb file with classify model." << std::endl;
+    std::cout << "  Path to pb file with count model." << std::endl;
     std::cout << "  Path to one or more video files." << std::endl;
   }
 
-  for (int vid_idx = 4; vid_idx < argc; ++vid_idx) {
+  for (int vid_idx = 5; vid_idx < argc; ++vid_idx) {
     // Find the roi.
     std::cout << "Finding region of interest..." << std::endl;
     em::Rect roi;
@@ -102,6 +117,17 @@ int main(int argc, char* argv[]) {
         &detections, 
         &scores);
     if (status != em::kSuccess) return -1;
+
+    // Write fish counts to file.
+    std::cout << "Writing counts to file..." << std::endl;
+    std::stringstream ss1;
+    ss1 << "fish_counts_" << vid_idx - 4 << ".csv";
+    status = WriteCounts(
+        argv[4],
+        ss1.str(),
+        roi,
+        detections,
+        scores);
 
     // Write annotated video to file.
     std::cout << "Writing video to file..." << std::endl;
@@ -274,6 +300,41 @@ em::ErrorCode DetectAndClassify(
       scores->push_back(std::move(score_batch));
     }
     if (vid_end) break;
+  }
+  return em::kSuccess;
+}
+
+em::ErrorCode WriteCounts(
+    const std::string& count_path,
+    const std::string& out_path,
+    const em::Rect& roi,
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores) {
+
+  // Create and initialize keyframe finder.
+  em::count::KeyframeFinder finder;
+  em::ErrorCode status = finder.Init(count_path, roi[2], roi[3]);
+  if (status != em::kSuccess) {
+    std::cout << "Failed to initialize keyframe finder!" << std::endl;
+    return status;
+  }
+
+  // Construct sequences from first detection in each frame.
+  std::vector<em::detect::Detection> det_seq;
+  std::vector<em::classify::Classification> cls_seq;
+  for (int i = 0; i < detections.size(); ++i) {
+    if (detections[i].size() > 0) {
+      det_seq.push_back(detections[i][0]);
+      cls_seq.push_back(scores[i][0]);
+    }
+  }
+
+  // Process the keyframe finder.
+  std::vector<int> keyframes;
+  status = finder.Process(cls_seq, det_seq, &keyframes);
+  if (status != em::kSuccess) {
+    std::cout << "Failed to process keyframe finder!" << std::endl;
+    return status;
   }
   return em::kSuccess;
 }

@@ -16,6 +16,7 @@ set(SWIG_SRC
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorVectorClassification.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorFloat.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/VectorDouble.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/VectorInt.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/SWIGTYPE_p_void.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/SWIGTYPE_p_unsigned_char.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/RulerMaskFinder.cs
@@ -31,7 +32,8 @@ set(SWIG_SRC
   ${PROJECT_BINARY_DIR}/deploy/bindings/Color.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Codec.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/ArrayFloat3.cs
-  ${PROJECT_BINARY_DIR}/deploy/bindings/Classifier.cs)
+  ${PROJECT_BINARY_DIR}/deploy/bindings/Classifier.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/KeyframeFinder.cs)
 add_custom_target(swig_source_gen 
   COMMAND ""
   DEPENDS openem_cs 

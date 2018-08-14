@@ -11,6 +11,7 @@
 #include "find_ruler.h"
 #include "detect.h"
 #include "classify.h"
+#include "count.h"
 %}
 
 %include "cpointer.i"
@@ -22,6 +23,7 @@
 namespace std {
   %template(VectorDouble) vector<double>;
   %template(VectorFloat) vector<float>;
+  %template(VectorInt) vector<int>;
   %template(VectorVectorFloat) vector<vector<float>>;
   %template(VectorVectorVectorFloat) vector<vector<vector<float>>>;
   %template(VectorUint8) vector<uint8_t>;
@@ -44,4 +46,5 @@ namespace std {
 %include "find_ruler.h"
 %include "detect.h"
 %include "classify.h"
+%include "count.h"
 

@@ -64,7 +64,7 @@ ErrorCode KeyframeFinder::Process(
     const std::vector<std::vector<classify::Classification>>& classifications,
     const std::vector<std::vector<detect::Detection>>& detections,
     std::vector<int>* keyframes) {
-  constexpr float kKeyframeThresh = 0.05;
+  constexpr float kKeyframeThresh = 0.2;
   constexpr int kKeyframeOffset = 32;
 
   // Get tensor size and do size checks.

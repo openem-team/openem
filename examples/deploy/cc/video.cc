@@ -319,19 +319,9 @@ em::ErrorCode WriteCounts(
     return status;
   }
 
-  // Construct sequences from first detection in each frame.
-  std::vector<em::detect::Detection> det_seq;
-  std::vector<em::classify::Classification> cls_seq;
-  for (int i = 0; i < detections.size(); ++i) {
-    if (detections[i].size() > 0) {
-      det_seq.push_back(detections[i][0]);
-      cls_seq.push_back(scores[i][0]);
-    }
-  }
-
   // Process the keyframe finder.
   std::vector<int> keyframes;
-  status = finder.Process(cls_seq, det_seq, &keyframes);
+  status = finder.Process(scores, detections, &keyframes);
   if (status != em::kSuccess) {
     std::cout << "Failed to process keyframe finder!" << std::endl;
     return status;

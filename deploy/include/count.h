@@ -52,16 +52,18 @@ class KeyframeFinder {
       double gpu_fraction=1.0);
 
   /// Finds keyframes in a given sequence.
-  /// @param classifications Sequence of outputs from classifier.
-  /// @param detections Sequence of outputs from detector.
+  /// @param classifications Sequence of outputs from classifier.  Outer
+  /// vector corresponds to frames, inner corresponds to detections in each
+  /// frame.
+  /// @param detections Sequence of outputs from detector.  Outer vector
+  /// corresponds to frames, inner corresponds to detections in each frame.
   /// @param keyframes Vector of keyframes in the sequence.  The length of
   /// this vector is the number of fish in the sequence.  The values 
-  /// are the indices of the classification and detection vectors, not
-  /// the frame numbers.
+  /// are the indices of the classification and detection vectors.
   /// @return Error code.
   ErrorCode Process(
-      const std::vector<classify::Classification>& classifications,
-      const std::vector<detect::Detection>& detections,
+      const std::vector<std::vector<classify::Classification>>& classifications,
+      const std::vector<std::vector<detect::Detection>>& detections,
       std::vector<int>* keyframes);
  private:
   /// Forward declaration of implementation class.

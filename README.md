@@ -21,7 +21,7 @@ Click the image below to see a video of OpenEM in action:
 
 ### Contents
 
-* [Building and Testing](doc/build.md)
+* [Building](doc/build.md)
 * [Tutorial](doc/tutorial.md)
 * [Data Collection Guidelines](doc/data_collection.md)
 * [Annotation Guidelines](doc/annotation.md)

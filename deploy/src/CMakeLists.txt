@@ -3,6 +3,7 @@ add_library(openem
   find_ruler.cc 
   detect.cc
   classify.cc
+  count.cc
   util.cc 
   model.cc
   video.cc

@@ -28,6 +28,22 @@
 namespace openem {
 namespace classify {
 
+/// Contains classification results.
+struct Classification {
+  /// Species scores.
+  ///
+  /// Elements correspond to the species used to train the loaded model.
+  std::vector<float> species;
+
+  /// Cover scores.
+  ///
+  /// Elements correspond to the following:
+  /// * No fish in the image.
+  /// * Fish is covered by a hand.
+  /// * Fish is not covered.
+  std::array<float, 3> cover;
+};
+
 /// Class for determining fish species and whether the image is covered
 /// by a hand, clear, or not a fish.
 class Classifier {
@@ -63,17 +79,11 @@ class Classifier {
   /// @return Error code.
   ErrorCode AddImage(const Image& image);
 
-  /// Determines fish species and whether the fish is covered by a hand,
-  /// clear, or not a fish.
-  /// @param scores Vector of double vectors.  Each double vector
-  /// corresponds to one of the images in the image queue.  The first
-  /// three numbers in the double vector correspond to:
-  /// * No fish in the image.
-  /// * Fish is covered by a hand.
-  /// * Fish is not covered.
-  /// The remaining vector elements correspond to the species used to train
-  /// the loaded model.
-  ErrorCode Process(std::vector<std::vector<float>>* scores);
+  /// Performs classification on each image that was added to the 
+  /// processing queue with AddImage.
+  /// @param results Vector of classification results.
+  /// @return Error code.
+  ErrorCode Process(std::vector<Classification>* results);
  private:
   /// Forward declaration of implementation class.
   class ClassifierImpl;

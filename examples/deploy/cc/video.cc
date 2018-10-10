@@ -17,10 +17,12 @@
 
 #include <iostream>
 #include <sstream>
+#include <fstream>
 
 #include "find_ruler.h"
 #include "detect.h"
 #include "classify.h"
+#include "count.h"
 #include "video.h"
 
 // Declare namespace alias for shorthand.
@@ -52,8 +54,21 @@ em::ErrorCode DetectAndClassify(
     const std::string& vid_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    std::vector<std::vector<em::Rect>>* detections, 
-    std::vector<std::vector<std::vector<float>>>* scores);
+    std::vector<std::vector<em::detect::Detection>>* detections, 
+    std::vector<std::vector<em::classify::Classification>>* scores);
+
+/// Writes a csv file containing fish species and frame numbers.
+/// @param count_path Path to count model file.
+/// @param out_path Path to output csv file.
+/// @param roi Region of interest, needed for image width and height.
+/// @param detections Detections for each frame.
+/// @param scores Cover and species scores for each detection.
+em::ErrorCode WriteCounts(
+    const std::string& count_path,
+    const std::string& out_path,
+    const em::Rect& roi,
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores);
 
 /// Writes a new video with bounding boxes around detections.
 /// @param vid_path Path to the original video.
@@ -67,21 +82,22 @@ em::ErrorCode WriteVideo(
     const std::string& out_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    const std::vector<std::vector<em::Rect>>& detections,
-    const std::vector<std::vector<std::vector<float>>>& scores);
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores);
 
 int main(int argc, char* argv[]) {
 
   // Check input arguments.
-  if (argc < 5) {
+  if (argc < 6) {
     std::cout << "Expected at least four arguments: " << std::endl;
     std::cout << "  Path to pb file with find_ruler model." << std::endl;
     std::cout << "  Path to pb file with detect model." << std::endl;
     std::cout << "  Path to pb file with classify model." << std::endl;
+    std::cout << "  Path to pb file with count model." << std::endl;
     std::cout << "  Path to one or more video files." << std::endl;
   }
 
-  for (int vid_idx = 4; vid_idx < argc; ++vid_idx) {
+  for (int vid_idx = 5; vid_idx < argc; ++vid_idx) {
     // Find the roi.
     std::cout << "Finding region of interest..." << std::endl;
     em::Rect roi;
@@ -91,8 +107,8 @@ int main(int argc, char* argv[]) {
 
     // Find detections and classify them.
     std::cout << "Performing detection and classification..." << std::endl;
-    std::vector<std::vector<em::Rect>> detections;
-    std::vector<std::vector<std::vector<float>>> scores;
+    std::vector<std::vector<em::detect::Detection>> detections;
+    std::vector<std::vector<em::classify::Classification>> scores;
     status = DetectAndClassify(
         argv[2], 
         argv[3], 
@@ -103,10 +119,21 @@ int main(int argc, char* argv[]) {
         &scores);
     if (status != em::kSuccess) return -1;
 
+    // Write fish counts to file.
+    std::cout << "Writing counts to file..." << std::endl;
+    std::stringstream ss1;
+    ss1 << "fish_counts_" << vid_idx - 5 << ".csv";
+    status = WriteCounts(
+        argv[4],
+        ss1.str(),
+        roi,
+        detections,
+        scores);
+
     // Write annotated video to file.
     std::cout << "Writing video to file..." << std::endl;
     std::stringstream ss;
-    ss << "annotated_video_" << vid_idx - 4 << ".avi";
+    ss << "annotated_video_" << vid_idx - 5 << ".avi";
     status = WriteVideo(
         argv[vid_idx],
         ss.str(),
@@ -194,8 +221,8 @@ em::ErrorCode DetectAndClassify(
     const std::string& vid_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    std::vector<std::vector<em::Rect>>* detections, 
-    std::vector<std::vector<std::vector<float>>>* scores) {
+    std::vector<std::vector<em::detect::Detection>>* detections, 
+    std::vector<std::vector<em::classify::Classification>>* scores) {
   // Determined by experimentation with GPU having 8GB memory.
   static const int kMaxImg = 32;
 
@@ -228,7 +255,7 @@ em::ErrorCode DetectAndClassify(
   while (true) {
 
     // Find detections.
-    std::vector<std::vector<em::Rect>> dets;
+    std::vector<std::vector<em::detect::Detection>> dets;
     std::vector<em::Image> imgs;
     for (int i = 0; i < kMaxImg; ++i) {
       em::Image img;
@@ -255,9 +282,11 @@ em::ErrorCode DetectAndClassify(
 
     // Classify detections.
     for (int i = 0; i < dets.size(); ++i) {
-      std::vector<std::vector<float>> score_batch;
+      std::vector<em::classify::Classification> score_batch;
       for (int j = 0; j < dets[i].size(); ++j) {
-        em::Image det_img = em::detect::GetDetImage(imgs[i], dets[i][j]);
+        em::Image det_img = em::detect::GetDetImage(
+            imgs[i], 
+            dets[i][j].location);
         status = classifier.AddImage(det_img);
         if (status != em::kSuccess) {
           std::cout << "Failed to add frame to classifier!" << std::endl;
@@ -276,13 +305,57 @@ em::ErrorCode DetectAndClassify(
   return em::kSuccess;
 }
 
+em::ErrorCode WriteCounts(
+    const std::string& count_path,
+    const std::string& out_path,
+    const em::Rect& roi,
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores) {
+
+  // Create and initialize keyframe finder.
+  em::count::KeyframeFinder finder;
+  em::ErrorCode status = finder.Init(count_path, roi[2], roi[3]);
+  if (status != em::kSuccess) {
+    std::cout << "Failed to initialize keyframe finder!" << std::endl;
+    return status;
+  }
+
+  // Process the keyframe finder.
+  std::vector<int> keyframes;
+  status = finder.Process(scores, detections, &keyframes);
+  if (status != em::kSuccess) {
+    std::cout << "Failed to process keyframe finder!" << std::endl;
+    return status;
+  }
+
+  // Write the keyframes out.
+  std::ofstream csv(out_path);
+  csv << "id,frame,species_index" << std::endl;
+  int id = 0;
+  for (auto i : keyframes) {
+    csv << id << "," << i << ",";
+    const auto& c = scores[i][0];
+    float max_score = 0.0;
+    int species_index = 0;
+    for (int j = 0; j < c.species.size(); ++j) {
+      if (c.species[j] > max_score) {
+        max_score = c.species[j];
+        species_index = j;
+      }
+    }
+    csv << species_index << std::endl;
+    id++;
+  }
+  return em::kSuccess;
+}
+
 em::ErrorCode WriteVideo(
     const std::string& vid_path,
     const std::string& out_path,
     const em::Rect& roi,
     const std::vector<double>& transform,
-    const std::vector<std::vector<em::Rect>>& detections,
-    const std::vector<std::vector<std::vector<float>>>& scores) {
+    const std::vector<std::vector<em::detect::Detection>>& detections,
+    const std::vector<std::vector<em::classify::Classification>>& scores) {
 
   // Initialize the video reader.
   em::VideoReader reader;
@@ -315,8 +388,8 @@ em::ErrorCode WriteVideo(
     frame.DrawRect(roi, {255, 0, 0}, 1, transform);
     for (int j = 0; j < detections[i].size(); ++j) {
       em::Color det_color;
-      double clear = scores[i][j][2];
-      double hand = scores[i][j][1];
+      double clear = scores[i][j].cover[2];
+      double hand = scores[i][j].cover[1];
       if (j == 0) {
         if (clear > hand) {
           frame.DrawText("Clear", {0, 0}, {0, 255, 0});
@@ -326,7 +399,7 @@ em::ErrorCode WriteVideo(
           det_color = {0, 0, 255};
         }
       }
-      frame.DrawRect(detections[i][j], det_color, 2, transform, roi);
+      frame.DrawRect(detections[i][j].location, det_color, 2, transform, roi);
     }
     status = writer.AddFrame(frame);
     if (status != em::kSuccess) {

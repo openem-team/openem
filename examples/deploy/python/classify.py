@@ -55,7 +55,7 @@ if __name__ == "__main__":
             raise RuntimeError("Failed to add image for processing!")
 
     # Process the loaded images.
-    scores = openem.VectorVectorFloat()
+    scores = openem.VectorClassification()
     status = classifier.Process(scores)
     if not status == openem.kSuccess:
         raise RuntimeError("Failed to process images!")
@@ -64,18 +64,18 @@ if __name__ == "__main__":
     for img, s in zip(imgs, scores):
         print("*******************************************")
         print("Fish cover scores:")
-        print("No fish:        {}".format(s[0]))
-        print("Hand over fish: {}".format(s[1]))
-        print("Fish clear:     {}".format(s[2]))
+        print("No fish:        {}".format(s.cover[0]))
+        print("Hand over fish: {}".format(s.cover[1]))
+        print("Fish clear:     {}".format(s.cover[2]))
         print("*******************************************")
         print("Fish species scores:")
-        print("Fourspot:   {}".format(s[3]))
-        print("Grey sole:  {}".format(s[4]))
-        print("Other:      {}".format(s[5]))
-        print("Plaice:     {}".format(s[6]))
-        print("Summer:     {}".format(s[7]))
-        print("Windowpane: {}".format(s[8]))
-        print("Winter:     {}".format(s[9]))
+        print("Fourspot:   {}".format(s.species[0]))
+        print("Grey sole:  {}".format(s.species[1]))
+        print("Other:      {}".format(s.species[2]))
+        print("Plaice:     {}".format(s.species[3]))
+        print("Summer:     {}".format(s.species[4]))
+        print("Windowpane: {}".format(s.species[5]))
+        print("Winter:     {}".format(s.species[6]))
         print("")
         img.Show()
 

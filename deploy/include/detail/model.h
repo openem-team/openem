@@ -36,6 +36,53 @@ class Model {
   /// Constructor.
   Model();
 
+  /// Destructor.
+  ~Model();
+
+  /// Loads a model from a protobuf file and initializes the tensorflow
+  /// session.
+  /// @param model_path Path to protobuf file containing the model.
+  /// @param gpu_fraction Fraction fo GPU allowed to be used by this object.
+  /// @return Error code.
+  ErrorCode Init(const std::string& model_path, double gpu_fraction);
+
+  /// Returns input size.
+  /// @return Input size.
+  std::vector<int> InputSize();
+
+  /// Returns whether the model has been initialized.
+  /// @retur True if initialized.
+  bool Initialized();
+
+  /// Processes the model on the current batch.
+  /// @param input Input tensor.
+  /// @param input_name Name of input tensor.
+  /// @param output_names Name of output tensors.
+  /// @param outputs Output of the model.
+  /// @return Error code.
+  ErrorCode Process(
+      const tensorflow::Tensor& input,
+      const std::string& input_name,
+      const std::vector<std::string>& output_names,
+      std::vector<tensorflow::Tensor>* outputs);
+ private:
+  /// Forward declaration of class implementation.
+  class ModelImpl;
+
+  /// Pointer to implementation.
+  std::unique_ptr<ModelImpl> impl_;
+};
+
+/// Model that accepts image data as input.  This class is intended to be 
+/// an implementation detail only.
+class ImageModel {
+ public:
+  /// Constructor.
+  ImageModel();
+
+  /// Destructor.
+  ~ImageModel(); 
+
   /// Loads a model from a protobuf file and initializes the tensorflow
   /// session.
   /// @param model_path Path to protobuf file containing the model.
@@ -58,32 +105,20 @@ class Model {
       std::function<tensorflow::Tensor(const cv::Mat&, int, int)> preprocess);
 
   /// Processes the model on the current batch.
-  /// @param outputs Output of the model.
   /// @param input_name Name of input tensor.
   /// @param output_names Name of output tensors.
+  /// @param outputs Output of the model.
   /// @return Error code.
   ErrorCode Process(
-      std::vector<tensorflow::Tensor>* outputs, 
       const std::string& input_name,
-      const std::vector<std::string>& output_names);
+      const std::vector<std::string>& output_names,
+      std::vector<tensorflow::Tensor>* outputs);
  private:
-  /// Tensorflow session.
-  std::unique_ptr<tensorflow::Session> session_;
+  /// Forward declaration of class implementation.
+  class ImageModelImpl;
 
-  /// Input image width.
-  int width_;
-
-  /// Input image height.
-  int height_;
-
-  /// Indicates whether the model has been initialized.
-  bool initialized_;
-
-  /// Queue of futures containing preprocessed images.
-  std::queue<std::future<tensorflow::Tensor>> preprocessed_;
-
-  /// Mutex for handling concurrent access to image queue.
-  std::mutex mutex_;
+  /// Pointer to implementation.
+  std::unique_ptr<ImageModelImpl> impl_;
 };
 
 } // namespace detail

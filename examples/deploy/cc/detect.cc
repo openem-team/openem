@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Process the loaded images.
-  std::vector<std::vector<std::array<int, 4>>> detections;
+  std::vector<std::vector<dt::Detection>> detections;
   status = detector.Process(&detections);
   if (status != em::kSuccess) {
     std::cout << "Error when attempting to do detection!" << std::endl;
@@ -73,13 +73,13 @@ int main(int argc, char* argv[]) {
   // Display the detections on the image.
   for (int i = 0; i < detections.size(); ++i) {
     em::Image img = imgs[i];
-    std::vector<std::array<int, 4>> dets = detections[i];
+    std::vector<dt::Detection> dets = detections[i];
     if (dets.size() == 0) {
       std::cout << "No detections found for image " << i << std::endl;
       continue;
     }
     for (auto det : dets) {
-      img.DrawRect(det);
+      img.DrawRect(det.location);
     }
     img.Show();
   }

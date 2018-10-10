@@ -48,11 +48,19 @@ ErrorCode GetSession(tensorflow::Session** session, double gpu_fraction);
 
 /// Gets graph input size.
 /// @param graph_def Graph definition.
+/// @param input_size Input size vector.
+/// @return Error code.
+ErrorCode InputSize(
+    const tensorflow::GraphDef& graph_def,
+    std::vector<int>* input_size);
+
+/// Gets image size from graph.
+/// @param input_size Input dimensions output from InputSize.
 /// @param width Width dimension of input layer.
 /// @param height Height dimension of input layer.
 /// @return Error code.
-ErrorCode InputSize(
-    const tensorflow::GraphDef& graph_def, 
+ErrorCode ImageSize(
+    const std::vector<int>& input_size,
     int* width, 
     int* height);
 

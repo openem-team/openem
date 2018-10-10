@@ -36,7 +36,10 @@ enum ErrorCode {
   kErrorNumChann,      ///< Invalid number of image channels.
   kErrorVidFileOpen,   ///< Failed to open video file.
   kErrorVidNotOpen,    ///< Tried to read from unopened video.
-  kErrorVidFrame       ///< Failed to read video frame.
+  kErrorVidFrame,      ///< Failed to read video frame.
+  kErrorLenMismatch,   ///< Mismatch in sequence lengths.
+  kErrorNumInputDims,  ///< Unexpected number of input dimensions.
+  kErrorBadSeqLength   ///< Wrong sequence length for input.
 };
 
 } // namespace openem

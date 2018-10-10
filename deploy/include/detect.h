@@ -28,6 +28,18 @@
 namespace openem {
 namespace detect {
 
+/// Contains information for a single detection.
+struct Detection {
+  /// Location of the detection in the frame.
+  Rect location;
+
+  /// Confidence score.
+  float confidence;
+
+  /// Species index based on highest confidence.
+  int species;
+};
+
 /// Class for detecting fish in images.
 class Detector {
  public:
@@ -64,7 +76,9 @@ class Detector {
 
   /// Finds fish in batched images by performing object detection
   /// with Single Shot Detector (SSD).
-  ErrorCode Process(std::vector<std::vector<Rect>>* detections);
+  /// @param detections Vector of detections for each image.
+  /// @return Error code.
+  ErrorCode Process(std::vector<std::vector<Detection>>* detections);
  private:
   /// Forward declaration of implementation class.
   class DetectorImpl;

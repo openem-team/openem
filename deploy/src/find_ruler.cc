@@ -28,7 +28,7 @@ namespace find_ruler {
 class RulerMaskFinder::RulerMaskFinderImpl {
  public:
    /// Stores and processes the model.
-   detail::Model model_;
+   detail::ImageModel model_;
 };
 
 RulerMaskFinder::RulerMaskFinder() : impl_(new RulerMaskFinderImpl()) {}
@@ -62,9 +62,9 @@ ErrorCode RulerMaskFinder::Process(std::vector<Image>* masks) {
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(
-      &outputs, 
       "input_1", 
-      {"output_node0:0"});
+      {"output_node0:0"},
+      &outputs);
   if (status != kSuccess) return status;
 
   // Copy model outputs into mask images.

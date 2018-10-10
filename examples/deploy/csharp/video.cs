@@ -103,14 +103,14 @@ class Program {
       string vid_path,
       Rect roi,
       VectorDouble transform,
-      out VectorVectorRect detections,
-      out VectorVectorVectorFloat scores) {
+      out VectorVectorDetection detections,
+      out VectorVectorClassification scores) {
     // Determined by experimentation with GPU having 8GB memory.
     const int kMaxImg = 32;
 
     // Initialize the outputs.
-    detections = new VectorVectorRect();
-    scores = new VectorVectorVectorFloat();
+    detections = new VectorVectorDetection();
+    scores = new VectorVectorClassification();
 
     // Create and initialize the detector.
     Detector detector = new Detector();
@@ -138,7 +138,7 @@ class Program {
     while (true) {
 
       // Find detections.
-      VectorVectorRect dets = new VectorVectorRect();
+      VectorVectorDetection dets = new VectorVectorDetection();
       VectorImage imgs = new VectorImage();
       for (int i = 0; i < kMaxImg; ++i) {
         Image img = new Image();
@@ -167,9 +167,9 @@ class Program {
 
       // Classify detections.
       for (int i = 0; i < dets.Count; ++i) {
-        VectorVectorFloat score_batch = new VectorVectorFloat();
+        VectorClassification score_batch = new VectorClassification();
         for (int j = 0; j < dets[i].Count; ++j) {
-          Image det_img = openem.GetDetImage(imgs[i], dets[i][j]);
+          Image det_img = openem.GetDetImage(imgs[i], dets[i][j].location);
           status = classifier.AddImage(det_img);
           if (status != ErrorCode.kSuccess) {
             throw new Exception("Failed to add frame to classifier!");
@@ -182,6 +182,56 @@ class Program {
         scores.Add(score_batch);
       }
       if (vid_end) break;
+    }
+  }
+
+  /// <summary>
+  /// Writes a csv file containing fish species and frame numbers.
+  /// </summary>
+  /// <param name="count_path">Path to model file.</param>
+  /// <param name="out_path">Path to output csv file.</param>
+  /// <param name="roi">Region of interest, needed for image dims.</param>
+  /// <param name="detections">Detections for each frame.</param>
+  /// <param name="scores">Cover and species scores for each detection.</param>
+  static void WriteCounts(
+      string count_path,
+      string out_path,
+      Rect roi,
+      VectorVectorDetection detections,
+      VectorVectorClassification scores) {
+
+    // Create and initialize keyframe finder.
+    KeyframeFinder finder = new KeyframeFinder();
+    ErrorCode status = finder.Init(count_path, roi[2], roi[3]);
+    if (status != ErrorCode.kSuccess) {
+      throw new Exception("Failed to initialize keyframe finder!");
+    }
+
+    // Process keyframe finder.
+    VectorInt keyframes = new VectorInt();
+    status = finder.Process(scores, detections, keyframes);
+    if (status != ErrorCode.kSuccess) {
+      throw new Exception("Failed to process keyframe finder!");
+    }
+
+    // Write the keyframes out.
+    using (var csv = new System.IO.StreamWriter(out_path)) {
+      csv.WriteLine("id,frame,species_index");
+      int id = 0;
+      foreach (var i in keyframes) {
+        Classification c = scores[i][0];
+        float max_score = 0.0F;
+        int species_index = 0;
+        for (int j = 0; j < c.species.Count; ++j) {
+          if (c.species[j] > max_score) {
+            max_score = c.species[j];
+            species_index = j;
+          }
+        }
+        var line = string.Format("{0},{1},{2}", id, i, species_index);
+        csv.WriteLine(line);
+        id++;
+      }
     }
   }
 
@@ -199,8 +249,8 @@ class Program {
       string out_path,
       Rect roi,
       VectorDouble transform,
-      VectorVectorRect detections,
-      VectorVectorVectorFloat scores) {
+      VectorVectorDetection detections,
+      VectorVectorClassification scores) {
 
     // Initialize the video reader.
     VideoReader reader = new VideoReader();
@@ -233,8 +283,8 @@ class Program {
       frame.DrawRect(roi, blue, 1, transform);
       for (int j = 0; j < detections[i].Count; ++j) {
         Color det_color = red;
-        double clear = scores[i][j][2];
-        double hand = scores[i][j][1];
+        double clear = scores[i][j].cover[2];
+        double hand = scores[i][j].cover[1];
         if (j == 0) {
           if (clear > hand) {
             frame.DrawText("Clear", new PairIntInt(0, 0), green);
@@ -244,7 +294,7 @@ class Program {
             det_color = red;
           }
         }
-        frame.DrawRect(detections[i][j], det_color, 2, transform, roi);
+        frame.DrawRect(detections[i][j].location, det_color, 2, transform, roi);
       }
       status = writer.AddFrame(frame);
       if (status != ErrorCode.kSuccess) {
@@ -259,15 +309,16 @@ class Program {
   static void Main(string[] args) {
 
     // Check input arguments.
-    if (args.Length < 4) {
+    if (args.Length < 5) {
       Console.WriteLine("Expected at least four arguments: ");
       Console.WriteLine("  Path to pb file with find_ruler model.");
       Console.WriteLine("  Path to pb file with detect model.");
       Console.WriteLine("  Path to pb file with classify model.");
+      Console.WriteLine("  Path to pb file with count model.");
       Console.WriteLine("  Path to one or more video files.");
     }
 
-    for (int vid_idx = 3; vid_idx < args.Length; ++vid_idx) {
+    for (int vid_idx = 4; vid_idx < args.Length; ++vid_idx) {
       // Find the roi.
       Console.WriteLine("Finding region of interest...");
       Rect roi;
@@ -276,8 +327,8 @@ class Program {
 
       // Find detections and classify them.
       Console.WriteLine("Performing detection and classification...");
-      VectorVectorRect detections;
-      VectorVectorVectorFloat scores;
+      VectorVectorDetection detections;
+      VectorVectorClassification scores;
       DetectAndClassify(
           args[1], 
           args[2], 
@@ -287,11 +338,20 @@ class Program {
           out detections,
           out scores);
 
+      // Count fish and write to csv file.
+      Console.WriteLine("Counting individuals from sequences...");
+      WriteCounts(
+          args[3],
+          String.Format("fish_counts_{0}.csv", vid_idx - 4),
+          roi,
+          detections,
+          scores);
+
       // Write annotated video to file.
       Console.WriteLine("Writing video to file...");
       WriteVideo(
           args[vid_idx],
-          String.Format("annotated_video_{0}.avi", vid_idx - 3),
+          String.Format("annotated_video_{0}.avi", vid_idx - 4),
           roi,
           transform,
           detections,

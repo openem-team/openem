@@ -129,7 +129,7 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
     while True:
 
         # Find detections.
-        dets = openem.VectorVectorRect()
+        dets = openem.VectorVectorDetection()
         imgs = [openem.Image() for _ in range(max_img)]
         for i, img in enumerate(imgs):
             status = reader.GetFrame(img)
@@ -149,9 +149,9 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
 
         # Classify detections
         for det_frame, img in zip(dets, imgs):
-            score_batch = openem.VectorVectorFloat()
+            score_batch = openem.VectorClassification()
             for det in det_frame:
-                det_img = openem.GetDetImage(img, det)
+                det_img = openem.GetDetImage(img, det.location)
                 status = classifier.AddImage(det_img)
                 if not status == openem.kSuccess:
                     raise RuntimeError("Failed to add frame to classifier!")
@@ -162,6 +162,43 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
         if vid_end:
             break
     return (detections, scores)
+
+def write_counts(count_path, out_path, roi, detections, scores):
+    """Writes a csv file containing fish species and frame numbers.
+
+    # Arguments
+        count_path: Path to count model file.
+        out_path: Path to output csv file.
+        roi: Region of interest, needed for image width and height.
+        detections: Detections for each frame.
+        scores: Cover and species scores for each detection.
+    """
+    # Create and initialize keyframe finder.
+    finder = openem.KeyframeFinder()
+    status = finder.Init(count_path, roi[2], roi[3])
+    if not status == openem.kSuccess:
+        raise IOError("Failed to initialize keyframe finder!")
+
+    # Process keyframe finder.
+    keyframes = openem.VectorInt()
+    status = finder.Process(scores, detections, keyframes)
+    if not status == openem.kSuccess:
+        raise RuntimeError("Failed to process keyframe finder!")
+
+    # Write the keyframes out.
+    with open(out_path, "w") as csv:
+        csv.write("id,frame,species_index\n")
+        uid = 0
+        for i in keyframes:
+            c = scores[i][0]
+            max_score = 0.0
+            species_index = 0
+            for j, s in enumerate(c.species):
+                if s > max_score:
+                    max_score = s
+                    species_index = j
+            csv.write("{},{},{}\n".format(uid, i, species_index))
+            uid += 1
 
 def write_video(vid_path, out_path, roi, transform, detections, scores):
     """Writes a new video with bounding boxes around detections.
@@ -198,8 +235,8 @@ def write_video(vid_path, out_path, roi, transform, detections, scores):
             raise RuntimeError("Error retrieving video frame!")
         frame.DrawRect(roi, (255, 0, 0), 1, transform)
         for j, (det, score) in enumerate(zip(det_frame, score_frame)):
-            clear = score[2]
-            hand = score[1]
+            clear = score.cover[2]
+            hand = score.cover[1]
             if j == 0:
                 if clear > hand:
                     frame.DrawText("Clear", (0, 0), (0, 255, 0))
@@ -207,7 +244,7 @@ def write_video(vid_path, out_path, roi, transform, detections, scores):
                 else:
                     frame.DrawText("Hand", (0, 0), (0, 0, 255))
                     det_color = (0, 0, 255)
-            frame.DrawRect(det, det_color, 2, transform, roi)
+            frame.DrawRect(det.location, det_color, 2, transform, roi)
         status = writer.AddFrame(frame)
         if not status == openem.kSuccess:
             raise RuntimeError("Error adding frame to video!")
@@ -224,6 +261,9 @@ if __name__ == "__main__":
     parser.add_argument("classify_model",
         type=str,
         help="Path to pb file with classify model.")
+    parser.add_argument("count_model",
+        type=str,
+        help="Path to pb file with count model.")
     parser.add_argument("video_paths",
         type=str,
         nargs="+",
@@ -242,6 +282,15 @@ if __name__ == "__main__":
             video_path,
             roi,
             transform)
+
+        # Write counts to csv.
+        print("Writing counts to csv...")
+        write_counts(
+            args.count_model,
+            "fish_counts_{}.csv".format(i),
+            roi,
+            detections,
+            scores)
 
         # Write annotated video to file.
         print("Writing video to file...")

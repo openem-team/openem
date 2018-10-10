@@ -46,7 +46,7 @@ std::vector<cv::Rect> DecodeBoxes(
 class Detector::DetectorImpl {
  public:
   /// Stores and processes the model.
-  detail::Model model_;
+  detail::ImageModel model_;
 
   /// Stores image scale factors.
   std::vector<std::pair<double, double>> img_scale_;
@@ -130,16 +130,15 @@ ErrorCode Detector::AddImage(const Image& image) {
   return impl_->model_.AddImage(*mat, preprocess);
 }
 
-ErrorCode Detector::Process(
-    std::vector<std::vector<std::array<int, 4>>>* detections) {
+ErrorCode Detector::Process(std::vector<std::vector<Detection>>* detections) {
   constexpr int kBackgroundClass = 0;
 
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(
-      &outputs, 
       "input_1",
-      {"output_node0:0"});
+      {"output_node0:0"},
+      &outputs);
   if (status != kSuccess) return status;
 
   // Convert to mat vector.
@@ -164,18 +163,22 @@ ErrorCode Detector::Process(
     anchors = p(cv::Range::all(), cv::Range(conf_stop, anc_stop));
     variances = p(cv::Range::all(), cv::Range(anc_stop, var_stop));
     boxes = DecodeBoxes(loc, anchors, variances, impl_->model_.ImageSize());
-    std::vector<std::array<int, 4>> dets;
+    std::vector<Detection> dets;
     for (int c = 0; c < conf.cols; ++c) {
       if (c == kBackgroundClass) continue;
       cv::Mat& c_conf = conf.col(c);
       scores.assign(c_conf.begin<float>(), c_conf.end<float>());
       cv::dnn::NMSBoxes(boxes, scores, 0.01, 0.45, indices, 1.0, 200);
       for (int idx : indices) {
-        dets.emplace_back(std::array<int, 4>{
-            int(boxes[idx].x * impl_->img_scale_[i].first),
-            int(boxes[idx].y * impl_->img_scale_[i].second),
-            int(boxes[idx].width * impl_->img_scale_[i].first),
-            int(boxes[idx].height * impl_->img_scale_[i].second)});
+        Detection det;
+        det.location = {
+          int(boxes[idx].x * impl_->img_scale_[i].first),
+          int(boxes[idx].y * impl_->img_scale_[i].second),
+          int(boxes[idx].width * impl_->img_scale_[i].first),
+          int(boxes[idx].height * impl_->img_scale_[i].second)};
+        det.confidence = scores[idx];
+        det.species = c;
+        dets.push_back(std::move(det));
       }
     }
     impl_->img_scale_.clear();

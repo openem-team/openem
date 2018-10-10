@@ -11,9 +11,10 @@
 #include "find_ruler.h"
 #include "detect.h"
 #include "classify.h"
+#include "count.h"
 %}
 
-%include "pointer.i"
+%include "cpointer.i"
 %include "stdint.i"
 %include "std_array.i"
 %include "std_string.i"
@@ -22,6 +23,7 @@
 namespace std {
   %template(VectorDouble) vector<double>;
   %template(VectorFloat) vector<float>;
+  %template(VectorInt) vector<int>;
   %template(VectorVectorFloat) vector<vector<float>>;
   %template(VectorVectorVectorFloat) vector<vector<vector<float>>>;
   %template(VectorUint8) vector<uint8_t>;
@@ -31,6 +33,11 @@ namespace std {
   %template(VectorRect) vector<array<int, 4>>;
   %template(VectorVectorRect) vector<vector<array<int, 4>>>;
   %template(VectorImage) vector<openem::Image>;
+  %template(VectorDetection) vector<openem::detect::Detection>;
+  %template(VectorVectorDetection) vector<vector<openem::detect::Detection>>;
+  %template(ArrayFloat3) array<float, 3>;
+  %template(VectorClassification) vector<openem::classify::Classification>;
+  %template(VectorVectorClassification) vector<vector<openem::classify::Classification>>;
 };
 
 %include "error_codes.h"
@@ -39,4 +46,5 @@ namespace std {
 %include "find_ruler.h"
 %include "detect.h"
 %include "classify.h"
+%include "count.h"
 

@@ -27,7 +27,7 @@ namespace classify {
 class Classifier::ClassifierImpl {
  public:
   /// Stores and processes the model.
-  detail::Model model_;
+  detail::ImageModel model_;
 };
 
 Classifier::Classifier() : impl_(new ClassifierImpl()) {}
@@ -58,29 +58,30 @@ ErrorCode Classifier::AddImage(const Image& image) {
   return impl_->model_.AddImage(*mat, preprocess);
 }
 
-ErrorCode Classifier::Process(std::vector<std::vector<float>>* scores) {
+ErrorCode Classifier::Process(std::vector<Classification>* results) {
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(
-      &outputs, 
       "data", 
-      {"cat_species_1:0", "cat_cover_1:0"});
+      {"cat_species_1:0", "cat_cover_1:0"},
+      &outputs);
   if (status != kSuccess) return status;
 
   // Convert to mat vector.
   std::vector<cv::Mat> species;
   detail::TensorToMatVec(outputs[0], &species, 1.0, 0.0, CV_32F);
-  std::vector<cv::Mat> quality;
-  detail::TensorToMatVec(outputs[1], &quality, 1.0, 0.0, CV_32F);
+  std::vector<cv::Mat> cover;
+  detail::TensorToMatVec(outputs[1], &cover, 1.0, 0.0, CV_32F);
 
   // Clear input results.
-  scores->clear();
+  results->clear();
 
   // Iterate through results for each image.
-  for(int i = 0; i < species.size(); ++i) {
-    std::vector<float> vec(quality[i].begin<float>(), quality[i].end<float>());
-    vec.insert(vec.end(), species[i].begin<float>(), species[i].end<float>());
-    scores->push_back(std::move(vec));
+  for (int i = 0; i < species.size(); ++i) {
+    Classification c;
+    c.species.assign(species[i].begin<float>(), species[i].end<float>());
+    for (int j = 0; j < 3; ++j) c.cover[j] = cover[i].at<float>(j);
+    results->push_back(std::move(c));
   }
   return kSuccess;
 }

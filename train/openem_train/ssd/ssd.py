@@ -14,8 +14,8 @@ from keras.layers import ZeroPadding2D
 from keras.layers import BatchNormalization
 from keras.models import Model
 
-from ssd_layers import Normalize
-from ssd_layers import PriorBox
+from openem_train.ssd.ssd_layers import Normalize
+from openem_train.ssd.ssd_layers import PriorBox
 
 def wrap_with_bn(net, input_tensor, name):
     net['bn'+name] = BatchNormalization(name='bn'+name)(input_tensor)

@@ -35,6 +35,9 @@ def extract_images(config):
             ret, img = reader.read()
             if frame in keyframes:
                 img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
+                print("Saving image to: {}".format(img_path))
                 cv2.imwrite(img_path, img)
             frame += 1
+            if not ret:
+                break
 

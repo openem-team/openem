@@ -13,24 +13,16 @@ def train(config):
         config: ConfigParser object.
     """
 
-    # Get config file parameters.
-    work_dir = config.get('Paths', 'WorkDir')
-    num_classes = config.getint('Data', 'NumClasses')
-    width = config.getint('Detect', 'Width')
-    height = config.getint('Detect', 'Height')
-
     # Create tensorboard and checkpoints directories.
-    check_dir = os.path.join(work_dir, 'detect', 'checkpoints')
-    tb_dir = os.path.join(work_dir, 'detect', 'tensorboard')
-    os.makedirs(check_dir, exist_ok=True)
-    os.makedirs(check_dir, exist_ok=True)
+    os.makedirs(config.checkpoints_dir(), exist_ok=True)
+    os.makedirs(config.tensorboard_dir(), exist_ok=True)
 
     # Build the ssd model.
-    model = ssd.ssd_model((height, width, 3))
+    model = ssd.ssd_model((config.detect_height(), config.detect_width(), 3))
 
     # Set up loss and optimizer.
     loss_obj = MultiboxLoss(
-        num_classes,
+        config.num_classes(),
         neg_pos_ratio=2.0, 
         pos_cost_multiplier=1.1)
     adam = Adam(lr=3e-5)
@@ -55,9 +47,11 @@ def train(config):
     priors = np.vstack(priors)
     
     # Set up bounding box utility.
-    bbox_util = BBoxUtility(num_classes, priors)
+    bbox_util = BBoxUtility(config.num_classes(), priors)
 
     # Set up dataset interface.
-    dataset = SSDDataset(bbox_util=bbox_util, preprocess_input=lambda x: x)
+    dataset = SSDDataset(
+        config, 
+        bbox_util=bbox_util, 
+        preprocess_input=lambda x: x)
 
-    

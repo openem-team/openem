@@ -33,8 +33,8 @@ class SampleCfg:
         return dataset.CLASSES[self.detection.class_id] + ' ' + str(self.__dict__)
 
 class SSDDataset(fish_detection.FishDetectionDataset):
-    def __init__(self, bbox_util, preprocess_input=preprocess_input, is_test=False):
-        super().__init__(is_test)
+    def __init__(self, config, bbox_util, preprocess_input=preprocess_input, is_test=False):
+        super().__init__(config, is_test)
         self.bbox_util = bbox_util
         self.preprocess_input = preprocess_input
 

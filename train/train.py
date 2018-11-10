@@ -1,8 +1,8 @@
 import argparse
-import configparser
 import subprocess
 from openem_train import preprocess
 from openem_train import detect
+from openem_train.util.config_interface import ConfigInterface
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Top level training script.')
@@ -13,8 +13,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Read in the config file.
-    config = configparser.ConfigParser()
-    config.read(args.config_file)
+    config = ConfigInterface(args.config_file)
 
     if args.task == 'preprocess':
         preprocess.extract_images(config)

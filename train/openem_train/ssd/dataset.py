@@ -5,14 +5,12 @@ import pickle
 import os
 
 VIDEOS_DIR = '../input/train_videos'
-IMAGES_DIR = '../input/train_videos/img'
 MASKS_DIR = '../output/ruler_masks'
 AVG_MASKS_DIR = '../output/ruler_masks_avg'
 AVG_MASKS_DIR_TEST = '../output/ruler_masks_avg_test'
 RULER_CROPS_DIR = '../output/ruler_crops'
 RULER_CROPS_DIR_TEST = '../output/ruler_crops_test'
 
-IMAGES_DIR_TEST = '../input/test_videos/img'
 MASKS_DIR_TEST = '../output/ruler_masks_test'
 
 SPECIES = ['fourspot', 'grey sole', 'other', 'plaice', 'summer', 'windowpane', 'winter']
@@ -30,45 +28,32 @@ ASPECT_RATIO_TABLE = {
     'winter': 0.5
 }
 
-
-def video_clips(is_test=False) -> {str}:
+def video_clips(config, is_test=False) -> {str}:
     if is_test:
-        return video_clips_test()
+        return video_clips_test(config)
 
-    cache_fn = '../output/video_clips.pkl'
-    try:
-        clips = pickle.load(open(cache_fn, 'rb'))
-    except FileNotFoundError:
-        clips = {}
-        for dir_name in os.listdir(IMAGES_DIR):
-            clip_dir = os.path.join(IMAGES_DIR, dir_name)
-            frames = []
-            for frame_name in os.listdir(clip_dir):
-                if not frame_name.endswith('.jpg'):
-                    continue
-                frames.append(frame_name[:-len('.jpg')])
-            clips[dir_name] = frames
-
-        pickle.dump(clips, open(cache_fn, 'wb'))
+    clips = {}
+    for dir_name in os.listdir(config.train_imgs_dir()):
+        clip_dir = os.path.join(config.train_imgs_dir(), dir_name)
+        frames = []
+        for frame_name in os.listdir(clip_dir):
+            if not frame_name.endswith('.jpg'):
+                continue
+            frames.append(frame_name[:-len('.jpg')])
+        clips[dir_name] = frames
     return clips
 
 
-def video_clips_test() -> {str}:
-    cache_fn = '../output/video_clips_test.pkl'
-    try:
-        clips = pickle.load(open(cache_fn, 'rb'))
-    except FileNotFoundError:
-        clips = {}
-        for dir_name in os.listdir(IMAGES_DIR_TEST):
-            clip_dir = os.path.join(IMAGES_DIR_TEST, dir_name)
-            frames = []
-            for frame_name in os.listdir(clip_dir):
-                if not frame_name.endswith('.jpg'):
-                    continue
-                frames.append(frame_name[:-len('.jpg')])
-            clips[dir_name] = frames
-
-        pickle.dump(clips, open(cache_fn, 'wb'))
+def video_clips_test(config) -> {str}:
+    clips = {}
+    for dir_name in os.listdir(config.test_imgs_dir()):
+        clip_dir = os.path.join(config.test_imgs_dir(), dir_name)
+        frames = []
+        for frame_name in os.listdir(clip_dir):
+            if not frame_name.endswith('.jpg'):
+                continue
+            frames.append(frame_name[:-len('.jpg')])
+        clips[dir_name] = frames
     return clips
 
 

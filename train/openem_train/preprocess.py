@@ -16,11 +16,11 @@ def extract_images(config):
     # Start converting images.
     for vid in config.train_vids():
         base, _ = os.path.splitext(os.path.basename(vid))
-        img_dir = os.path.join(train_imgs_dir, base)
+        img_dir = os.path.join(config.train_imgs_dir(), base)
         os.makedirs(img_dir, exist_ok=True)
         reader = cv2.VideoCapture(vid)
         keyframes = [a for a, b in zip(ann_frames, vid_ids) if b == base]
-        frame = 0
+        frame = 1
         while reader.isOpened():
             ret, img = reader.read()
             if frame in keyframes:

@@ -1,6 +1,8 @@
 import os
 import numpy as np
 from keras.optimizers import Adam
+from keras.callbacks import ModelCheckpoint
+from keras.callbacks import TensorBoard
 from openem_train.ssd import ssd
 from openem_train.ssd.ssd_training import MultiboxLoss
 from openem_train.ssd.ssd_utils import BBoxUtility
@@ -54,4 +56,40 @@ def train(config):
         config, 
         bbox_util=bbox_util, 
         preprocess_input=lambda x: x)
+
+    # Set up keras callbacks.
+    checkpoint_best = ModelCheckpoint(
+        config.checkpoint_best(),
+        verbose=1,
+        save_weights_only=False,
+        save_best_only=True)
+
+    checkpoint_periodic = ModelCheckpoint(
+        config.checkpoint_periodic(),
+        verbose=1,
+        save_weights_only=False,
+        period=1)
+
+    tensorboard = TensorBoard(
+        config.tensorboard_dir(),
+        histogram_freq=0,
+        write_graph=True,
+        write_images=True)
+
+    # Fit the model.
+    batch_size = config.detect_batch_size()
+    val_batch_size = config.detect_val_batch_size()
+    model.fit_generator(
+        dataset.generate_ssd(
+            batch_size=batch_size, 
+            is_training=True),
+        steps_per_epoch=dataset.nb_train_samples // batch_size,
+        epochs=config.detect_num_epochs(),
+        verbose=1,
+        callbacks=[checkpoint_best, checkpoint_periodic, tensorboard],
+        validation_data=dataset.generate_ssd(
+            batch_size=val_batch_size,
+            is_training=False),
+        validation_steps=dataset.nb_test_samples // val_batch_size,
+        initial_epoch=0)
 

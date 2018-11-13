@@ -22,6 +22,15 @@ class ConfigInterface:
     def detect_height(self):
         return self.config.getint('Detect', 'Height')
 
+    def detect_batch_size(self):
+        return self.config.getint('Detect', 'BatchSize')
+
+    def detect_val_batch_size(self):
+        return self.config.getint('Detect', 'ValBatchSize')
+
+    def detect_num_epochs(self):
+        return self.config.getint('Detect', 'NumEpochs')
+
     def train_vids(self):
         patt = os.path.join(self.train_dir(), 'train_videos', '*.mp4')
         return glob.glob(patt)
@@ -48,8 +57,25 @@ class ConfigInterface:
     def train_imgs_dir(self):
         return os.path.join(self.work_dir(), 'train_imgs')
 
+    def test_imgs_dir(self):
+        return os.path.join(self.work_dir(), 'test_imgs')
+
+    def train_roi_imgs_dir(self):
+        return os.path.join(self.work_dir(), 'train_roi_imgs')
+
+    def test_roi_imgs_dir(self):
+        return os.path.join(self.work_dir(), 'test_roi_imgs_dir')
+
     def checkpoints_dir(self):
         return os.path.join(self.work_dir(), 'checkpoints')
+
+    def checkpoint_best(self):
+        fname = "checkpoint-best-{epoch:03d}-{val_loss:.4f}.hdf5"
+        return os.path.join(self.checkpoints_dir(), fname)
+
+    def checkpoint_periodic(self):
+        fname = "checkpoint-{epoch:03d}-{val_loss:.4f}.hdf5"
+        return os.path.join(self.checkpoints_dir(), fname)
 
     def tensorboard_dir(self):
         return os.path.join(self.work_dir(), 'tensorboard')

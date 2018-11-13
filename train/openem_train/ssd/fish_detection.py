@@ -12,9 +12,6 @@ from openem_train.ssd.dataset import SPECIES, CLASSES
 
 EXTRA_LABELS_BASE_DIR = '../output/ruler_crops_batch_labeled'
 
-INPUT_ROWS = 720
-INPUT_COLS = 360
-input_shape = (INPUT_ROWS, INPUT_COLS, 3)
 NUM_CLASSES = len(CLASSES)
 
 FishDetection = namedtuple('FishDetection', ['video_id', 'frame', 'fish_number', 'x1', 'y1', 'x2', 'y2', 'class_id'])

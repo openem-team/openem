@@ -65,15 +65,27 @@ def fold_test_video_ids(fold: int) -> List[str]:
     return all_video_ids[(fold-1)::NB_FOLDS]
 
 
-def image_fn(video_id, frame, is_test=False):
+def image_fn(config, video_id, frame, is_test=False):
     if is_test:
-        return '{}/{}/{:04}.jpg'.format(IMAGES_DIR_TEST, video_id, int(frame)+1)
+        return '{}/{}/{:04}.jpg'.format(
+                config.test_imgs_dir(), 
+                video_id, 
+                int(frame) + 1)
     else:
-        return '{}/{}/{:04}.jpg'.format(IMAGES_DIR, video_id, int(frame) + 1)
+        return '{}/{}/{:04}.jpg'.format(
+                config.train_imgs_dir(), 
+                video_id, 
+                int(frame) + 1)
 
 
-def image_crop_fn(video_id, frame, is_test=False):
+def image_crop_fn(config, video_id, frame, is_test=False):
     if is_test:
-        return '{}/{}/{:04}.jpg'.format(RULER_CROPS_DIR_TEST, video_id, int(frame)+1)
+        return '{}/{}/{:04}.jpg'.format(
+                config.test_roi_imgs_dir(), 
+                video_id, 
+                int(frame) + 1)
     else:
-        return '{}/{}/{:04}.jpg'.format(RULER_CROPS_DIR, video_id, int(frame) + 1)
+        return '{}/{}/{:04}.jpg'.format(
+                config.train_roi_imgs_dir(), 
+                video_id, 
+                int(frame) + 1)

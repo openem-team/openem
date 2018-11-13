@@ -1,7 +1,11 @@
 import scipy
 import skimage
+import random
+import numpy as np
+from multiprocessing.pool import ThreadPool
 from keras.applications.imagenet_utils import preprocess_input
 from openem_train.ssd import fish_detection
+from openem_train.ssd import dataset
 
 class SampleCfg:
     """
@@ -51,8 +55,8 @@ class SSDDataset(fish_detection.FishDetectionDataset):
         return img, y
 
     def generate_xy(self, cfg: SampleCfg):
-        img = scipy.misc.imread(dataset.image_fn(cfg.detection.video_id, cfg.detection.frame, is_test=self.is_test))
-        crop = skimage.transform.warp(img, cfg.transformation, mode='edge', order=3, output_shape=(INPUT_ROWS, INPUT_COLS))
+        img = scipy.misc.imread(dataset.image_fn(self.config, cfg.detection.video_id, cfg.detection.frame, is_test=self.is_test))
+        crop = skimage.transform.warp(img, cfg.transformation, mode='edge', order=3, output_shape=(config.detect_height(), config.detect_width()))
 
         detection = cfg.detection
 
@@ -61,8 +65,8 @@ class SSDDataset(fish_detection.FishDetectionDataset):
             coords_in_crop = cfg.transformation.inverse(coords)
             aspect_ratio = dataset.ASPECT_RATIO_TABLE[dataset.CLASSES[detection.class_id]]
             coords_box0, coords_box1 = utils.bbox_for_line(coords_in_crop[0, :], coords_in_crop[1, :], aspect_ratio)
-            coords_box0 /= np.array([INPUT_COLS, INPUT_ROWS])
-            coords_box1 /= np.array([INPUT_COLS, INPUT_ROWS])
+            coords_box0 /= np.array([config.detect_width(), config.detect_height()])
+            coords_box1 /= np.array([config.detect_width(), config.detect_height()])
             targets = [coords_box0[0], coords_box0[1], coords_box1[0], coords_box1[1]]
 
             # print(detection.class_id, dataset.CLASSES[detection.class_id], aspect_ratio, coords_box0, coords_box1)
@@ -121,9 +125,11 @@ class SSDDataset(fish_detection.FishDetectionDataset):
                 points_random_shift = 32
 
             for detection in detections:
-                tform = self.transform_for_clip(detection.video_id,
-                                                dst_w=INPUT_COLS, dst_h=INPUT_ROWS,
-                                                points_random_shift=points_random_shift)
+                tform = self.transform_for_clip(
+                    detection.video_id,
+                    dst_w=self.config.detect_width(), 
+                    dst_h=self.config.detect_height(),
+                    points_random_shift=points_random_shift)
                 cfg = SampleCfg(detection=detection, transformation=tform)
 
                 if is_training:

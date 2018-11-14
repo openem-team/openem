@@ -75,7 +75,7 @@ class FishDetectionDataset:
             fn = os.path.basename(fn)
             fn = fn[:-len('.jpg')]
             video_id, frame = fn.split('_')
-            frame = int(frame) - 1
+            frame = int(frame)
 
             if video_id not in detections:
                 detections[video_id] = []

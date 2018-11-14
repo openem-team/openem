@@ -19,10 +19,9 @@ def extract_images(config):
         fn = os.path.basename(fn)
         fn = fn[:-len('.jpg')]
         vid, frame = fn.split('_')
-        if vid in no_fish:
-            no_fish[vid].append(int(frame))
-        else:
-            no_fish[vid] = [int(frame)]
+        if vid not in no_fish:
+            no_fish[vid] = []
+        no_fish[vid].append(int(frame))
 
     # Start converting images.
     for vid in config.train_vids():
@@ -33,8 +32,9 @@ def extract_images(config):
         os.makedirs(img_dir, exist_ok=True)
         reader = cv2.VideoCapture(vid)
         keyframes = [a for a, b in zip(ann_frames, vid_ids) if b == base]
-        keyframes += no_fish[vid_id]
-        frame = 1
+        if vid_id in no_fish:
+            keyframes += no_fish[vid_id]
+        frame = 0
         while reader.isOpened():
             ret, img = reader.read()
             if frame in keyframes:
@@ -44,5 +44,4 @@ def extract_images(config):
             frame += 1
             if not ret:
                 break
-
 

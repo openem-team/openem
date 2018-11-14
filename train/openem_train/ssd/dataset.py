@@ -70,12 +70,12 @@ def image_fn(config, video_id, frame, is_test=False):
         return '{}/{}/{:04}.jpg'.format(
                 config.test_imgs_dir(), 
                 video_id, 
-                int(frame) + 1)
+                int(frame))
     else:
         return '{}/{}/{:04}.jpg'.format(
                 config.train_imgs_dir(), 
                 video_id, 
-                int(frame) + 1)
+                int(frame))
 
 
 def image_crop_fn(config, video_id, frame, is_test=False):
@@ -83,9 +83,9 @@ def image_crop_fn(config, video_id, frame, is_test=False):
         return '{}/{}/{:04}.jpg'.format(
                 config.test_roi_imgs_dir(), 
                 video_id, 
-                int(frame) + 1)
+                int(frame))
     else:
         return '{}/{}/{:04}.jpg'.format(
                 config.train_roi_imgs_dir(), 
                 video_id, 
-                int(frame) + 1)
+                int(frame))

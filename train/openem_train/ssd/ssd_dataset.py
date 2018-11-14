@@ -6,6 +6,8 @@ from multiprocessing.pool import ThreadPool
 from keras.applications.imagenet_utils import preprocess_input
 from openem_train.ssd import fish_detection
 from openem_train.ssd import dataset
+from openem_train.util import utils
+from openem_train.util import img_augmentation
 
 class SampleCfg:
     """
@@ -56,7 +58,7 @@ class SSDDataset(fish_detection.FishDetectionDataset):
 
     def generate_xy(self, cfg: SampleCfg):
         img = scipy.misc.imread(dataset.image_fn(self.config, cfg.detection.video_id, cfg.detection.frame, is_test=self.is_test))
-        crop = skimage.transform.warp(img, cfg.transformation, mode='edge', order=3, output_shape=(config.detect_height(), config.detect_width()))
+        crop = skimage.transform.warp(img, cfg.transformation, mode='edge', order=3, output_shape=(self.config.detect_height(), self.config.detect_width()))
 
         detection = cfg.detection
 
@@ -65,13 +67,12 @@ class SSDDataset(fish_detection.FishDetectionDataset):
             coords_in_crop = cfg.transformation.inverse(coords)
             aspect_ratio = dataset.ASPECT_RATIO_TABLE[dataset.CLASSES[detection.class_id]]
             coords_box0, coords_box1 = utils.bbox_for_line(coords_in_crop[0, :], coords_in_crop[1, :], aspect_ratio)
-            coords_box0 /= np.array([config.detect_width(), config.detect_height()])
-            coords_box1 /= np.array([config.detect_width(), config.detect_height()])
+            coords_box0 /= np.array([self.config.detect_width(), self.config.detect_height()])
+            coords_box1 /= np.array([self.config.detect_width(), self.config.detect_height()])
             targets = [coords_box0[0], coords_box0[1], coords_box1[0], coords_box1[1]]
 
-            # print(detection.class_id, dataset.CLASSES[detection.class_id], aspect_ratio, coords_box0, coords_box1)
 
-            cls = [0] * (NUM_CLASSES - 1)
+            cls = [0] * (self.config.num_classes() - 1)
             cls[detection.class_id-1] = 1
             targets = np.array([targets+cls])
         else:

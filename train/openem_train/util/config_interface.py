@@ -54,6 +54,12 @@ class ConfigInterface:
     def train_ann_path(self):
         return os.path.join(self.train_dir(), 'train_annotations.csv')
 
+    def train_ruler_position(self):
+        return os.path.join(self.train_dir(), 'ruler_position.csv')
+
+    def test_ruler_position(self):
+        return os.path.join(self.train_dir(), 'ruler_position_test.csv')
+
     def train_imgs_dir(self):
         return os.path.join(self.work_dir(), 'train_imgs')
 
@@ -80,6 +86,4 @@ class ConfigInterface:
     def tensorboard_dir(self):
         return os.path.join(self.work_dir(), 'tensorboard')
 
-    def ruler_points(self):
-        return os.path.join(self.work_dir(), 'ruler_points.csv')
 

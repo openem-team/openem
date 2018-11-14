@@ -38,13 +38,13 @@ class FishDetectionDataset:
         self.nb_train_samples = sum([len(self.detections[clip]) for clip in self.train_clips])
         self.nb_test_samples = sum([len(self.detections[clip]) for clip in self.test_clips])
 
-        if os.path.exists(config.ruler_points()):
-            self.ruler_points = {}
-            ruler_points = pd.read_csv('../output/ruler_points{}.csv'.format(self.fn_suffix))
-            for _, row in ruler_points.iterrows():
-                self.ruler_points[row.video_id] = RulerPoints(x1=row.ruler_x0, y1=row.ruler_y0, x2=row.ruler_x1, y2=row.ruler_y1)
+        self.ruler_points = {}
+        if is_test:
+            ruler_points = pd.read_csv(config.test_ruler_position())
         else:
-            self.ruler_points = None
+            ruler_points = pd.read_csv(config.train_ruler_position())
+        for _, row in ruler_points.iterrows():
+            self.ruler_points[row.video_id] = RulerPoints(x1=row.ruler_x0, y1=row.ruler_y0, x2=row.ruler_x1, y2=row.ruler_y1)
 
     def load(self):
         detections = {}
@@ -72,8 +72,9 @@ class FishDetectionDataset:
         # load labeled no fish images
         for fn in self.config.no_fish_examples():
             # file name format: video_frame.jpg
+            fn = os.path.basename(fn)
             fn = fn[:-len('.jpg')]
-            video_id, frame = fn.rsplit('_', 1)
+            video_id, frame = fn.split('_')
             frame = int(frame) - 1
 
             if video_id not in detections:
@@ -93,18 +94,14 @@ class FishDetectionDataset:
 
     def transform_for_clip(self, video_id, dst_w=720, dst_h=360, points_random_shift=0):
         img_points = np.array([[dst_w * 0.1, dst_h / 2], [dst_w * 0.9, dst_h / 2]])
-        if self.ruler_points is None:
-            tform = SimilarityTransform()
-            tform.estimate(dst=img_points, src=img_points)
-        else:
-            points = self.ruler_points[video_id]
+        points = self.ruler_points[video_id]
 
-            ruler_points = np.array([[points.x1, points.y1], [points.x2, points.y2]])
+        ruler_points = np.array([[points.x1, points.y1], [points.x2, points.y2]])
 
-            if points_random_shift > 0:
-                img_points += np.random.uniform(-points_random_shift, points_random_shift, (2, 2))
+        if points_random_shift > 0:
+            img_points += np.random.uniform(-points_random_shift, points_random_shift, (2, 2))
 
-            tform = SimilarityTransform()
-            tform.estimate(dst=ruler_points, src=img_points)
+        tform = SimilarityTransform()
+        tform.estimate(dst=ruler_points, src=img_points)
 
         return tform

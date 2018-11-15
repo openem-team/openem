@@ -20,7 +20,9 @@ def train(config):
     os.makedirs(config.tensorboard_dir(), exist_ok=True)
 
     # Build the ssd model.
-    model = ssd.ssd_model((config.detect_height(), config.detect_width(), 3))
+    model = ssd.ssd_model(
+        input_shape=(config.detect_height(), config.detect_width(), 3),
+        num_classes=config.num_classes())
 
     # Set up loss and optimizer.
     loss_obj = MultiboxLoss(

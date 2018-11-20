@@ -53,8 +53,15 @@ def ssd_model(input_shape, num_classes=21, add_dropout=True):
             if layer.name.startswith('activation'):
                 activation_layer_names.append(layer.name)
 
-    # print(activation_layer_names)
-
+    # The ResNet50 architecture changed in June 2018 to exclude 
+    # an average pooling layer when include_top is false. This caused
+    # the last activation layer to no longer have output nodes, so 
+    # we add it to the list of activation layers here if it is missing. 
+    if not 'activation_49' in activation_layer_names:
+        net['activation_49'] = resnet_head.layers[-1].output
+        resnet_head.layers[-1].trainable = False
+        activation_layer_names.append('activation_49')
+        
     prev_size_layer_name = activation_layer_names[-10]
 
     net['pool5'] = MaxPooling2D((3, 3), strides=(1, 1), padding='same',

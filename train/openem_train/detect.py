@@ -24,6 +24,10 @@ def train(config):
         input_shape=(config.detect_height(), config.detect_width(), 3),
         num_classes=config.num_classes())
 
+    # Set trainable layers.
+    for layer in model.layers:
+        layer.trainable = True
+
     # Set up loss and optimizer.
     loss_obj = MultiboxLoss(
         config.num_classes(),
@@ -49,7 +53,7 @@ def train(config):
         if layer is not None:
             priors.append(layer.prior_boxes)
     priors = np.vstack(priors)
-    
+
     # Set up bounding box utility.
     bbox_util = BBoxUtility(config.num_classes(), priors)
 

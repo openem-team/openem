@@ -60,10 +60,6 @@ class ConfigInterface:
         patt = os.path.join(self.train_dir(), 'train_videos', '*.mp4')
         return glob.glob(patt)
 
-    def test_vids(self):
-        patt = os.path.join(self.train_dir(), 'test_videos', '*.mp4')
-        return glob.glob(patt)
-
     def no_fish_examples(self):
         patt = os.path.join(self.train_dir(), 'cover', 'no_fish', '*.jpg')
         return glob.glob(patt)
@@ -82,20 +78,8 @@ class ConfigInterface:
     def train_ruler_position(self):
         return os.path.join(self.train_dir(), 'ruler_position.csv')
 
-    def test_ruler_position(self):
-        return os.path.join(self.train_dir(), 'ruler_position_test.csv')
-
     def train_imgs_dir(self):
         return os.path.join(self.work_dir(), 'train_imgs')
-
-    def test_imgs_dir(self):
-        return os.path.join(self.work_dir(), 'test_imgs')
-
-    def train_roi_imgs_dir(self):
-        return os.path.join(self.work_dir(), 'train_roi_imgs')
-
-    def test_roi_imgs_dir(self):
-        return os.path.join(self.work_dir(), 'test_roi_imgs_dir')
 
     def checkpoints_dir(self):
         return os.path.join(self.work_dir(), 'checkpoints')

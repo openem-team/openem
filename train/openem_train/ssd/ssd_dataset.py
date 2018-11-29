@@ -1,13 +1,20 @@
+import os
 import scipy
 import skimage
 import random
 import numpy as np
+import pandas as pd
+from typing import List, Dict
+from collections import namedtuple
 from multiprocessing.pool import ThreadPool
+from skimage.transform import SimilarityTransform
+from sklearn.model_selection import train_test_split
 from keras.applications.imagenet_utils import preprocess_input
-from openem_train.ssd import fish_detection
-from openem_train.ssd import dataset
 from openem_train.util import utils
 from openem_train.util import img_augmentation
+
+FishDetection = namedtuple('FishDetection', ['video_id', 'frame', 'fish_number', 'x1', 'y1', 'x2', 'y2', 'class_id'])
+RulerPoints = namedtuple('RulerPoints', ['x1', 'y1', 'x2', 'y2'])
 
 class SampleCfg:
     """
@@ -40,9 +47,23 @@ class SampleCfg:
     def __str__(self):
         return self.class_names[self.detection.class_id] + ' ' + str(self.__dict__)
 
-class SSDDataset(fish_detection.FishDetectionDataset):
-    def __init__(self, config, bbox_util, preprocess_input=preprocess_input, is_test=False):
-        super().__init__(config, is_test)
+class SSDDataset:
+    def __init__(self, config, bbox_util, preprocess_input=preprocess_input):
+        self.config = config
+        self.fn_suffix = ''
+        self.detections = self.load()  # type: Dict[FishDetection]
+        self.train_clips, self.test_clips = train_test_split(sorted(self.detections.keys()),
+                                                             test_size=0.05,
+                                                             random_state=12)
+
+        self.nb_train_samples = sum([len(self.detections[clip]) for clip in self.train_clips])
+        self.nb_test_samples = sum([len(self.detections[clip]) for clip in self.test_clips])
+
+        self.ruler_points = {}
+        ruler_points = pd.read_csv(config.train_ruler_position())
+        for _, row in ruler_points.iterrows():
+            self.ruler_points[row.video_id] = RulerPoints(x1=row.ruler_x0, y1=row.ruler_y0, x2=row.ruler_x1, y2=row.ruler_y1)
+
         self.bbox_util = bbox_util
         self.preprocess_input = preprocess_input
 
@@ -59,7 +80,10 @@ class SSDDataset(fish_detection.FishDetectionDataset):
         return img, y
 
     def generate_xy(self, cfg: SampleCfg):
-        img = scipy.misc.imread(dataset.image_fn(self.config, cfg.detection.video_id, cfg.detection.frame, is_test=self.is_test))
+        img = scipy.misc.imread(os.path.join(
+            self.config.train_imgs_dir(), 
+            cfg.detection.video_id, 
+            '{:04}.jpg'.format(cfg.detection.frame)))
         crop = skimage.transform.warp(img, cfg.transformation, mode='edge', order=3, output_shape=(self.config.detect_height(), self.config.detect_width()))
 
         detection = cfg.detection
@@ -100,11 +124,61 @@ class SSDDataset(fish_detection.FishDetectionDataset):
 
         return crop*255.0, targets
 
-    def generate_x_from_precomputed_crop(self, cfg: SampleCfg):
-        crop = scipy.misc.imread(dataset.image_crop_fn(cfg.detection.video_id, cfg.detection.frame, is_test=self.is_test))
-        crop = crop.astype('float32')
-        # print('crop max val:', np.max(crop))
-        return crop
+    def load(self):
+        detections = {}
+        ds = pd.read_csv(self.config.train_ann_path())
+
+        for row_id, row in ds.iterrows():
+            video_id = row.video_id
+            if video_id not in detections:
+                detections[video_id] = []
+
+            detections[video_id].append(
+                FishDetection(
+                    video_id=video_id,
+                    frame=row.frame,
+                    fish_number=row.fish_number,
+                    x1=row.x1, y1=row.y1,
+                    x2=row.x2, y2=row.y2,
+                    class_id=row.species_id
+                )
+            )
+        # load labeled no fish images
+        for fn in self.config.no_fish_examples():
+            # file name format: video_frame.jpg
+            fn = os.path.basename(fn)
+            fn = fn[:-len('.jpg')]
+            video_id, frame = fn.split('_')
+            frame = int(frame)
+
+            if video_id not in detections:
+                detections[video_id] = []
+
+            detections[video_id].append(
+                FishDetection(
+                    video_id=video_id,
+                    frame=frame,
+                    fish_number=0,
+                    x1=np.nan, y1=np.nan,
+                    x2=np.nan, y2=np.nan,
+                    class_id=0
+                )
+            )
+        return detections
+
+    def transform_for_clip(self, video_id, dst_w=720, dst_h=360, points_random_shift=0):
+        img_points = np.array([[dst_w * 0.1, dst_h / 2], [dst_w * 0.9, dst_h / 2]])
+        points = self.ruler_points[video_id]
+
+        ruler_points = np.array([[points.x1, points.y1], [points.x2, points.y2]])
+
+        if points_random_shift > 0:
+            img_points += np.random.uniform(-points_random_shift, points_random_shift, (2, 2))
+
+        tform = SimilarityTransform()
+        tform.estimate(dst=ruler_points, src=img_points)
+
+        return tform
 
     def generate_ssd(self, batch_size, is_training, verbose=False, skip_assign_boxes=False, always_shuffle=False):
         pool = ThreadPool(processes=8)
@@ -166,43 +240,4 @@ class SSDDataset(fish_detection.FishDetectionDataset):
                     y = np.array(targets)
 
                     yield x, y
-
-    def generate_x_for_train_video_id(self, video_id, batch_size, pool, frames=None):
-        detections = []  # type: List[fish_detection.FishDetection]
-        frames_to_use = frames if frames is not None else range(len(dataset.video_clips(is_test=self.is_test)[video_id]))
-        for frame_id in frames_to_use:
-            detections.append(
-                fish_detection.FishDetection(
-                    video_id=video_id,
-                    frame=frame_id,
-                    fish_number=0,
-                    x1=np.nan, y1=np.nan,
-                    x2=np.nan, y2=np.nan,
-                    class_id=0
-                )
-            )
-
-        def output_samples(samples_to_process):
-            inputs = []
-            for img in pool.map(self.generate_x_from_precomputed_crop, samples_to_process):
-                inputs.append(img)
-
-            frames = [cfg.detection.frame for cfg in samples_to_process]
-
-            tmp_inp = np.array(inputs)
-            inputs.clear()  # lets return some memory earlier
-            x = self.preprocess_input(tmp_inp)
-            return x, frames
-
-        samples_to_process = []
-        for detection in detections:
-            cfg = SampleCfg(detection=detection, transformation=None, class_names=self.config.species())
-            samples_to_process.append(cfg)
-
-            if len(samples_to_process) >= batch_size:
-                yield output_samples(samples_to_process)
-                samples_to_process = []
-
-        if len(samples_to_process) > 0:
-            yield output_samples(samples_to_process)
 

@@ -1,3 +1,6 @@
+"""Functions for training detection algorithm.
+"""
+
 import os
 import numpy as np
 from keras.optimizers import Adam
@@ -12,7 +15,7 @@ def train(config):
     """Trains detection model.
 
     # Arguments
-        config: ConfigParser object.
+        config: ConfigInterface object.
     """
 
     # Create tensorboard and checkpoints directories.
@@ -31,7 +34,7 @@ def train(config):
     # Set up loss and optimizer.
     loss_obj = MultiboxLoss(
         config.num_classes(),
-        neg_pos_ratio=2.0, 
+        neg_pos_ratio=2.0,
         pos_cost_multiplier=1.1)
     adam = Adam(lr=3e-5)
 
@@ -59,8 +62,8 @@ def train(config):
 
     # Set up dataset interface.
     dataset = SSDDataset(
-        config, 
-        bbox_util=bbox_util, 
+        config,
+        bbox_util=bbox_util,
         preprocess_input=lambda x: x)
 
     # Set up keras callbacks.
@@ -87,7 +90,7 @@ def train(config):
     val_batch_size = config.detect_val_batch_size()
     model.fit_generator(
         dataset.generate_ssd(
-            batch_size=batch_size, 
+            batch_size=batch_size,
             is_training=True),
         steps_per_epoch=dataset.nb_train_samples // batch_size,
         epochs=config.detect_num_epochs(),
@@ -98,4 +101,3 @@ def train(config):
             is_training=False),
         validation_steps=dataset.nb_test_samples // val_batch_size,
         initial_epoch=0)
-

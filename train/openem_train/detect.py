@@ -64,7 +64,7 @@ def train(config):
     dataset = SSDDataset(
         config,
         bbox_util=bbox_util,
-        preprocess_input=lambda x: x)
+        preproc=lambda x: x)
 
     # Set up keras callbacks.
     checkpoint_best = ModelCheckpoint(

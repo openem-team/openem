@@ -8,11 +8,6 @@ from collections import namedtuple
 from skimage.transform import SimilarityTransform
 from sklearn.model_selection import train_test_split
 from openem_train.ssd import dataset
-from openem_train.ssd.dataset import SPECIES, CLASSES
-
-EXTRA_LABELS_BASE_DIR = '../output/ruler_crops_batch_labeled'
-
-NUM_CLASSES = len(CLASSES)
 
 FishDetection = namedtuple('FishDetection', ['video_id', 'frame', 'fish_number', 'x1', 'y1', 'x2', 'y2', 'class_id'])
 RulerPoints = namedtuple('RulerPoints', ['x1', 'y1', 'x2', 'y2'])
@@ -50,10 +45,6 @@ class FishDetectionDataset:
         detections = {}
         ds = pd.read_csv(self.config.train_ann_path())
 
-        species = ds.as_matrix(columns=['species_'+s for s in SPECIES])
-        cls_column = np.argmax(species, axis=1)+1
-        cls_column[np.max(species, axis=1) == 0] = 0
-
         for row_id, row in ds.iterrows():
             video_id = row.video_id
             if video_id not in detections:
@@ -66,7 +57,7 @@ class FishDetectionDataset:
                     fish_number=row.fish_number,
                     x1=row.x1, y1=row.y1,
                     x2=row.x2, y2=row.y2,
-                    class_id=int(cls_column[row_id])
+                    class_id=row.species_id
                 )
             )
         # load labeled no fish images

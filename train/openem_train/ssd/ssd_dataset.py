@@ -17,6 +17,7 @@ class SampleCfg:
     def __init__(self,
                  detection,
                  transformation,
+                 class_names,
                  saturation=0.5, 
                  contrast=0.5, 
                  brightness=0.5,  # 0.5  - no changes, range 0..1
@@ -31,12 +32,13 @@ class SampleCfg:
         self.contrast = contrast
         self.saturation = saturation
         self.blurred_by_downscaling = blurred_by_downscaling
+        self.class_names = class_names
 
     def __lt__(self, other):
         return True
 
     def __str__(self):
-        return dataset.CLASSES[self.detection.class_id] + ' ' + str(self.__dict__)
+        return self.class_names[self.detection.class_id] + ' ' + str(self.__dict__)
 
 class SSDDataset(fish_detection.FishDetectionDataset):
     def __init__(self, config, bbox_util, preprocess_input=preprocess_input, is_test=False):
@@ -65,7 +67,7 @@ class SSDDataset(fish_detection.FishDetectionDataset):
         if detection.class_id > 0:
             coords = np.array([[detection.x1, detection.y1], [detection.x2, detection.y2]])
             coords_in_crop = cfg.transformation.inverse(coords)
-            aspect_ratio = dataset.ASPECT_RATIO_TABLE[dataset.CLASSES[detection.class_id]]
+            aspect_ratio = self.config.aspect_ratios()[detection.class_id - 1]
             coords_box0, coords_box1 = utils.bbox_for_line(coords_in_crop[0, :], coords_in_crop[1, :], aspect_ratio)
             coords_box0 /= np.array([self.config.detect_width(), self.config.detect_height()])
             coords_box1 /= np.array([self.config.detect_width(), self.config.detect_height()])
@@ -131,7 +133,7 @@ class SSDDataset(fish_detection.FishDetectionDataset):
                     dst_w=self.config.detect_width(), 
                     dst_h=self.config.detect_height(),
                     points_random_shift=points_random_shift)
-                cfg = SampleCfg(detection=detection, transformation=tform)
+                cfg = SampleCfg(detection=detection, transformation=tform, class_names=self.config.species())
 
                 if is_training:
                     cfg.contrast = rand_or_05()
@@ -194,7 +196,7 @@ class SSDDataset(fish_detection.FishDetectionDataset):
 
         samples_to_process = []
         for detection in detections:
-            cfg = SampleCfg(detection=detection, transformation=None)
+            cfg = SampleCfg(detection=detection, transformation=None, class_names=self.config.species())
             samples_to_process.append(cfg)
 
             if len(samples_to_process) >= batch_size:

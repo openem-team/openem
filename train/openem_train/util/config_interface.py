@@ -4,8 +4,27 @@ import configparser
 
 class ConfigInterface:
     def __init__(self, config_file):
+        """Constructor.
+
+        # Arguments
+            config_file: Path to config file.
+        """
         self.config = configparser.ConfigParser()
         self.config.read(config_file)
+        
+        # Read in species info.
+        self._species = self.config.get('Data', 'Species').split(',')
+        self._ratios = self.config.get('Data', 'AspectRatios').split(',')
+        self._ratios = [float(r) for r in self._ratios]
+        if len(self._ratios) != len(self._species):
+            msg = (
+                "Invalid config file!  "
+                "Number of species and aspect ratios must match!  "
+                "Number of species: {}, "
+                "Number of aspect ratios: {}")
+            msg.format(len(self._species), len(self._ratios))
+            raise ValueError(msg)
+        self._num_classes = len(self._species) + 1
 
     def work_dir(self):
         return self.config.get('Paths', 'WorkDir')
@@ -14,7 +33,13 @@ class ConfigInterface:
         return self.config.get('Paths', 'TrainDir')
 
     def num_classes(self):
-        return self.config.getint('Data', 'NumClasses')
+        return self._num_classes
+
+    def species(self):
+        return self._species
+
+    def aspect_ratios(self):
+        return self._ratios
 
     def detect_width(self):
         return self.config.getint('Detect', 'Width')

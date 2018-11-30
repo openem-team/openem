@@ -5,15 +5,15 @@
 **OpenEM** is a library that provides advanced video analytics for 
 fisheries electronic monitoring (EM) data.  It currently supports detection,
 classification, counting and measurement of fish during landing or discard.  
-This functionality is currently only available via a deployment library with
+This functionality is available via a deployment library with
 pretrained models available in our example data (see tutorial).  The base
 library is written in C++, with bindings available for both Python and C#.
 Examples are included for all three languages.
 
-There are immediate plans to develop a training library so that users
-can build their own models on their own data.  Currently builds have only 
-been tested on Windows.  We plan to support both Ubuntu and macOS in the 
-future.
+The current release includes a training library for the detection 
+model.  There are immediate plans to expand this library to include 
+all OpenEM functionality.  Currently builds have only been tested on 
+Windows.  We plan to support both Ubuntu and macOS in the future.
 
 Click the image below to see a video of OpenEM in action:
 

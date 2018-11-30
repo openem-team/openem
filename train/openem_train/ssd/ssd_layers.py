@@ -1,4 +1,5 @@
-"""Some special purpose layers for SSD."""
+"""Some special purpose layers for SSD.
+"""
 
 import keras.backend as K
 from keras.engine.topology import InputSpec
@@ -23,9 +24,6 @@ class Normalize(Layer):
 
     # References
         http://cs.unc.edu/~wliu/papers/parsenet.pdf
-
-    #TODO
-        Add possibility to have one scale for all features.
     """
     def __init__(self, scale, **kwargs):
         if K.image_dim_ordering() == 'tf':
@@ -33,6 +31,8 @@ class Normalize(Layer):
         else:
             self.axis = 1
         self.scale = scale
+        self.gamma = None
+        self.trainable_weights = None
         super(Normalize, self).__init__(**kwargs)
 
     def build(self, input_shape):
@@ -42,8 +42,8 @@ class Normalize(Layer):
         self.gamma = K.variable(init_gamma, name='{}_gamma'.format(self.name))
         self.trainable_weights = [self.gamma]
 
-    def call(self, x, mask=None):
-        output = K.l2_normalize(x, self.axis)
+    def call(self, inputs, **kwargs):
+        output = K.l2_normalize(inputs, self.axis)
         output *= self.gamma
         return output
 
@@ -72,13 +72,9 @@ class PriorBox(Layer):
 
     # References
         https://arxiv.org/abs/1512.02325
-
-    #TODO
-        Add possibility not to have variances.
-        Add Theano support
     """
     def __init__(self, img_size, min_size, max_size=None, aspect_ratios=None,
-                 flip=True, variances=[0.1], clip=True, **kwargs):
+                 flip=True, variances=None, clip=True, **kwargs):
         if K.image_dim_ordering() == 'tf':
             self.waxis = 2
             self.haxis = 1
@@ -97,14 +93,16 @@ class PriorBox(Layer):
                 raise Exception('max_size must be greater than min_size.')
             self.aspect_ratios.append(1.0)
         if aspect_ratios:
-            for ar in aspect_ratios:
-                if ar in self.aspect_ratios:
+            for aspect_ratio in aspect_ratios:
+                if aspect_ratio in self.aspect_ratios:
                     continue
-                self.aspect_ratios.append(ar)
+                self.aspect_ratios.append(aspect_ratio)
                 if flip:
-                    self.aspect_ratios.append(1.0 / ar)
+                    self.aspect_ratios.append(1.0 / aspect_ratio)
+        if variances is None:
+            variances = [0.1]
         self.variances = np.array(variances)
-        self.clip = True
+        self.clip = clip
         super(PriorBox, self).__init__(**kwargs)
 
     def compute_output_shape(self, input_shape):
@@ -114,11 +112,11 @@ class PriorBox(Layer):
         num_boxes = num_priors_ * layer_width * layer_height
         return (input_shape[0], num_boxes, 8)
 
-    def call(self, x, mask=None):
-        if hasattr(x, '_keras_shape'):
-            input_shape = x._keras_shape
+    def call(self, inputs, **kwargs):
+        if hasattr(inputs, '_keras_shape'):
+            input_shape = inputs._keras_shape
         elif hasattr(K, 'int_shape'):
-            input_shape = K.int_shape(x)
+            input_shape = K.int_shape(inputs)
         layer_width = input_shape[self.waxis]
         layer_height = input_shape[self.haxis]
         img_width = self.img_size[0]
@@ -126,16 +124,16 @@ class PriorBox(Layer):
         # define prior boxes shapes
         box_widths = []
         box_heights = []
-        for ar in self.aspect_ratios:
-            if ar == 1 and len(box_widths) == 0:
+        for aspect_ratio in self.aspect_ratios:
+            if aspect_ratio == 1 and not box_widths:
                 box_widths.append(self.min_size)
                 box_heights.append(self.min_size)
-            elif ar == 1 and len(box_widths) > 0:
+            elif aspect_ratio == 1 and box_widths:
                 box_widths.append(np.sqrt(self.min_size * self.max_size))
                 box_heights.append(np.sqrt(self.min_size * self.max_size))
-            elif ar != 1:
-                box_widths.append(self.min_size * np.sqrt(ar))
-                box_heights.append(self.min_size / np.sqrt(ar))
+            elif aspect_ratio != 1:
+                box_widths.append(self.min_size * np.sqrt(aspect_ratio))
+                box_heights.append(self.min_size / np.sqrt(aspect_ratio))
         box_widths = 0.5 * np.array(box_widths)
         box_heights = 0.5 * np.array(box_heights)
         # define centers of prior boxes
@@ -172,10 +170,6 @@ class PriorBox(Layer):
         prior_boxes = np.concatenate((prior_boxes, variances), axis=1)
         self.prior_boxes = prior_boxes
         prior_boxes_tensor = K.expand_dims(K.variable(prior_boxes), 0)
-        if K.backend() == 'tensorflow':
-            pattern = [tf.shape(x)[0], 1, 1]
-            prior_boxes_tensor = tf.tile(prior_boxes_tensor, pattern)
-        elif K.backend() == 'theano':
-            #TODO
-            pass
+        pattern = [tf.shape(inputs)[0], 1, 1]
+        prior_boxes_tensor = tf.tile(prior_boxes_tensor, pattern)
         return prior_boxes_tensor

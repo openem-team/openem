@@ -3,8 +3,41 @@
 import numpy as np
 import tensorflow as tf
 
+def _decode_boxes(mbox_loc, mbox_priorbox, variances):
+    """Convert bboxes from local predictions to shifted priors.
 
-class BBoxUtility(object):
+    # Arguments
+        mbox_loc: Numpy array of predicted locations.
+        mbox_priorbox: Numpy array of prior boxes.
+        variances: Numpy array of variances.
+
+    # Return
+        decode_bbox: Shifted priors.
+    """
+    prior_width = mbox_priorbox[:, 2] - mbox_priorbox[:, 0]
+    prior_height = mbox_priorbox[:, 3] - mbox_priorbox[:, 1]
+    prior_center_x = 0.5 * (mbox_priorbox[:, 2] + mbox_priorbox[:, 0])
+    prior_center_y = 0.5 * (mbox_priorbox[:, 3] + mbox_priorbox[:, 1])
+    decode_bbox_center_x = mbox_loc[:, 0] * prior_width * variances[:, 0]
+    decode_bbox_center_x += prior_center_x
+    decode_bbox_center_y = mbox_loc[:, 1] * prior_width * variances[:, 1]
+    decode_bbox_center_y += prior_center_y
+    decode_bbox_width = np.exp(mbox_loc[:, 2] * variances[:, 2])
+    decode_bbox_width *= prior_width
+    decode_bbox_height = np.exp(mbox_loc[:, 3] * variances[:, 3])
+    decode_bbox_height *= prior_height
+    decode_bbox_xmin = decode_bbox_center_x - 0.5 * decode_bbox_width
+    decode_bbox_ymin = decode_bbox_center_y - 0.5 * decode_bbox_height
+    decode_bbox_xmax = decode_bbox_center_x + 0.5 * decode_bbox_width
+    decode_bbox_ymax = decode_bbox_center_y + 0.5 * decode_bbox_height
+    decode_bbox = np.concatenate((decode_bbox_xmin[:, None],
+                                  decode_bbox_ymin[:, None],
+                                  decode_bbox_xmax[:, None],
+                                  decode_bbox_ymax[:, None]), axis=-1)
+    decode_bbox = np.minimum(np.maximum(decode_bbox, 0.0), 1.0)
+    return decode_bbox
+
+class BBoxUtility:
     """Utility class to do some stuff with bounding boxes and priors.
 
     # Arguments
@@ -18,7 +51,6 @@ class BBoxUtility(object):
     # References
         https://arxiv.org/abs/1512.02325
     """
-    # TODO add setter methods for nms_thresh and top_K
     def __init__(self, num_classes, priors=None, overlap_threshold=0.5,
                  nms_thresh=0.45, top_k=400):
         self.num_classes = num_classes
@@ -36,10 +68,14 @@ class BBoxUtility(object):
 
     @property
     def nms_thresh(self):
+        """Accessor for non-max suppression threshold.
+        """
         return self._nms_thresh
 
     @nms_thresh.setter
     def nms_thresh(self, value):
+        """Setter for non-max suppression threshold.
+        """
         self._nms_thresh = value
         self.nms = tf.image.non_max_suppression(self.boxes, self.scores,
                                                 self._top_k,
@@ -47,10 +83,14 @@ class BBoxUtility(object):
 
     @property
     def top_k(self):
+        """Accessor for top k anchor boxes.
+        """
         return self._top_k
 
     @top_k.setter
     def top_k(self, value):
+        """Setter for top k anchor boxes.
+        """
         self._top_k = value
         self.nms = tf.image.non_max_suppression(self.boxes, self.scores,
                                                 self._top_k,
@@ -132,7 +172,7 @@ class BBoxUtility(object):
         """
         assignment = np.zeros((self.num_priors, 4 + self.num_classes + 8))
         assignment[:, 4] = 1.0
-        if len(boxes) == 0:
+        if boxes.size == 0:
             return assignment
         encoded_boxes = np.apply_along_axis(self.encode_box, 1, boxes[:, :4])
         encoded_boxes = encoded_boxes.reshape(-1, self.num_priors, 5)
@@ -149,40 +189,6 @@ class BBoxUtility(object):
         assignment[:, 5:-8][best_iou_mask] = boxes[best_iou_idx, 4:]
         assignment[:, -8][best_iou_mask] = 1
         return assignment
-
-    def decode_boxes(self, mbox_loc, mbox_priorbox, variances):
-        """Convert bboxes from local predictions to shifted priors.
-
-        # Arguments
-            mbox_loc: Numpy array of predicted locations.
-            mbox_priorbox: Numpy array of prior boxes.
-            variances: Numpy array of variances.
-
-        # Return
-            decode_bbox: Shifted priors.
-        """
-        prior_width = mbox_priorbox[:, 2] - mbox_priorbox[:, 0]
-        prior_height = mbox_priorbox[:, 3] - mbox_priorbox[:, 1]
-        prior_center_x = 0.5 * (mbox_priorbox[:, 2] + mbox_priorbox[:, 0])
-        prior_center_y = 0.5 * (mbox_priorbox[:, 3] + mbox_priorbox[:, 1])
-        decode_bbox_center_x = mbox_loc[:, 0] * prior_width * variances[:, 0]
-        decode_bbox_center_x += prior_center_x
-        decode_bbox_center_y = mbox_loc[:, 1] * prior_width * variances[:, 1]
-        decode_bbox_center_y += prior_center_y
-        decode_bbox_width = np.exp(mbox_loc[:, 2] * variances[:, 2])
-        decode_bbox_width *= prior_width
-        decode_bbox_height = np.exp(mbox_loc[:, 3] * variances[:, 3])
-        decode_bbox_height *= prior_height
-        decode_bbox_xmin = decode_bbox_center_x - 0.5 * decode_bbox_width
-        decode_bbox_ymin = decode_bbox_center_y - 0.5 * decode_bbox_height
-        decode_bbox_xmax = decode_bbox_center_x + 0.5 * decode_bbox_width
-        decode_bbox_ymax = decode_bbox_center_y + 0.5 * decode_bbox_height
-        decode_bbox = np.concatenate((decode_bbox_xmin[:, None],
-                                      decode_bbox_ymin[:, None],
-                                      decode_bbox_xmax[:, None],
-                                      decode_bbox_ymax[:, None]), axis=-1)
-        decode_bbox = np.minimum(np.maximum(decode_bbox, 0.0), 1.0)
-        return decode_bbox
 
     def detection_out(self, predictions, background_label_id=0, keep_top_k=200,
                       confidence_threshold=0.01):
@@ -206,16 +212,15 @@ class BBoxUtility(object):
         mbox_priorbox = predictions[:, :, -8:-4]
         mbox_conf = predictions[:, :, 4:-8]
         results = []
-        for i in range(len(mbox_loc)):
+        for i, (loc, pbox, var) in enumerate(zip(mbox_loc, mbox_priorbox, variances)):
             results.append([])
-            decode_bbox = self.decode_boxes(mbox_loc[i],
-                                            mbox_priorbox[i], variances[i])
-            for c in range(self.num_classes):
-                if c == background_label_id:
+            decode_bbox = _decode_boxes(loc, pbox, var)
+            for class_idx in range(self.num_classes):
+                if class_idx == background_label_id:
                     continue
-                c_confs = mbox_conf[i, :, c]
+                c_confs = mbox_conf[i, :, class_idx]
                 c_confs_m = c_confs > confidence_threshold
-                if len(c_confs[c_confs_m]) > 0:
+                if c_confs[c_confs_m]:
                     boxes_to_process = decode_bbox[c_confs_m]
                     confs_to_process = c_confs[c_confs_m]
                     feed_dict = {self.boxes: boxes_to_process,
@@ -223,11 +228,11 @@ class BBoxUtility(object):
                     idx = self.sess.run(self.nms, feed_dict=feed_dict)
                     good_boxes = boxes_to_process[idx]
                     confs = confs_to_process[idx][:, None]
-                    labels = c * np.ones((len(idx), 1))
+                    labels = class_idx * np.ones((len(idx), 1))
                     c_pred = np.concatenate((labels, confs, good_boxes),
                                             axis=1)
                     results[-1].extend(c_pred)
-            if len(results[-1]) > 0:
+            if results[-1]:
                 results[-1] = np.array(results[-1])
                 argsort = np.argsort(results[-1][:, 1])[::-1]
                 results[-1] = results[-1][argsort]

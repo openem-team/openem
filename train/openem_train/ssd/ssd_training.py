@@ -1,9 +1,46 @@
-"""SSD training utils."""
+"""SSD training utils.
+"""
 
 import tensorflow as tf
 
+def _l1_smooth_loss(y_true, y_pred):
+    """Compute L1-smooth loss.
 
-class MultiboxLoss(object):
+    # Arguments
+        y_true: Ground truth bounding boxes,
+            tensor of shape (?, num_boxes, 4).
+        y_pred: Predicted bounding boxes,
+            tensor of shape (?, num_boxes, 4).
+
+    # Returns
+        l1_loss: L1-smooth loss, tensor of shape (?, num_boxes).
+
+    # References
+        https://arxiv.org/abs/1504.08083
+    """
+    abs_loss = tf.abs(y_true - y_pred)
+    sq_loss = 0.5 * (y_true - y_pred)**2
+    l1_loss = tf.where(tf.less(abs_loss, 1.0), sq_loss, abs_loss - 0.5)
+    return tf.reduce_sum(l1_loss, -1)
+
+def _softmax_loss(y_true, y_pred):
+    """Compute softmax loss.
+
+    # Arguments
+        y_true: Ground truth targets,
+            tensor of shape (?, num_boxes, num_classes).
+        y_pred: Predicted logits,
+            tensor of shape (?, num_boxes, num_classes).
+
+    # Returns
+        softmax_loss: Softmax loss, tensor of shape (?, num_boxes).
+    """
+    y_pred = tf.maximum(tf.minimum(y_pred, 1 - 1e-15), 1e-15)
+    softmax_loss = -tf.reduce_sum(y_true * tf.log(y_pred),
+                                  axis=-1)
+    return softmax_loss
+
+class MultiboxLoss:
     """Multibox loss with some helper functions.
 
     # Arguments
@@ -16,9 +53,6 @@ class MultiboxLoss(object):
 
     # References
         https://arxiv.org/abs/1512.02325
-
-    # TODO
-        Add possibility for background label id be not zero
     """
     def __init__(self, num_classes, alpha=1.0, neg_pos_ratio=3.0,
                  background_label_id=0, negatives_for_hard=100.0,
@@ -31,43 +65,6 @@ class MultiboxLoss(object):
             raise Exception('Only 0 as background label id is supported')
         self.background_label_id = background_label_id
         self.negatives_for_hard = negatives_for_hard
-
-    def _l1_smooth_loss(self, y_true, y_pred):
-        """Compute L1-smooth loss.
-
-        # Arguments
-            y_true: Ground truth bounding boxes,
-                tensor of shape (?, num_boxes, 4).
-            y_pred: Predicted bounding boxes,
-                tensor of shape (?, num_boxes, 4).
-
-        # Returns
-            l1_loss: L1-smooth loss, tensor of shape (?, num_boxes).
-
-        # References
-            https://arxiv.org/abs/1504.08083
-        """
-        abs_loss = tf.abs(y_true - y_pred)
-        sq_loss = 0.5 * (y_true - y_pred)**2
-        l1_loss = tf.where(tf.less(abs_loss, 1.0), sq_loss, abs_loss - 0.5)
-        return tf.reduce_sum(l1_loss, -1)
-
-    def _softmax_loss(self, y_true, y_pred):
-        """Compute softmax loss.
-
-        # Arguments
-            y_true: Ground truth targets,
-                tensor of shape (?, num_boxes, num_classes).
-            y_pred: Predicted logits,
-                tensor of shape (?, num_boxes, num_classes).
-
-        # Returns
-            softmax_loss: Softmax loss, tensor of shape (?, num_boxes).
-        """
-        y_pred = tf.maximum(tf.minimum(y_pred, 1 - 1e-15), 1e-15)
-        softmax_loss = -tf.reduce_sum(y_true * tf.log(y_pred),
-                                      axis=-1)
-        return softmax_loss
 
     def compute_loss(self, y_true, y_pred):
         """Compute mutlibox loss.
@@ -89,10 +86,10 @@ class MultiboxLoss(object):
         num_boxes = tf.to_float(tf.shape(y_true)[1])
 
         # loss for all priors
-        conf_loss = self._softmax_loss(y_true[:, :, 4:-8],
-                                       y_pred[:, :, 4:-8])
-        loc_loss = self._l1_smooth_loss(y_true[:, :, :4],
-                                        y_pred[:, :, :4])
+        conf_loss = _softmax_loss(y_true[:, :, 4:-8],
+                                  y_pred[:, :, 4:-8])
+        loc_loss = _l1_smooth_loss(y_true[:, :, :4],
+                                   y_pred[:, :, :4])
 
         # get positives loss
         num_pos = tf.reduce_sum(y_true[:, :, -8], axis=-1)
@@ -106,8 +103,9 @@ class MultiboxLoss(object):
                              num_boxes - num_pos)
         pos_num_neg_mask = tf.greater(num_neg, 0)
         has_min = tf.to_float(tf.reduce_any(pos_num_neg_mask))
-        num_neg = tf.concat(axis=0, values=[num_neg,
-                                [(1 - has_min) * self.negatives_for_hard]])
+        num_neg = tf.concat(
+            axis=0,
+            values=[num_neg, [(1 - has_min) * self.negatives_for_hard]])
         num_neg_batch = tf.reduce_min(tf.boolean_mask(num_neg,
                                                       tf.greater(num_neg, 0)))
         num_neg_batch = tf.to_int32(num_neg_batch)
@@ -134,6 +132,6 @@ class MultiboxLoss(object):
         total_loss = pos_conf_loss * self.pos_cost_multiplier + neg_conf_loss
         total_loss /= (num_pos + tf.to_float(num_neg_batch))
         num_pos = tf.where(tf.not_equal(num_pos, 0), num_pos,
-                            tf.ones_like(num_pos))
+                           tf.ones_like(num_pos))
         total_loss += (self.alpha * pos_loc_loss) / num_pos
         return total_loss

@@ -19,7 +19,7 @@ from openem_train.util import img_augmentation
 # pylint: disable=too-many-instance-attributes
 FishDetection = namedtuple(
     'FishDetection',
-    ['video_id', 'frame', 'fish_number', 'x1', 'y1', 'x2', 'y2', 'class_id'])
+    ['video_id', 'frame', 'x1', 'y1', 'x2', 'y2', 'class_id'])
 RulerPoints = namedtuple('RulerPoints', ['x1', 'y1', 'x2', 'y2'])
 
 def _horizontal_flip(img, bbox):
@@ -102,7 +102,7 @@ class SSDDataset:
             [len(self.detections[clip]) for clip in self.test_clips])
 
         self.ruler_points = {}
-        ruler_points = pd.read_csv(config.train_ruler_position())
+        ruler_points = pd.read_csv(config.ruler_position_path())
         for _, row in ruler_points.iterrows():
             self.ruler_points[row.video_id] = RulerPoints(
                 x1=row.ruler_x0,
@@ -117,9 +117,9 @@ class SSDDataset:
         """ Loads data to be used from annotation csv file.
         """
         detections = {}
-        annotations = pd.read_csv(self.config.train_ann_path())
+        length = pd.read_csv(self.config.length_path())
 
-        for _, row in annotations.iterrows():
+        for _, row in length.iterrows():
             video_id = row.video_id
             if video_id not in detections:
                 detections[video_id] = []
@@ -128,33 +128,26 @@ class SSDDataset:
                 FishDetection(
                     video_id=video_id,
                     frame=row.frame,
-                    fish_number=row.fish_number,
                     x1=row.x1, y1=row.y1,
                     x2=row.x2, y2=row.y2,
                     class_id=row.species_id
                 )
             )
         # load labeled no fish images
-        for filename in self.config.no_fish_examples():
-            # file name format: video_frame.jpg
-            filename = os.path.basename(filename)
-            filename = filename[:-len('.jpg')]
-            video_id, frame = filename.split('_')
-            frame = int(frame)
-
-            if video_id not in detections:
-                detections[video_id] = []
-
-            detections[video_id].append(
-                FishDetection(
-                    video_id=video_id,
-                    frame=frame,
-                    fish_number=0,
-                    x1=np.nan, y1=np.nan,
-                    x2=np.nan, y2=np.nan,
-                    class_id=0
+        cover = pd.read_csv(self.config.cover_path())
+        num_no_fish = 0
+        for _, row in cover.iterrows():
+            if row.cover == 0:
+                detections[row.video_id].append(
+                    FishDetection(
+                        video_id=row.video_id,
+                        frame=row.frame,
+                        x1=np.nan, y1=np.nan,
+                        x2=np.nan, y2=np.nan,
+                        class_id=0
+                    )
                 )
-            )
+                num_no_fish += 1
         return detections
 
     def generate_xy(self, cfg: SampleCfg):

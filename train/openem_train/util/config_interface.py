@@ -57,25 +57,16 @@ class ConfigInterface:
         return self.config.getint('Detect', 'NumEpochs')
 
     def train_vids(self):
-        patt = os.path.join(self.train_dir(), 'train_videos', '*.mp4')
+        patt = os.path.join(self.train_dir(), 'videos', '*.mp4')
         return glob.glob(patt)
 
-    def no_fish_examples(self):
-        patt = os.path.join(self.train_dir(), 'cover', 'no_fish', '*.jpg')
-        return glob.glob(patt)
+    def length_path(self):
+        return os.path.join(self.train_dir(), 'length.csv')
 
-    def clear_examples(self):
-        patt = os.path.join(self.train_dir(), 'cover', 'clear', '*.jpg')
-        return glob.glob(patt)
+    def cover_path(self):
+        return os.path.join(self.train_dir(), 'cover.csv')
 
-    def covered_examples(self):
-        patt = os.path.join(self.train_dir(), 'cover', 'covered', '*.jpg')
-        return glob.glob(patt)
-
-    def train_ann_path(self):
-        return os.path.join(self.train_dir(), 'train_annotations.csv')
-
-    def train_ruler_position(self):
+    def ruler_position_path(self):
         return os.path.join(self.train_dir(), 'ruler_position.csv')
 
     def train_imgs_dir(self):

@@ -15,15 +15,13 @@ def _find_no_fish(config):
     # Returns
         Dict containing video ID as keys, list of frame numbers as values.
     """
-    # Also find images that do not contain fish.
+    cover = pandas.read_csv(config.cover_path())
     no_fish = {}
-    for filename in config.no_fish_examples():
-        filename = os.path.basename(filename)
-        filename = filename[:-len('.jpg')]
-        vid, frame = filename.split('_')
-        if vid not in no_fish:
-            no_fish[vid] = []
-        no_fish[vid].append(int(frame))
+    for _, row in cover.iterrows():
+        if row.cover == 0:
+            if row.video_id not in no_fish:
+                no_fish[row.video_id] = []
+            no_fish[row.video_id].append(int(row.frame))
     return no_fish
 
 def extract_images(config):
@@ -36,8 +34,8 @@ def extract_images(config):
     # Create directories to store images.
     os.makedirs(config.train_imgs_dir(), exist_ok=True)
 
-    # Read in training data annotations.
-    ann = pandas.read_csv(config.train_ann_path())
+    # Read in length annotations.
+    ann = pandas.read_csv(config.length_path())
     vid_ids = ann.video_id.tolist()
     ann_frames = ann.frame.tolist()
 

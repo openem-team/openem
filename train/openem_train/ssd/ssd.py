@@ -295,4 +295,5 @@ def ssd_model(input_shape, num_classes=21):
         axis=2,
         name='predictions')
     model = Model(net['input'], net['predictions'])
+    model.layers[0].name = 'input_1'
     return model

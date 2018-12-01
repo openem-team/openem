@@ -2,6 +2,7 @@
 """
 
 import os
+import glob
 import numpy as np
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
@@ -10,6 +11,20 @@ from openem_train.ssd import ssd
 from openem_train.ssd.ssd_training import MultiboxLoss
 from openem_train.ssd.ssd_utils import BBoxUtility
 from openem_train.ssd.ssd_dataset import SSDDataset
+from openem_train.util.model_utils import keras_to_tensorflow
+
+def _save_model(config, model):
+    """Loads best weights and converts to protobuf file.
+
+    # Arguments
+        config: ConfigInterface object.
+        model: Keras Model object.
+    """
+    best = glob.glob(os.path.join(config.checkpoints_dir(), '*best*'))
+    latest = max(best, key=os.path.getctime)
+    model.load_weights(latest)
+    os.makedirs(config.detect_model_dir(), exist_ok=True)
+    keras_to_tensorflow(model, ['output_node0'], config.detect_model_path())
 
 def train(config):
     """Trains detection model.
@@ -101,3 +116,6 @@ def train(config):
             is_training=False),
         validation_steps=dataset.nb_test_samples // val_batch_size,
         initial_epoch=0)
+
+    # Load weights of the best model.
+    _save_model(config, model)

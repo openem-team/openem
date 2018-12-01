@@ -201,13 +201,13 @@ class SSDDataset:
 
         crop = crop.astype('float32')
         if cfg.saturation != 0.5:
-            crop = img_augmentation.saturation(crop, variance=0.25, r=cfg.saturation)
+            crop = img_augmentation.saturation(crop, variance=0.25, mean=cfg.saturation)
 
         if cfg.contrast != 0.5:
-            crop = img_augmentation.contrast(crop, variance=0.25, r=cfg.contrast)
+            crop = img_augmentation.contrast(crop, variance=0.25, mean=cfg.contrast)
 
         if cfg.brightness != 0.5:
-            crop = img_augmentation.brightness(crop, variance=0.3, r=cfg.brightness)
+            crop = img_augmentation.brightness(crop, variance=0.3, mean=cfg.brightness)
 
         if cfg.hflip:
             crop, targets = _horizontal_flip(crop, targets)

@@ -30,6 +30,21 @@ class ConfigInterface:
             raise ValueError(msg)
         self._num_classes = len(self._species) + 1
 
+    def model_dir(self):
+        """Gets model directory.
+        """
+        return self.config.get('Paths', 'ModelDir')
+
+    def detect_model_dir(self):
+        """Gets detection model directory.
+        """
+        return os.path.join(self.model_dir(), 'detect')
+
+    def detect_model_path(self):
+        """Gets detection file path.
+        """
+        return os.path.join(self.detect_model_dir(), 'detect.pb')
+
     def work_dir(self):
         """Gets working directory.
         """

@@ -1,4 +1,4 @@
-## Annotation Guidelines
+# Annotation Guidelines
 
 This document describes the data layout for building your own models with OpenEM. Training routines in OpenEM expect the following directory layout:
 

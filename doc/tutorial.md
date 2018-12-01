@@ -1,4 +1,4 @@
-## Tutorial
+# Tutorial
 
 This tutorial will guide you through some examples.  Before you get 
 started, make sure you have built the library, including its examples by
@@ -6,7 +6,7 @@ following the [build instructions](build.md) for your operating
 system.  You can also download the library from the 
 [release section][Releases] if available for your operating system.
 
-# Deployment Library
+## Deployment Library
 
 First, you will need to download the [OpenEM example data][ExampleData].  The
 example data includes model files for the deployment library in protobuf 
@@ -46,7 +46,7 @@ built the software.
 Once you are able to run the examples, you are encouraged to inspect the 
 source code for the language that you plan to use for your application.
 
-# Training Library
+## Training Library
 
 To build your own models, you will first need to create an appropriate python environment according to the training environment [instructions][TrainingEnvironment]. You will then need to modify the configuration file included with this repository at train/train.ini. This file is included as an example but you will need to modify some paths in it to get it working. Start by making a copy of this file and modify the paths section as follows:
 
@@ -95,4 +95,6 @@ Now that you have done training using the example data, you can try doing the sa
 [Anaconda]: https://www.anaconda.com/download/
 [RunAll]: ../examples/deploy/run_all.py
 [TrainingEnvironment]: ./training_environment.md
+[DataCollection]: ./data_collection.md
+[Annotation]: ./annotation.md
 

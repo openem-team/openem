@@ -1,12 +1,12 @@
-## Python Environment for Training Library
+# Python Environment for Training Library
 
 This document describes how to set up a python environment to use the training library.  It specifies specific module versions that were used to test the training library, but more recent versions of these modules may also work.  The training library has currently only been tested on Ubuntu 18.04 LTS.
 
-# Installing Miniconda
+## Installing Miniconda
 
 [Miniconda][Miniconda] is a cross platform distribution of python that includes a utility for managing packages called conda.  It allows for maintenance of multiple python environments that each have different modules or libraries installed.  Download the version for python 3 and install it for your operating system of choice.
 
-# Creating a new environment (optional)
+## Creating a new environment (optional)
 
 To create a new environment, use this command:
 
@@ -22,7 +22,7 @@ source activate openem
 
 If you do not do these steps then modules will be installed in the base environment, which is activated by default. This is fine if you do not plan to use Miniconda for other purposes than OpenEM training.
 
-# Install modules
+## Install modules
 
 Versions are included here for reference, different versions may work but have not been tested.
 

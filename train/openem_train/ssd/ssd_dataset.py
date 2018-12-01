@@ -105,10 +105,10 @@ class SSDDataset:
         ruler_points = pd.read_csv(config.ruler_position_path())
         for _, row in ruler_points.iterrows():
             self.ruler_points[row.video_id] = RulerPoints(
-                x1=row.ruler_x0,
-                y1=row.ruler_y0,
-                x2=row.ruler_x1,
-                y2=row.ruler_y1)
+                x1=row.x1,
+                y1=row.y1,
+                x2=row.x2,
+                y2=row.y2)
 
         self.bbox_util = bbox_util
         self.preprocess_input = preproc

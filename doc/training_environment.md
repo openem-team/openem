@@ -1,6 +1,6 @@
 # Python Environment for Training Library
 
-This document describes how to set up a python environment to use the training library.  It specifies specific module versions that were used to test the training library, but more recent versions of these modules may also work.  The training library has currently only been tested on Ubuntu 18.04 LTS.
+This document describes how to set up a python environment to use the training library.  It specifies specific module versions that were used to test the training library, but more recent versions of these modules may also work.  The training library has been tested on Windows 10 x64 and Ubuntu 18.04 LTS.
 
 ## Installing Miniconda
 
@@ -28,7 +28,7 @@ Versions are included here for reference, different versions may work but have n
 
 ```shell
 conda install keras-gpu==2.2.4
-conda install pandas=0.23.4
+conda install pandas==0.23.4
 conda install opencv==3.4.2
 conda install scikit-image==0.14.0
 conda install scikit-learn==0.20.1

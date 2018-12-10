@@ -27,3 +27,4 @@ if(BUILD_EXAMPLES)
 endif()
 
 install(FILES LICENSE.md DESTINATION .)
+install(DIRECTORY train DESTINATION .)

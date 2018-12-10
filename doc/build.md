@@ -1,4 +1,4 @@
-## Build and Test Instructions
+# Build and Test Instructions
 
 Choose your operating system:
 

@@ -3,8 +3,11 @@
 
 import os
 import pandas
+import scipy.misc
+import skimage
 from cv2 import VideoCapture
 from cv2 import imwrite
+from openem_train.util.roi_transform import RoiTransform
 
 def _find_no_fish(config):
     """ Find frames containing no fish.
@@ -61,3 +64,48 @@ def extract_images(config):
             frame += 1
             if not ret:
                 break
+
+def extract_rois(config):
+    """Extracts region of interest.
+
+    # Arguments:
+        config: ConfigInterface object.
+    """
+
+    # Create directories to store ROIs.
+    os.makedirs(config.train_rois_dir(), exist_ok=True)
+
+    # Create a transform object.
+    roi_transform = RoiTransform(config)
+
+    # Build a map between video ID and list of enum containing image 
+    # and roi paths.
+    lookup = {}
+    for img_path in config.train_imgs():
+        path, f = os.path.split(img_path)
+        vid_id = os.path.basename(path)
+        roi_path = os.path.join(config.train_rois_dir(), vid_id, f)
+        if vid_id not in lookup:
+            lookup[vid_id] = []
+        lookup[vid_id].append((img_path, roi_path))
+
+    # Create the ROIs.
+    for vid_id in lookup:
+        vid_dir = os.path.join(config.train_rois_dir(), vid_id)
+        os.makedirs(vid_dir, exist_ok=True)
+        tform = roi_transform.transform_for_clip(
+            vid_id,
+            dst_w=config.detect_width(),
+            dst_h=config.detect_height())
+        for img_path, roi_path in lookup[vid_id]:
+            img = scipy.misc.imread(img_path)
+            roi = skimage.transform.warp(
+                img,
+                tform,
+                mode='edge',
+                order=3,
+                output_shape=(
+                    config.detect_height(),
+                    config.detect_width()))
+            print("Saving ROI to: {}".format(img_path))
+            scipy.misc.imsave(roi_path, roi)

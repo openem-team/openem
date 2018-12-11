@@ -9,8 +9,8 @@ from cv2 import VideoCapture
 from cv2 import imwrite
 from openem_train.util.roi_transform import RoiTransform
 
-def _find_no_fish(config):
-    """ Find frames containing no fish.
+def _find_cover_frames(config):
+    """ Find frames in cover.csv.
 
     # Arguments
         config: ConfigInterface object.
@@ -19,13 +19,12 @@ def _find_no_fish(config):
         Dict containing video ID as keys, list of frame numbers as values.
     """
     cover = pandas.read_csv(config.cover_path())
-    no_fish = {}
+    cover_frames = {}
     for _, row in cover.iterrows():
-        if row.cover == 0:
-            if row.video_id not in no_fish:
-                no_fish[row.video_id] = []
-            no_fish[row.video_id].append(int(row.frame))
-    return no_fish
+        if row.video_id not in cover_frames:
+            cover_frames[row.video_id] = []
+        cover_frames[row.video_id].append(int(row.frame))
+    return cover_frames
 
 def extract_images(config):
     """Extracts images from video.
@@ -42,8 +41,8 @@ def extract_images(config):
     vid_ids = ann.video_id.tolist()
     ann_frames = ann.frame.tolist()
 
-    # Find frames containing no fish.
-    no_fish = _find_no_fish(config)
+    # Find frames in cover list.
+    cover_frames = _find_cover_frames(config)
 
     # Start converting images.
     for vid in config.train_vids():
@@ -52,8 +51,8 @@ def extract_images(config):
         os.makedirs(img_dir, exist_ok=True)
         reader = VideoCapture(vid)
         keyframes = [a for a, b in zip(ann_frames, vid_ids) if b == vid_id]
-        if vid_id in no_fish:
-            keyframes += no_fish[vid_id]
+        if vid_id in cover_frames:
+            keyframes += cover_frames[vid_id]
         frame = 0
         while reader.isOpened():
             ret, img = reader.read()

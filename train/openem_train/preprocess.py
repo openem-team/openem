@@ -107,5 +107,5 @@ def extract_rois(config):
                 output_shape=(
                     config.detect_height(),
                     config.detect_width()))
-            print("Saving ROI to: {}".format(img_path))
+            print("Saving ROI to: {}".format(roi_path))
             scipy.misc.imsave(roi_path, roi)

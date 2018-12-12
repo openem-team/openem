@@ -2,8 +2,10 @@
 """
 
 import os
+import sys
 import glob
 import numpy as np
+import pandas as pd
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
@@ -12,6 +14,8 @@ from openem_train.ssd.ssd_training import MultiboxLoss
 from openem_train.ssd.ssd_utils import BBoxUtility
 from openem_train.ssd.ssd_dataset import SSDDataset
 from openem_train.util.model_utils import keras_to_tensorflow
+sys.path.append('../python')
+import openem
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -119,3 +123,58 @@ def train(config):
 
     # Load weights of the best model.
     _save_model(config, model)
+
+def infer(config):
+    """Runs detection model on extracted ROIs.
+
+    # Arguments
+        config: ConfigInterface object.
+    """
+    # Make a dict to contain detection results.
+    det_data = {
+        'roi_path' : [],
+        'x' : [],
+        'y' : [],
+        'w' : [],
+        'h' : []}
+
+    # Initialize detector from deployment library.
+    detector = openem.Detector()
+    status = detector.Init(config.detect_model_path())
+    if not status == openem.kSuccess:
+        raise IOError("Failed to initialize detector!")
+
+    for img_path in config.train_rois():
+
+        # Load in image.
+        img = openem.Image()
+        status = img.FromFile(img_path)
+        if not status == openem.kSuccess:
+            raise IOError("Failed to load image {}".format(p))
+
+        # Add image to processing queue.
+        status = detector.AddImage(img)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to add image for processing!")
+
+        # Process the loaded image.
+        detections = openem.VectorVectorDetection()
+        status = detector.Process(detections)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to process image {}!".format(img_path))
+
+        # Write detection to dict.
+        for dets in detections:
+            for det in dets:
+                x, y, w, h = det.location
+                det_data['roi_path'].append(img_path)
+                det_data['x'].append(x)
+                det_data['y'].append(y)
+                det_data['w'].append(w)
+                det_data['h'].append(h)
+        print("Finished detection on {}".format(img_path))
+
+    # Write detections to csv.
+    os.makedirs(config.inference_dir(), exist_ok=True)
+    d = pd.DataFrame(det_data)
+    d.to_csv(config.detect_inference_path(), index=False)

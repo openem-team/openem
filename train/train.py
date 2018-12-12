@@ -28,8 +28,11 @@ def main():
     if args.task == 'extract_rois':
         preprocess.extract_rois(config)
 
-    if args.task == 'detect':
+    if args.task == 'detect_train':
         detect.train(config)
+
+    if args.task == 'detect_infer':
+        detect.infer(config)
 
 if __name__ == '__main__':
     main()

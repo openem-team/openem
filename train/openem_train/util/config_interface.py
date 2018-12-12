@@ -163,3 +163,13 @@ class ConfigInterface:
         """Returns path to tensorboard directory.
         """
         return os.path.join(self.work_dir(), 'tensorboard')
+
+    def inference_dir(self):
+        """Returns output path for inference results.
+        """
+        return os.path.join(self.work_dir(), 'inference')
+
+    def detect_inference_path(self):
+        """Returns path to detection inference results.
+        """
+        return os.path.join(self.inference_dir(), 'detect.csv')

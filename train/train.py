@@ -25,6 +25,8 @@ def main():
     if args.task == 'extract_images':
         preprocess.extract_images(config)
 
+    #TODO: find_ruler_train and find_ruler_infer go here
+
     if args.task == 'extract_rois':
         preprocess.extract_rois(config)
 
@@ -33,6 +35,9 @@ def main():
 
     if args.task == 'detect_infer':
         detect.infer(config)
+
+    if args.task == 'extract_dets':
+        preprocess.extract_dets(config)
 
 if __name__ == '__main__':
     main()

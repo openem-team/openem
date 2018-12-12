@@ -126,6 +126,11 @@ class ConfigInterface:
         """
         return os.path.join(self.work_dir(), 'train_rois')
 
+    def train_dets_dir(self):
+        """Returns path to training detection images directory.
+        """
+        return os.path.join(self.work_dir(), 'train_dets')
+
     def train_imgs(self):
         """Returns list of all training images.
         """
@@ -136,6 +141,12 @@ class ConfigInterface:
         """Returns list of all training roi images.
         """
         patt = os.path.join(self.train_rois_dir(), '**', '*.jpg')
+        return glob.glob(patt, recursive=True)
+
+    def train_dets(self):
+        """Returns list of all training detection images.
+        """
+        patt = os.path.join(self.train_dets_dir(), '**', '*.jpg')
         return glob.glob(patt, recursive=True)
 
     def checkpoints_dir(self):

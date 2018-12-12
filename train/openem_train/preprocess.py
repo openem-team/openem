@@ -108,3 +108,36 @@ def extract_rois(config):
                     config.detect_width()))
             print("Saving ROI to: {}".format(roi_path))
             scipy.misc.imsave(roi_path, roi)
+
+def extract_dets(config):
+    """Extracts detection images.
+
+    # Arguments:
+        config: ConfigInterface object.
+    """
+
+    # Create directories to store detections.
+    os.makedirs(config.train_dets_dir(), exist_ok=True)
+
+    # Open the detection results csv.
+    det_results = pandas.read_csv(config.detect_inference_path())
+
+    # Create the detection images.
+    for index, row in det_results.iterrows():
+
+        # Get the new path.
+        path, f = os.path.split(row['roi_path'])
+        vid_id = os.path.basename(path)
+        det_dir = os.path.join(config.train_dets_dir(), vid_id)
+        os.makedirs(det_dir, exist_ok=True)
+        det_path = os.path.join(det_dir, f)
+
+        # Extract detections.
+        roi = scipy.misc.imread(row['roi_path'])
+        x0 = row['x']
+        x1 = row['x'] + row['w']
+        y0 = row['y']
+        y1 = row['y'] + row['h']
+        det = roi[y0:y1, x0:x1]
+        print("Saving detection image to: {}".format(det_path))
+        scipy.misc.imsave(det_path, det)

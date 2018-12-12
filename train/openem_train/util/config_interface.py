@@ -33,7 +33,7 @@ class ConfigInterface:
     def model_dir(self):
         """Gets model directory.
         """
-        return self.config.get('Paths', 'ModelDir')
+        return os.path.join(self.config.get('Paths', 'ModelDir'), 'deploy')
 
     def detect_model_dir(self):
         """Gets detection model directory.

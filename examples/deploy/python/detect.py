@@ -63,4 +63,3 @@ if __name__ == "__main__":
         for det in dets:
             img.DrawRect(det.location)
         img.Show()
-

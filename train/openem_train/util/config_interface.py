@@ -154,13 +154,17 @@ class ConfigInterface:
         """
         return os.path.join(self.work_dir(), 'checkpoints')
 
-    def checkpoint_best(self):
+    def checkpoint_best(self, model):
         """Returns path to best checkpoint file.
 
         The path is meant to be formatted with epoch and validation loss.
+
+        # Arguments
+            model: Which model this corresponds to, one of find_ruler,
+            detect, classify, count.
         """
         fname = "checkpoint-best-{epoch:03d}-{val_loss:.4f}.hdf5"
-        return os.path.join(self.checkpoints_dir(), fname)
+        return os.path.join(self.checkpoints_dir(), model, fname)
 
     def checkpoint_periodic(self):
         """Returns path to periodic checkpoint file.

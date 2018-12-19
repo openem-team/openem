@@ -45,6 +45,16 @@ class ConfigInterface:
         """
         return os.path.join(self.detect_model_dir(), 'detect.pb')
 
+    def classify_model_dir(self):
+        """Gets classification model directory.
+        """
+        return os.path.join(self.model_dir(), 'classify')
+
+    def classify_model_path(self):
+        """Gets classification file path.
+        """
+        return os.path.join(self.classify_model_dir(), 'classify.pb')
+
     def work_dir(self):
         """Gets working directory.
         """
@@ -95,6 +105,31 @@ class ConfigInterface:
         """
         return self.config.getint('Detect', 'NumEpochs')
 
+    def classify_width(self):
+        """Returns width of detections used for classification training.
+        """
+        return self.config.getint('Classify', 'Width')
+
+    def classify_height(self):
+        """Returns height of detections used for classification training.
+        """
+        return self.config.getint('Classify', 'Height')
+
+    def classify_batch_size(self):
+        """Returns batch size used for classification training.
+        """
+        return self.config.getint('Classify', 'BatchSize')
+
+    def classify_val_batch_size(self):
+        """Returns batch size used for classification validation.
+        """
+        return self.config.getint('Classify', 'ValBatchSize')
+
+    def classify_num_epochs(self):
+        """Returns number of epochs used for classification training.
+        """
+        return self.config.getint('Classify', 'NumEpochs')
+
     def train_vids(self):
         """Returns list of paths to videos in training data.
         """
@@ -137,6 +172,15 @@ class ConfigInterface:
         patt = os.path.join(self.train_imgs_dir(), '**', '*.jpg')
         return glob.glob(patt, recursive=True)
 
+    def train_roi_img(self, video_id, frame):
+        """Returns a specific image.
+        """
+        return os.path.join(
+            self.train_rois_dir(),
+            video_id,
+            "{:04d}.jpg".format(frame)
+        )
+
     def train_rois(self):
         """Returns list of all training roi images.
         """
@@ -149,10 +193,14 @@ class ConfigInterface:
         patt = os.path.join(self.train_dets_dir(), '**', '*.jpg')
         return glob.glob(patt, recursive=True)
 
-    def checkpoints_dir(self):
+    def checkpoints_dir(self, model):
         """Returns path to checkpoints directory.
+
+        # Arguments
+            model: Which model this corresponds to, one of find_ruler,
+            detect, classify, count.
         """
-        return os.path.join(self.work_dir(), 'checkpoints')
+        return os.path.join(self.work_dir(), 'checkpoints', 'model')
 
     def checkpoint_best(self, model):
         """Returns path to best checkpoint file.
@@ -164,15 +212,19 @@ class ConfigInterface:
             detect, classify, count.
         """
         fname = "checkpoint-best-{epoch:03d}-{val_loss:.4f}.hdf5"
-        return os.path.join(self.checkpoints_dir(), model, fname)
+        return os.path.join(self.checkpoints_dir(model), fname)
 
-    def checkpoint_periodic(self):
+    def checkpoint_periodic(self, model):
         """Returns path to periodic checkpoint file.
 
         The path is meant to be formatted with epoch and validation loss.
+
+        # Arguments
+            model: Which model this corresponds to, one of find_ruler,
+            detect, classify, count.
         """
         fname = "checkpoint-{epoch:03d}-{val_loss:.4f}.hdf5"
-        return os.path.join(self.checkpoints_dir(), fname)
+        return os.path.join(self.checkpoints_dir(model), fname)
 
     def tensorboard_dir(self):
         """Returns path to tensorboard directory.

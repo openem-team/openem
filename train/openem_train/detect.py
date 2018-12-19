@@ -9,6 +9,7 @@ import pandas as pd
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
+from keras.applications.inception_v3 import preprocess_input
 from openem_train.ssd import ssd
 from openem_train.ssd.ssd_training import MultiboxLoss
 from openem_train.ssd.ssd_utils import BBoxUtility
@@ -17,6 +18,7 @@ from openem_train.util.model_utils import keras_to_tensorflow
 sys.path.append('../python')
 import openem
 
+
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
 
@@ -24,7 +26,7 @@ def _save_model(config, model):
         config: ConfigInterface object.
         model: Keras Model object.
     """
-    best = glob.glob(os.path.join(config.checkpoints_dir(), '*best*'))
+    best = glob.glob(os.path.join(config.checkpoints_dir('detect'), '*best*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
     os.makedirs(config.detect_model_dir(), exist_ok=True)
@@ -38,7 +40,7 @@ def train(config):
     """
 
     # Create tensorboard and checkpoints directories.
-    os.makedirs(config.checkpoints_dir(), exist_ok=True)
+    os.makedirs(config.checkpoints_dir('detect'), exist_ok=True)
     os.makedirs(config.tensorboard_dir(), exist_ok=True)
 
     # Build the ssd model.
@@ -87,13 +89,13 @@ def train(config):
 
     # Set up keras callbacks.
     checkpoint_best = ModelCheckpoint(
-        config.checkpoint_best(),
+        config.checkpoint_best('detect'),
         verbose=1,
         save_weights_only=False,
         save_best_only=True)
 
     checkpoint_periodic = ModelCheckpoint(
-        config.checkpoint_periodic(),
+        config.checkpoint_periodic('detect'),
         verbose=1,
         save_weights_only=False,
         period=1)
@@ -132,11 +134,13 @@ def infer(config):
     """
     # Make a dict to contain detection results.
     det_data = {
-        'roi_path' : [],
+        'video_id' : [],
+        'frame' : [],
         'x' : [],
         'y' : [],
         'w' : [],
-        'h' : []}
+        'h' : []
+    }
 
     # Initialize detector from deployment library.
     detector = openem.Detector()
@@ -166,8 +170,12 @@ def infer(config):
         # Write detection to dict.
         for dets in detections:
             for det in dets:
+                path, f = os.path.split(img_path)
+                frame, _ = os.path.splitext(f)
+                video_id = os.path.basename(os.path.normpath(path))
                 x, y, w, h = det.location
-                det_data['roi_path'].append(img_path)
+                det_data['video_id'].append(video_id)
+                det_data['frame'].append(frame)
                 det_data['x'].append(x)
                 det_data['y'].append(y)
                 det_data['w'].append(w)

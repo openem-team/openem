@@ -109,6 +109,31 @@ def extract_rois(config):
             print("Saving ROI to: {}".format(roi_path))
             scipy.misc.imsave(roi_path, roi)
 
+def _get_det_image(row):
+    """Extracts detection image using info contained in detection
+       inference csv.
+
+    # Arguments
+        row: Row of detection inference csv.
+    """
+    roi = scipy.misc.imread(row['roi_path'])
+    x = row['x']
+    y = row['y']
+    w = row['w']
+    h = row['h']
+    diff = w - h
+    y -= int(diff / 2)
+    h = w
+    if x < 0:
+        x = 0
+    if y < 0:
+        y = 0
+    if x + w > roi.shape[1]:
+        w = roi.shape[1] - x
+    if y + h > roi.shape[0]:
+        h = roi.shape[0] - y
+    return roi[y:(y + h), x:(x + w)]
+
 def extract_dets(config):
     """Extracts detection images.
 
@@ -133,11 +158,6 @@ def extract_dets(config):
         det_path = os.path.join(det_dir, f)
 
         # Extract detections.
-        roi = scipy.misc.imread(row['roi_path'])
-        x0 = row['x']
-        x1 = row['x'] + row['w']
-        y0 = row['y']
-        y1 = row['y'] + row['h']
-        det = roi[y0:y1, x0:x1]
         print("Saving detection image to: {}".format(det_path))
+        det = _get_det_image(row)
         scipy.misc.imsave(det_path, det)

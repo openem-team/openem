@@ -5,6 +5,7 @@ import argparse
 import sys
 from openem_train import preprocess
 from openem_train import detect
+from openem_train import classify
 from openem_train.util.config_interface import ConfigInterface
 
 def main():
@@ -38,6 +39,9 @@ def main():
 
     if args.task == 'extract_dets':
         preprocess.extract_dets(config)
+
+    if args.task == 'classify_train':
+        classify.train(config)
 
 if __name__ == '__main__':
     main()

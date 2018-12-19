@@ -123,7 +123,7 @@ def train(config):
         validation_steps=dataset.nb_test_samples // val_batch_size,
         initial_epoch=0)
 
-    # Load weights of the best model.
+    # Save the model.
     _save_model(config, model)
 
 def infer(config):

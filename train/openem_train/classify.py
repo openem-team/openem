@@ -2,12 +2,27 @@
 """
 
 import os
+import glob
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
 from keras.callbacks import LearningRateScheduler
-from openem_train.util import utils
 from openem_train.inception.inception import inception_model
 from openem_train.inception.inception_dataset import InceptionDataset
+from openem_train.util import utils
+from openem_train.util.model_utils import keras_to_tensorflow
+
+def _save_model(config, model):
+    """Loads best weights and converts to protobuf file.
+
+    # Arguments
+        config: ConfigInterface object.
+        model: Keras Model object.
+    """
+    best = glob.glob(os.path.join(config.checkpoints_dir('classify'), '*best*'))
+    latest = max(best, key=os.path.getctime)
+    model.load_weights(latest)
+    os.makedirs(config.classify_model_dir(), exist_ok=True)
+    keras_to_tensorflow(model, ['cat_species_1', 'cat_cover_1'], config.classify_model_path())
 
 def train(config):
     """Trains classification model.
@@ -85,4 +100,6 @@ def train(config):
         )
     )
 
+    # Save the model.
+    _save_model(config, model)
 

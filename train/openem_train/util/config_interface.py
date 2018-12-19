@@ -200,7 +200,7 @@ class ConfigInterface:
             model: Which model this corresponds to, one of find_ruler,
             detect, classify, count.
         """
-        return os.path.join(self.work_dir(), 'checkpoints', 'model')
+        return os.path.join(self.work_dir(), 'checkpoints', model)
 
     def checkpoint_best(self, model):
         """Returns path to best checkpoint file.

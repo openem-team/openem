@@ -199,7 +199,7 @@ class InceptionDataset:
                             y=det['y'],
                             w=det['w'],
                             species_class=row['species_id'],
-                            cover_class=CLASS_NO_FISH_ID
+                            cover_class=CLASS_FISH_CLEAR_ID
                         )
                     )
 

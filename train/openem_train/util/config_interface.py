@@ -55,6 +55,16 @@ class ConfigInterface:
         """
         return os.path.join(self.classify_model_dir(), 'classify.pb')
 
+    def count_model_dir(self):
+        """Gets count model directory.
+        """
+        return os.path.join(self.model_dir(), 'count')
+
+    def count_model_path(self):
+        """Gets count file path.
+        """
+        return os.path.join(self.count_model_dir(), 'count.pb')
+
     def work_dir(self):
         """Gets working directory.
         """
@@ -129,6 +139,41 @@ class ConfigInterface:
         """Returns number of epochs used for classification training.
         """
         return self.config.getint('Classify', 'NumEpochs')
+
+    def count_num_steps(self):
+        """Returns number of timesteps used as input to count model.
+        """
+        return self.config.getint('Count', 'NumSteps')
+
+    def count_num_steps_crop(self):
+        """Returns number of timesteps to crop for count model.
+        """
+        return self.config.getint('Count', 'NumStepsCrop')
+
+    def count_num_features(self):
+        """Returns number of features used as input to count model.
+        """
+        return self.config.getint('Count', 'NumFeatures')
+
+    def count_batch_size(self):
+        """Returns batch size used for count training.
+        """
+        return self.config.getint('Count', 'BatchSize')
+
+    def count_val_batch_size(self):
+        """Returns batch size used for count validation.
+        """
+        return self.config.getint('Count', 'ValBatchSize')
+
+    def count_num_epochs(self):
+        """Returns number of epochs used for count training.
+        """
+        return self.config.getint('Count', 'NumEpochs')
+
+    def count_num_res_steps(self):
+        """Returns number of timesteps after cropping.
+        """
+        return self.count_num_steps() - self.count_num_steps_crop() * 2
 
     def train_vids(self):
         """Returns list of paths to videos in training data.
@@ -251,3 +296,8 @@ class ConfigInterface:
         """Returns path to detection inference results.
         """
         return os.path.join(self.inference_dir(), 'detect.csv')
+
+    def classify_inference_path(self):
+        """Returns path to classification inference results.
+        """
+        return os.path.join(self.inferece_dir(), 'classify.csv')

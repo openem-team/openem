@@ -8,7 +8,6 @@ from keras.callbacks import TensorBoard
 from keras.callbacks import LearningRateScheduler
 from openem_train.inception.inception import inception_model
 from openem_train.inception.inception_dataset import InceptionDataset
-from openem_train.util import utils
 from openem_train.util.model_utils import keras_to_tensorflow
 
 def _save_model(config, model):
@@ -102,4 +101,3 @@ def train(config):
 
     # Save the model.
     _save_model(config, model)
-

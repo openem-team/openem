@@ -77,7 +77,7 @@ def extract_rois(config):
     # Create a transform object.
     roi_transform = RoiTransform(config)
 
-    # Build a map between video ID and list of enum containing image 
+    # Build a map between video ID and list of enum containing image
     # and roi paths.
     lookup = {}
     for img_path in config.train_imgs():
@@ -148,7 +148,7 @@ def extract_dets(config):
     det_results = pandas.read_csv(config.detect_inference_path())
 
     # Create the detection images.
-    for index, row in det_results.iterrows():
+    for _, row in det_results.iterrows():
 
         # Get the new path.
         path, f = os.path.split(row['roi_path'])

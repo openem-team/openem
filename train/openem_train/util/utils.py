@@ -1,7 +1,7 @@
 """Generic utility functions."""
 
-import numpy as np
 import math
+import numpy as np
 import skimage
 from skimage.transform import AffineTransform
 
@@ -24,6 +24,13 @@ def bbox_for_line(pt0, pt1, aspect_ratio=0.5):
     return np.min(points, axis=0), np.max(points, axis=0)
 
 def lock_layers_until(model, first_trainable_layer, verbose=False):
+    """Locks layers until a given layer name.
+
+    # Arguments
+        model: Model to set trainable layers on.
+        first_trainable_layer: Name of first trainable layer.
+        verbose: True to print trainable status of each layer.
+    """
     found_first_layer = False
     for layer in model.layers:
         if layer.name == first_trainable_layer:
@@ -38,6 +45,22 @@ def lock_layers_until(model, first_trainable_layer, verbose=False):
 def get_image_crop(full_rgb, rect, scale_rect_x=1.0, scale_rect_y=1.0,
                    shift_x_ratio=0.0, shift_y_ratio=0.0,
                    angle=0.0, out_size=299, order=3):
+    """Retrieves image crop.
+
+    # Arguments
+        full_rgb: Full image to crop.
+        rect: Nominal rectangle to crop.
+        scale_rect_x: Amount to scale the rect horizontally.
+        scale_rect_y: Amount to scale the rect vertically.
+        shift_x_ratio: Amount to shift rect horizontally.
+        shift_y_ratio: Amount to shift rect vertically.
+        angle: Rotation angle in degrees.
+        out_size: Size of one side of output square.
+        order: Order to use for transform.
+
+    # Returns
+        Cropped image.
+    """
     center_x = rect.x + rect.w / 2
     center_y = rect.y + rect.h / 2
     size = int(max(rect.w, rect.h))
@@ -56,11 +79,16 @@ def get_image_crop(full_rgb, rect, scale_rect_x=1.0, scale_rect_y=1.0,
     tform = AffineTransform(rotation=angle * math.pi / 180) + tform
     tform = AffineTransform(scale=(1 / scale_x, 1 / scale_y)) + tform
     tform = AffineTransform(translation=(-out_center, -out_center)) + tform
-    return skimage.transform.warp(full_rgb, tform, mode='edge', order=order, output_shape=(out_size, out_size))
+    return skimage.transform.warp(
+        full_rgb,
+        tform,
+        mode='edge',
+        order=order,
+        output_shape=(out_size, out_size)
+    )
 
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
     for i in range(0, len(l) // n * n + n - 1, n):
-        if len(l[i:i + n]):
+        if l[i:i + n]:
             yield l[i:i + n]
-

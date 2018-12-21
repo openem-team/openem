@@ -123,23 +123,6 @@ def guess_species(known_species, frame_id):
 
     return known_species[known_frames[-1]]
 
-def get_all_video_ids(config):
-    """Gets all video IDs as a list.
-
-    # Arguments
-        config: ConfigInterface object.
-
-    # Returns
-        List of video IDs.
-    """
-    video_ids = []
-    for vid in config.train_vids():
-        _, f = os.path.split(vid)
-        vid_id, _ = os.path.splitext(f)
-        if vid_id not in video_ids:
-            video_ids.append(vid_id)
-    return video_ids
-
 class InceptionDataset:
     """Dataset interface for inception.
     """
@@ -154,7 +137,7 @@ class InceptionDataset:
         # video_id->frame->species:
         self.known_species = {}  # type: Dict[str, Dict[int, int]]
 
-        all_video_ids = get_all_video_ids(config)
+        all_video_ids = config.all_video_ids()
         self.train_video_ids, self.test_video_ids = train_test_split(
             sorted(all_video_ids),
             test_size=0.05,

@@ -136,6 +136,17 @@ class ConfigInterface:
         patt = os.path.join(self.train_dir(), 'videos', '*.mp4')
         return glob.glob(patt)
 
+    def all_video_ids(self):
+        """Gets all video IDs as a list.
+        """
+        video_ids = []
+        for vid in self.train_vids():
+            _, f = os.path.split(vid)
+            vid_id, _ = os.path.splitext(f)
+            if vid_id not in video_ids:
+                video_ids.append(vid_id)
+        return video_ids
+
     def length_path(self):
         """Returns path to length annotations.
         """

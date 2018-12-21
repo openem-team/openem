@@ -43,5 +43,8 @@ def main():
     if args.task == 'classify_train':
         classify.train(config)
 
+    if args.task == 'classify_infer':
+        classify.infer(config)
+
 if __name__ == '__main__':
     main()

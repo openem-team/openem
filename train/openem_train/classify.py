@@ -3,12 +3,15 @@
 
 import os
 import glob
+import sys
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
 from keras.callbacks import LearningRateScheduler
 from openem_train.inception.inception import inception_model
 from openem_train.inception.inception_dataset import InceptionDataset
 from openem_train.util.model_utils import keras_to_tensorflow
+sys.path.append('../python')
+import openem
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -101,3 +104,69 @@ def train(config):
 
     # Save the model.
     _save_model(config, model)
+
+def infer(config):
+    """Runs detection model on extracted detections.
+
+    # Arguments
+        config: ConfigInterface object.
+    """
+    # Make a dict to contain detection results.
+    class_data = {
+        'video_id' : [],
+        'frame' : [],
+        'no_fish' : [],
+        'covered' : [],
+        'clear' : []
+    }
+    for spc in config.species():
+        class_data['species_' + spc] = []
+
+    # Initialize detector from deployment library.
+    classifier = openem.Classifier()
+    status = classifier.Init(config.classify_model_path())
+    if not status == openem.kSuccess:
+        raise IOError("Failed to initialize detector!")
+    w, h = classifier.ImageSize()
+
+    for img_path in config.train_dets():
+
+        # Get video id from path.
+        path, fname = os.path.split(img_path)
+        frame, _ = os.path.splitext(fname)
+        video_id = os.path.basename(os.path.normpath(path))
+
+
+        # Load in image.
+        img = openem.Image()
+        status = img.FromFile(img_path)
+        if not status == openem.kSuccess:
+            raise IOError("Failed to load image {}".format(img_path))
+        img.Resize(w, h)
+
+        # Add image to processing queue.
+        status = classifier.AddImage(img)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to load image {}".format(img_path))
+
+        # Process loaded image.
+        scores = openem.VectorClassification()
+        status = classifier.Process(scores)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to process image {}!".format(img_path))
+
+        # Write classification results.
+        for score in scores:
+            class_data['video_id'].append(video_id)
+            class_data['frame'].append(int(frame))
+            class_data['no_fish'].append(score.cover[0])
+            class_data['covered'].append(score.cover[1])
+            class_data['clear'].append(score.cover[2])
+            for spc, spc_score in zip(config.species(), score.species):
+                class_data['species_' + spc].append(spc_score)
+        print("Finished classification on {}".format(img_path))
+
+    # Write classification results to csv.
+    os.makedirs(config.inference_dir(), exist_ok=True)
+    d = pd.DataFrame(class_data)
+    d.to_csv(config.classify_inference_path(), index=False)

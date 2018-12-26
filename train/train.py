@@ -6,6 +6,7 @@ import sys
 from openem_train import preprocess
 from openem_train import detect
 from openem_train import classify
+from openem_train import count
 from openem_train.util.config_interface import ConfigInterface
 
 def main():
@@ -45,6 +46,9 @@ def main():
 
     if args.task == 'classify_infer':
         classify.infer(config)
+
+    if args.task == 'count_train':
+        count.train(config)
 
 if __name__ == '__main__':
     main()

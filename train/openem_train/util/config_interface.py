@@ -228,6 +228,11 @@ class ConfigInterface:
         patt = os.path.join(self.train_imgs_dir(), '**', '*.jpg')
         return glob.glob(patt, recursive=True)
 
+    def num_frames_path(self):
+        """Returns path to csv containing number of frames per video.
+        """
+        return os.path.join(self.train_imgs_dir(), 'num_frames.csv')
+
     def train_roi_img(self, video_id, frame):
         """Returns a specific image.
         """
@@ -300,4 +305,4 @@ class ConfigInterface:
     def classify_inference_path(self):
         """Returns path to classification inference results.
         """
-        return os.path.join(self.inferece_dir(), 'classify.csv')
+        return os.path.join(self.inference_dir(), 'classify.csv')

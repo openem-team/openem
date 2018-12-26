@@ -2,7 +2,8 @@
 """
 
 import os
-import pandas
+from collections import defaultdict
+import pandas as pd
 import scipy.misc
 import skimage
 from cv2 import VideoCapture
@@ -18,7 +19,7 @@ def _find_cover_frames(config):
     # Returns
         Dict containing video ID as keys, list of frame numbers as values.
     """
-    cover = pandas.read_csv(config.cover_path())
+    cover = pd.read_csv(config.cover_path())
     cover_frames = {}
     for _, row in cover.iterrows():
         if row.video_id not in cover_frames:
@@ -37,12 +38,15 @@ def extract_images(config):
     os.makedirs(config.train_imgs_dir(), exist_ok=True)
 
     # Read in length annotations.
-    ann = pandas.read_csv(config.length_path())
+    ann = pd.read_csv(config.length_path())
     vid_ids = ann.video_id.tolist()
     ann_frames = ann.frame.tolist()
 
     # Find frames in cover list.
     cover_frames = _find_cover_frames(config)
+
+    # Record total number of frames in video.
+    num_frames = defaultdict(list)
 
     # Start converting images.
     for vid in config.train_vids():
@@ -63,6 +67,13 @@ def extract_images(config):
             frame += 1
             if not ret:
                 break
+        num_frames['video_id'].append(vid_id)
+        num_frames['num_frames'].append(frame)
+
+    # Write number of frames to csv.
+    df = pd.DataFrame(num_frames)
+    df.to_csv(config.num_frames_path(), index=False)
+    
 
 def extract_rois(config):
     """Extracts region of interest.
@@ -109,14 +120,15 @@ def extract_rois(config):
             print("Saving ROI to: {}".format(roi_path))
             scipy.misc.imsave(roi_path, roi)
 
-def _get_det_image(row):
+def _get_det_image(row, roi_path):
     """Extracts detection image using info contained in detection
        inference csv.
 
     # Arguments
         row: Row of detection inference csv.
+        roi_path: Path to ROI crop.
     """
-    roi = scipy.misc.imread(row['roi_path'])
+    roi = scipy.misc.imread(roi_path)
     x = row['x']
     y = row['y']
     w = row['w']
@@ -145,19 +157,20 @@ def extract_dets(config):
     os.makedirs(config.train_dets_dir(), exist_ok=True)
 
     # Open the detection results csv.
-    det_results = pandas.read_csv(config.detect_inference_path())
+    det_results = pd.read_csv(config.detect_inference_path())
 
     # Create the detection images.
     for _, row in det_results.iterrows():
 
         # Get the new path.
-        path, f = os.path.split(row['roi_path'])
-        vid_id = os.path.basename(path)
+        vid_id = row['video_id']
+        f = "{:04d}.jpg".format(row['frame'])
+        roi_path = os.path.join(config.train_rois_dir(), vid_id, f)
         det_dir = os.path.join(config.train_dets_dir(), vid_id)
         os.makedirs(det_dir, exist_ok=True)
         det_path = os.path.join(det_dir, f)
 
         # Extract detections.
         print("Saving detection image to: {}".format(det_path))
-        det = _get_det_image(row)
+        det = _get_det_image(row, roi_path)
         scipy.misc.imsave(det_path, det)

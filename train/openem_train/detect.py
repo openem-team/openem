@@ -139,7 +139,9 @@ def infer(config):
         'x' : [],
         'y' : [],
         'w' : [],
-        'h' : []
+        'h' : [],
+        'det_conf' : [],
+        'det_species' : []
     }
 
     # Initialize detector from deployment library.
@@ -180,6 +182,8 @@ def infer(config):
                 det_data['y'].append(y)
                 det_data['w'].append(w)
                 det_data['h'].append(h)
+                det_data['det_conf'].append(det.confidence)
+                det_data['det_species'].append(det.species)
         print("Finished detection on {}".format(img_path))
 
     # Write detections to csv.

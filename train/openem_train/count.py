@@ -1,9 +1,11 @@
 import os
+import glob
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
 from keras.callbacks import LearningRateScheduler
 from openem_train.rnn.rnn_dataset import RNNDataset
 from openem_train.rnn.rnn import rnn_model
+from openem_train.util.model_utils import keras_to_tensorflow
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.

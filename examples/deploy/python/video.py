@@ -183,7 +183,8 @@ def write_counts(count_path, out_path, roi, detections, scores):
     keyframes = openem.VectorInt()
     status = finder.Process(scores, detections, keyframes)
     if not status == openem.kSuccess:
-        raise RuntimeError("Failed to process keyframe finder!")
+        msg = "Failed to process keyframe finder! Error code {}"
+        raise RuntimeError(msg.format(status))
 
     # Write the keyframes out.
     with open(out_path, "w") as csv:
@@ -218,6 +219,7 @@ def write_video(vid_path, out_path, roi, transform, detections, scores):
         raise IOError("Failed to read video {}!".format(vid_path))
 
     # Initialize the video writer.
+    print("Writing annotated video to {}".format(out_path))
     writer = openem.VideoWriter()
     status = writer.Init(
         out_path,

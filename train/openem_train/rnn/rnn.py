@@ -22,7 +22,7 @@ def rnn_model(input_shape, num_steps_crop, unroll=True):
     # Returns
         Keras model object.
     """
-    inputs = Input(shape=input_shape)
+    inputs = Input(shape=input_shape, name='input_1')
     out = Bidirectional(GRU(64, return_sequences=True, unroll=unroll))(inputs)
     out = Bidirectional(GRU(16, return_sequences=True, unroll=unroll))(out)
     out = Dense(1, activation='sigmoid')(out)

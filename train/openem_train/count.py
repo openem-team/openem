@@ -21,7 +21,7 @@ def _save_model(config, model):
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
     os.makedirs(config.count_model_dir(), exist_ok=True)
-    keras_to_tensorflow(model, ['cum_sum_values_1'], config.count_model_path())
+    keras_to_tensorflow(model, ['cumsum_values_1'], config.count_model_path())
 
 def train(config):
     """Trains counting model.

@@ -1,3 +1,6 @@
+"""Functions for training counting algorithm.
+"""
+
 import os
 import glob
 from keras.callbacks import ModelCheckpoint

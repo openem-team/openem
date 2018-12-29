@@ -1,10 +1,20 @@
+"""Classes for interfacing with RNN training data.
+"""
+
 import random
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
 
 class RNNDataset:
+    """Class for interfacing with RNN training data.
+    """
     def __init__(self, config):
+        """Constructor.
+
+        # Arguments
+            config: ConfigInterface object.
+        """
         self.config = config
 
         self.train_video_ids, self.test_video_ids = train_test_split(
@@ -13,6 +23,7 @@ class RNNDataset:
             random_state=12)
         self.train_video_ids = set(self.train_video_ids)
         self.test_video_ids = set(self.test_video_ids)
+        self.last_offset = 0
 
         self.gt = pd.read_csv(config.length_path())
         self.gt.dropna(axis=0, inplace=True)
@@ -27,6 +38,8 @@ class RNNDataset:
         print('loaded')
 
     def load(self):
+        """Loads RNN training data.
+        """
         print('generate video data...')
         video_frames_count = {}
         video_data = {}
@@ -46,7 +59,12 @@ class RNNDataset:
             video_frames_count[video_id] = nb_frames
             ds_detection = detect_out.loc[detect_out['video_id'] == video_id]
             ds_classification = classify_out.loc[classify_out['video_id'] == video_id]
-            ds_combined = ds_classification.join(ds_detection, on='frame', how='left', rsuffix='_det')
+            ds_combined = ds_classification.join(
+                ds_detection,
+                on='frame',
+                how='left',
+                rsuffix='_det'
+            )
             ds_combined.x /= self.config.detect_width()
             ds_combined.y /= self.config.detect_height()
             ds_combined.w /= self.config.detect_width()
@@ -57,13 +75,25 @@ class RNNDataset:
             video_data[video_id] = ds_combined.as_matrix(columns=columns)
 
             all_frames = pd.DataFrame({'frame': list(range(nb_frames))})
-            gt_combined = all_frames.merge(self.gt.loc[self.gt.video_id == video_id], on='frame', how='left').fillna(
-                0.0)
+            gt_combined = all_frames.merge(
+                self.gt.loc[self.gt.video_id == video_id],
+                on='frame',
+                how='left'
+            ).fillna(0.0)
             video_data_gt[video_id] = gt_combined.as_matrix(columns=['have_frame'])
 
         return video_frames_count, video_data, video_data_gt, columns
 
     def generate_x(self, video_id, offset):
+        """Returns input data for a single training example.
+
+        # Arguments
+            video_id: Video ID to get example from.
+            offset: Time offset for this example.
+
+        # Returns
+            Input data for single training example.
+        """
         nb_steps = self.config.count_num_steps()
         res = np.zeros((nb_steps, self.config.count_num_features()))
         nb_res_steps = nb_steps - self.config.count_num_steps_crop() * 2
@@ -71,12 +101,23 @@ class RNNDataset:
         nb_frames = self.video_frames_count[video_id]
         steps_before = min(self.config.count_num_steps_crop(), offset)
         steps_after = min(self.config.count_num_steps_crop(), nb_frames - offset - nb_res_steps)
-
-        res[self.config.count_num_steps_crop() - steps_before:nb_steps - self.config.count_num_steps_crop() + steps_after, :] = \
-            self.video_data[video_id][offset - steps_before:offset + nb_res_steps + steps_after, :]
+        res_start = self.config.count_num_steps_crop() - steps_before
+        res_stop = nb_steps - self.config.count_num_steps_crop() + steps_after
+        vid_start = offset - steps_before
+        vid_stop = offset + nb_res_steps + steps_after
+        res[res_start:res_stop, :] = self.video_data[video_id][vid_start:vid_stop, :]
         return res
 
     def generate_y(self, video_id, offset):
+        """Returns output data for single training example.
+
+        # Arguments
+            video_id: Video ID to get example from.
+            offset: Time offset for this example.
+
+        # Returns
+            Output data for single training example.
+        """
         res = np.zeros((self.config.count_num_res_steps(),))
         nb_frames = self.video_frames_count[video_id]
         frames_used = min(self.config.count_num_res_steps(), nb_frames - offset)
@@ -84,6 +125,15 @@ class RNNDataset:
         return res
 
     def generate(self, batch_size, use_cumsum=True):
+        """Training batch generator.
+
+        # Arguments
+            batch_size: Batch size.
+            use_cumsum: Whether to include cumulative sum output.
+
+        # Yields
+            Training batch.
+        """
         valid_video_ids = list(self.train_video_ids.intersection(self.video_data.keys()))
         shape = (self.config.count_num_steps(), self.config.count_num_features())
         batch_x = np.zeros((batch_size,) + shape, dtype=np.float32)
@@ -95,33 +145,40 @@ class RNNDataset:
                 if self.video_frames_count[video_id] < self.config.count_num_res_steps():
                     offset = 0
                 else:
-                    offset = random.randrange(0, self.video_frames_count[video_id] - self.config.count_num_res_steps())
+                    max_offset = self.video_frames_count[video_id]
+                    max_offset -= self.config.count_num_res_steps()
+                    offset = random.randrange(0, max_offset)
 
                 batch_x[batch_idx] = self.generate_x(video_id, offset)
                 batch_y[batch_idx] = self.generate_y(video_id, offset)
-                """
-                if np.any(np.isnan(batch_x[batch_idx])):
-                    print("INPUT TO NETWORK CONTAINS NAN! {}".format(batch_x[batch_idx]))
-                if np.any(np.isnan(batch_y[batch_idx])):
-                    print("OUTPUT TO NETWORK CONTAINS NAN!")
-                if not np.any(np.nonzero(batch_x[batch_idx])):
-                    print("INPUT TO NETWORK IS ALL ZEROS!")
-                if not np.any(np.nonzero(batch_y[batch_idx])):
-                    print("OUTPUT TO NETWORK IS ALL ZEROS!")
-                """
-
 
             if use_cumsum:
-                yield (batch_x, {'current_values': batch_y, 'cumsum_values': np.cumsum(batch_y, axis=1)})
+                yield (
+                    batch_x,
+                    {
+                        'current_values': batch_y,
+                        'cumsum_values': np.cumsum(batch_y, axis=1)
+                    }
+                )
             else:
                 yield (batch_x, batch_y)
 
     def test_batches(self, batch_size):
+        """Returns number of validation batches.
+
+        # Arguments
+            batch_size: Batch size.
+
+        # Returns
+            Number of validation batches for this dataset.
+        """
         valid_video_ids = sorted(self.test_video_ids.intersection(self.video_data.keys()))
         batch_idx = 0
         batches_count = 0
         for video_id in valid_video_ids:
-            for offset in range(0, self.video_frames_count[video_id], self.config.count_num_res_steps()):
+            stop = self.video_frames_count[video_id]
+            inc = self.config.count_num_res_steps()
+            for _ in range(0, stop, inc):
                 batch_idx += 1
 
                 if batch_idx == batch_size:
@@ -130,7 +187,16 @@ class RNNDataset:
         print('val batches count:', batches_count)
         return batches_count
 
-    def generate_test(self, batch_size, verbose=False, use_cumsum=True):
+    def generate_test(self, batch_size, use_cumsum=True):
+        """Validation batch generator.
+
+        # Arguments
+            batch_size: Batch size.
+            use_cumsum: Whether to include cumulative sum output.
+
+        # Yields
+            Validation batch.
+        """
         valid_video_ids = sorted(self.test_video_ids.intersection(self.video_data.keys()))
         print('test valid_video_ids:', len(valid_video_ids))
 
@@ -140,9 +206,9 @@ class RNNDataset:
         while True:
             batch_idx = 0
             for video_id in valid_video_ids:
-                for offset in range(0, self.video_frames_count[video_id], self.config.count_num_res_steps()):
-                    if verbose:
-                        print(video_id, offset)
+                stop = self.video_frames_count[video_id]
+                inc = self.config.count_num_res_steps()
+                for offset in range(0, stop, inc):
                     batch_x[batch_idx] = self.generate_x(video_id, offset)
                     batch_y[batch_idx] = self.generate_y(video_id, offset)
                     batch_idx += 1
@@ -152,8 +218,12 @@ class RNNDataset:
                     if batch_idx == batch_size:
                         batch_idx = 0
                         if use_cumsum:
-                            yield (batch_x, {'current_values': batch_y, 'cumsum_values': np.cumsum(batch_y, axis=1)})
+                            yield (
+                                batch_x,
+                                {
+                                    'current_values': batch_y,
+                                    'cumsum_values': np.cumsum(batch_y, axis=1)
+                                }
+                            )
                         else:
                             yield (batch_x, batch_y)
-
-

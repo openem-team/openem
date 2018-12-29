@@ -91,7 +91,9 @@ ErrorCode KeyframeFinder::Process(
     int num_cover = static_cast<int>(c.cover.size());
     int num_loc = static_cast<int>(d.location.size());
     int num_fea = num_species + num_cover + num_loc + 2;
-    if (fea_len != (2 * num_fea)) return kErrorBadSeqLength;
+    if (fea_len != (2 * num_fea) && fea_len != num_fea) {
+      return kErrorBadSeqLength;
+    }
 
     // Normalize the bounding boxes to image size.
     std::array<float, 4> norm_loc = {
@@ -100,8 +102,9 @@ ErrorCode KeyframeFinder::Process(
       static_cast<float>(d.location[2]) / impl_->width_,
       static_cast<float>(d.location[3]) / impl_->height_};
 
-    // Copy twice for now, this is how the existing model works.
-    for (int m = 0; m < 2; m++) {
+    // Copy based on number of expected inputs.
+    int num_models = fea_len / num_fea;
+    for (int m = 0; m < num_models; m++) {
       std::copy_n(c.species.data(), num_species, seq.data() + offset);
       offset += num_species;
       std::copy_n(c.cover.data(), num_cover, seq.data() + offset);

@@ -34,9 +34,9 @@ def main():
     config = ConfigInterface(args.config_file)
 
     # Find checkpoint associated with user inputs.
-    check_dir = config.checkpoints_dir()
+    check_dir = config.checkpoints_dir(args.model)
     fname = "checkpoint-{:03d}-*.hdf5".format(args.epoch)
-    patt = os.path.join(check_dir, args.model, fname)
+    patt = os.path.join(check_dir, fname)
     files = glob.glob(patt)
     if files:
         latest = max(files, key=os.path.getctime)

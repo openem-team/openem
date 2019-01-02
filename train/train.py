@@ -4,6 +4,7 @@
 import argparse
 import sys
 from openem_train import preprocess
+from openem_train import find_ruler
 from openem_train import detect
 from openem_train import classify
 from openem_train import count
@@ -27,7 +28,11 @@ def main():
     if args.task == 'extract_images':
         preprocess.extract_images(config)
 
-    #TODO: find_ruler_train and find_ruler_infer go here
+    if args.task == 'find_ruler_train':
+        find_ruler.train(config)
+
+    if args.task == 'find_ruler_predict':
+        find_ruler.predict(config)
 
     if args.task == 'extract_rois':
         preprocess.extract_rois(config)
@@ -35,8 +40,8 @@ def main():
     if args.task == 'detect_train':
         detect.train(config)
 
-    if args.task == 'detect_infer':
-        detect.infer(config)
+    if args.task == 'detect_predict':
+        detect.predict(config)
 
     if args.task == 'extract_dets':
         preprocess.extract_dets(config)
@@ -44,8 +49,8 @@ def main():
     if args.task == 'classify_train':
         classify.train(config)
 
-    if args.task == 'classify_infer':
-        classify.infer(config)
+    if args.task == 'classify_predict':
+        classify.predict(config)
 
     if args.task == 'count_train':
         count.train(config)

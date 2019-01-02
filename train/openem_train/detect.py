@@ -126,7 +126,7 @@ def train(config):
     # Save the model.
     _save_model(config, model)
 
-def infer(config):
+def predict(config):
     """Runs detection model on extracted ROIs.
 
     # Arguments

@@ -35,6 +35,16 @@ class ConfigInterface:
         """
         return os.path.join(self.config.get('Paths', 'ModelDir'), 'deploy')
 
+    def find_ruler_model_dir(self):
+        """Gets find ruler model directory.
+        """
+        return os.path.join(self.model_dir(), 'find_ruler')
+
+    def find_ruler_model_path(self):
+        """Gets find ruler model file path.
+        """
+        return os.path.join(self.find_ruler_model_dir(), 'find_ruler.pb')
+
     def detect_model_dir(self):
         """Gets detection model directory.
         """
@@ -89,6 +99,31 @@ class ConfigInterface:
         """Returns list of species aspect ratios.
         """
         return self._ratios
+
+    def find_ruler_width(self):
+        """Returns width of image used for finding ruler.
+        """
+        return self.config.getint('FindRuler', 'Width')
+
+    def find_ruler_height(self):
+        """Returns height of image used for finding ruler.
+        """
+        return self.config.getint('FindRuler', 'Height')
+
+    def find_ruler_batch_size(self):
+        """Returns batch size used for find ruler training.
+        """
+        return self.config.getint('FindRuler', 'BatchSize')
+
+    def find_ruler_val_batch_size(self):
+        """Returns batch size used for find ruler validation.
+        """
+        return self.config.getint('FindRuler', 'ValBatchSize')
+
+    def find_ruler_num_epochs(self):
+        """Returns number of epochs for find ruler training.
+        """
+        return self.config.getint('FindRuler', 'NumEpochs')
 
     def detect_width(self):
         """Returns width of ROI used for detection.
@@ -202,10 +237,15 @@ class ConfigInterface:
         """
         return os.path.join(self.train_dir(), 'cover.csv')
 
-    def ruler_position_path(self):
-        """Returns path to ruler position annotations.
+    def train_mask_imgs_dir(self):
+        """Returns path to images used for training find ruler alg.
         """
-        return os.path.join(self.train_dir(), 'ruler_position.csv')
+        return os.path.join(self.train_dir(), 'masks', 'images')
+
+    def train_mask_masks_dir(self):
+        """Returns path to masks used for training find ruler alg.
+        """
+        return os.path.join(self.train_dir(), 'masks', 'masks')
 
     def train_imgs_dir(self):
         """Returns path to training images directory.

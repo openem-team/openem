@@ -31,7 +31,7 @@ def find_roi(mask_finder_path, vid_path):
         vid_path: Path to the video.
 
     # Returns:
-        Region of interest and affine transform.
+        Region of interest and ruler endpoints.
 
     # Raises:
         IOError: If video or model file cannot be opened.
@@ -79,12 +79,12 @@ def find_roi(mask_finder_path, vid_path):
 
     # Now that we have the best mask, use this to compute the ROI.
     best_mask.Resize(reader.Width(), reader.Height())
-    transform = openem.RulerOrientation(best_mask)
-    r_mask = openem.Rectify(best_mask, transform)
+    endpoints = openem.RulerEndpoints(best_mask)
+    r_mask = openem.Rectify(best_mask, endpoints)
     roi = openem.FindRoi(r_mask)
-    return (roi, transform)
+    return (roi, endpoints)
 
-def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
+def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
     """Finds and classifies detections for all frames in a video.
 
     # Arguments
@@ -92,7 +92,7 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
         classify_path: Path to classify model file.
         vid_path: Path to the video.
         roi: Region of interest output from find_roi.
-        transform: Transform output from find_roi.
+        endpoints: Ruler endpoints from find_roi.
 
     # Returns
         Detection rects and classification scores.
@@ -136,7 +136,7 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, transform):
             if not status == openem.kSuccess:
                 vid_end = True
                 break
-            img = openem.Rectify(img, transform)
+            img = openem.Rectify(img, endpoints)
             img = openem.Crop(img, roi)
             status = detector.AddImage(img)
             imgs[i] = img
@@ -201,14 +201,14 @@ def write_counts(count_path, out_path, roi, detections, scores):
             csv.write("{},{},{}\n".format(uid, i, species_index))
             uid += 1
 
-def write_video(vid_path, out_path, roi, transform, detections, scores):
+def write_video(vid_path, out_path, roi, endpoints, detections, scores):
     """Writes a new video with bounding boxes around detections.
 
     # Arguments
         vid_path: Path to the original video.
         out_path: Path to the output video.
         roi: Region of interest output from find_roi.
-        transform: Transform output from find_roi.
+        endpoints: Ruler endpoints from find_roi.
         detections: Detections for each frame.
         scores: Cover and species scores for each detection.
     """
@@ -235,18 +235,16 @@ def write_video(vid_path, out_path, roi, transform, detections, scores):
         status = reader.GetFrame(frame)
         if not status == openem.kSuccess:
             raise RuntimeError("Error retrieving video frame!")
-        frame.DrawRect(roi, (255, 0, 0), 1, transform)
+        frame.DrawRect(roi, (255, 0, 0), 1, endpoints)
         for j, (det, score) in enumerate(zip(det_frame, score_frame)):
             clear = score.cover[2]
             hand = score.cover[1]
             if j == 0:
                 if clear > hand:
-                    frame.DrawText("Clear", (0, 0), (0, 255, 0))
                     det_color = (0, 255, 0)
                 else:
-                    frame.DrawText("Hand", (0, 0), (0, 0, 255))
                     det_color = (0, 0, 255)
-            frame.DrawRect(det.location, det_color, 2, transform, roi)
+            frame.DrawRect(det.location, det_color, 2, endpoints, roi)
         status = writer.AddFrame(frame)
         if not status == openem.kSuccess:
             raise RuntimeError("Error adding frame to video!")
@@ -274,7 +272,7 @@ if __name__ == "__main__":
     for i, video_path in enumerate(args.video_paths):
         # Find the ROI.
         print("Finding region of interest...")
-        roi, transform = find_roi(args.find_ruler_model, video_path)
+        roi, endpoints = find_roi(args.find_ruler_model, video_path)
 
         # Find detections and classify them.
         print("Performing detection and classification...")
@@ -283,7 +281,7 @@ if __name__ == "__main__":
             args.classify_model,
             video_path,
             roi,
-            transform)
+            endpoints)
 
         # Write counts to csv.
         print("Writing counts to csv...")
@@ -300,7 +298,7 @@ if __name__ == "__main__":
             video_path,
             "annotated_video_{}.avi".format(i),
             roi,
-            transform,
+            endpoints,
             detections,
             scores)
 

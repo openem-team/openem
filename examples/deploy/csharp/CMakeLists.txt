@@ -22,6 +22,8 @@ set(SWIG_SRC
   ${PROJECT_BINARY_DIR}/deploy/bindings/RulerMaskFinder.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Rect.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/PairIntInt.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/PairDoubleDouble.cs
+  ${PROJECT_BINARY_DIR}/deploy/bindings/PointPair.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/openemPINVOKE.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/openem.cs
   ${PROJECT_BINARY_DIR}/deploy/bindings/Image.cs

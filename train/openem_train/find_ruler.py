@@ -142,7 +142,7 @@ def predict(config):
         img = openem.Image()
         status = img.FromFile(img_path)
         if not status == openem.kSuccess:
-            raise IOError("Failed to load image {}".format(img_path))
+            continue
 
         # Add image to processing queue.
         status = mask_finder.AddImage(img)

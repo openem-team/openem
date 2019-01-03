@@ -89,8 +89,7 @@ ErrorCode Image::FromData(
   } else {
     return kErrorNumChann;
   }
-  impl_->mat_.convertTo(impl_->mat_, dtype);
-  Resize(width, height);
+  impl_->mat_ = cv::Mat(height, width, dtype, cv::Scalar(0));
   std::memcpy(impl_->mat_.data, data.data(), data.size() * sizeof(uint8_t));
   return kSuccess;
 }

@@ -22,6 +22,7 @@
 #include <future>
 
 #include <opencv2/core.hpp>
+#include <opencv2/video.hpp>
 #include <tensorflow/core/public/session.h>
 #include "image.h"
 #include "error_codes.h"
@@ -124,6 +125,21 @@ tensorflow::Tensor Preprocess(
     double scale, 
     const cv::Scalar& bias,
     bool rgb);
+
+/// Converts ruler endpoints to a transform.
+/// @param x0 X-coord of first endpoint.
+/// @param y0 Y-coord of first endpoint.
+/// @param x1 X-coord of second endpoint.
+/// @param y1 Y-coord of second endpoint.
+/// @param rows Number of rows in image.
+/// @param cols Number of columns in image.
+cv::Mat EndpointsToTransform(
+    double x0,
+    double y0,
+    double x1,
+    double y1,
+    int rows,
+    int cols);
 
 } // namespace detail 
 } // namespace openem

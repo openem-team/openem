@@ -17,7 +17,10 @@
 
 #include "find_ruler.h"
 
+#include <numeric>
+
 #include <opencv2/imgproc.hpp>
+#include <opencv2/video.hpp>
 #include "detail/model.h"
 #include "detail/util.h"
 
@@ -84,7 +87,7 @@ bool RulerPresent(const Image& mask) {
   return cv::sum(*mat)[0] > 1000.0;
 }
 
-std::vector<double> RulerOrientation(const Image& mask) {
+PointPair RulerEndpoints(const Image& mask) {
   // Find center of rotation of the mask.
   const cv::Mat* mat = detail::MatFromImage(&mask);
   cv::Moments m = cv::moments(*mat);
@@ -120,15 +123,46 @@ std::vector<double> RulerOrientation(const Image& mask) {
       min_moment = moments.mu02;
     }
   }
-  return std::vector<double>(best.begin<double>(), best.end<double>());
+
+  // Find the endpoints using the best transform.
+  cv::Mat col_sum;
+  cv::warpAffine(*mat, rotated, best, mat->size());
+  rotated.convertTo(rotated, CV_32F);
+  cv::reduce(rotated, col_sum, 0, CV_REDUCE_SUM);
+  col_sum.convertTo(col_sum, CV_64F);
+  std::vector<double> cum_sum(col_sum.begin<double>(), col_sum.end<double>());
+  std::partial_sum(cum_sum.begin(), cum_sum.end(), cum_sum.begin(), std::plus<double>());
+  for (auto& elem : cum_sum) elem /= cum_sum.back();
+  auto left_it = std::upper_bound(cum_sum.begin(), cum_sum.end(), 0.06);
+  int left_col = left_it - cum_sum.begin();
+  auto right_it = std::lower_bound(cum_sum.begin(), cum_sum.end(), 0.94);
+  int right_col = right_it - cum_sum.begin();
+  left_col -= (right_col - left_col) * 0.1;
+  right_col += (right_col - left_col) * 0.1;
+  std::vector<cv::Point2f> endpoints;
+  endpoints.push_back(cv::Point2f(left_col, static_cast<float>(mat->rows) / 2.0));
+  endpoints.push_back(cv::Point2f(right_col, static_cast<float>(mat->rows) / 2.0));
+  cv::Mat inverse;
+  cv::invertAffineTransform(best, inverse);
+  cv::vconcat(inverse, row, inverse);
+  cv::perspectiveTransform(endpoints, endpoints, inverse);
+  return PointPair(
+      {endpoints[0].x, endpoints[0].y},
+      {endpoints[1].x, endpoints[1].y}
+  );
 }
 
-Image Rectify(const Image& image, const std::vector<double>& transform) {
+Image Rectify(const Image& image, const PointPair& endpoints) {
   Image r_image;
   cv::Mat* r_mat = detail::MatFromImage(&r_image);
   const cv::Mat* mat = detail::MatFromImage(&image);
-  cv::Mat t_mat(2, 3, CV_64F);
-  std::memcpy(t_mat.data, transform.data(), transform.size() * sizeof(double));
+  cv::Mat t_mat = detail::EndpointsToTransform(
+      endpoints.first.first,
+      endpoints.first.second,
+      endpoints.second.first,
+      endpoints.second.second,
+      image.Height(),
+      image.Width());
   cv::warpAffine(*mat, *r_mat, t_mat, r_mat->size());
   return std::move(r_image);
 }

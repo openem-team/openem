@@ -86,17 +86,17 @@ class RulerMaskFinder {
 /// @return True if ruler is present, false otherwise.
 bool RulerPresent(const Image& mask);
 
-/// Finds ruler orientation in a mask.
+/// Finds ruler endpoints from a mask.
 /// @param mask Mask image.
 /// @return Affine transformation matrix.
-std::vector<double> RulerOrientation(const Image& mask);
+PointPair RulerEndpoints(const Image& mask);
 
 /// Rectifies an image by applying specified rotation.  This is
 /// meant to make the ruler horizontal in the image.
 /// @param image Image to be rectified.  May be a mask image.
-/// @param transform Transform found with RulerOrientation.
+/// @param endpoints Endpoints found with RulerEndpoints.
 /// @return Rectified image.
-Image Rectify(const Image& image, const std::vector<double>& transform);
+Image Rectify(const Image& image, const PointPair& endpoints);
 
 /// Finds region of interest (ROI) on a rectified mask image.  The ROI
 /// will retain the same aspect ratio as the original image.  Size of 

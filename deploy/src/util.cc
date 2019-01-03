@@ -18,6 +18,7 @@
 #include "detail/util.h"
 
 #include <opencv2/imgproc.hpp>
+#include <opencv2/calib3d.hpp>
 
 namespace openem {
 namespace detail {
@@ -178,6 +179,24 @@ tf::Tensor Preprocess(
       p_image.Width(), 
       p_image.Channels()});
   return ImageToTensor(p_image, shape);
+}
+
+cv::Mat EndpointsToTransform(
+    double x0,
+    double y0,
+    double x1,
+    double y1,
+    int rows,
+    int cols) {
+  std::vector<cv::Point2f> src;
+  src.push_back(cv::Point2f(x0, y0));
+  src.push_back(cv::Point2f(x1, y1));
+  std::vector<cv::Point2f> dst;
+  float rows_f = static_cast<float>(rows);
+  float cols_f = static_cast<float>(cols);
+  dst.push_back(cv::Point2f(cols_f * 0.1, rows_f / 2.0));
+  dst.push_back(cv::Point2f(cols_f * 0.9, rows_f / 2.0));
+  return cv::estimateAffinePartial2D(src, dst);
 }
 
 } // namespace detail

@@ -28,6 +28,8 @@ namespace std {
   %template(VectorVectorVectorFloat) vector<vector<vector<float>>>;
   %template(VectorUint8) vector<uint8_t>;
   %template(PairIntInt) pair<int, int>;
+  %template(PairDoubleDouble) pair<double, double>;
+  %template(PointPair) pair<pair<double, double>, pair<double, double>>;
   %template(Rect) array<int, 4>;
   %template(Color) array<uint8_t, 3>;
   %template(VectorRect) vector<array<int, 4>>;

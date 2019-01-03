@@ -5,6 +5,7 @@ import os
 import glob
 import sys
 import pandas as pd
+import numpy as np
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
 from keras.callbacks import LearningRateScheduler
@@ -103,3 +104,92 @@ def train(config):
 
     # Save the model.
     _save_model(config, model)
+
+def predict(config):
+    """Runs find ruler model on video frames.
+
+    # Arguments
+        config: ConfigInterface object.
+    """
+    # Make a dict to contain find ruler results.
+    find_ruler_data = {
+        'video_id' : [],
+        'x1' : [],
+        'y1' : [],
+        'x2' : [],
+        'y2' : [],
+    }
+
+    # Make a dict to store mean of all masks.
+    mask_avg = {}
+
+    # Create and initialize the mask finder.
+    mask_finder = openem.RulerMaskFinder()
+    status = mask_finder.Init(config.find_ruler_model_path())
+    if not status == openem.kSuccess:
+        raise IOError("Failed to initialize ruler mask finder!")
+
+    for img_path in config.train_imgs():
+
+        print("Finding mask for image {}...".format(img_path))
+
+        # Get video id from path.
+        path, fname = os.path.split(img_path)
+        frame, _ = os.path.splitext(fname)
+        video_id = os.path.basename(os.path.normpath(path))
+
+        # Load in image.
+        img = openem.Image()
+        status = img.FromFile(img_path)
+        if not status == openem.kSuccess:
+            raise IOError("Failed to load image {}".format(img_path))
+
+        # Add image to processing queue.
+        status = mask_finder.AddImage(img)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to add image {} for processing!".format(img_path))
+
+        # Process the loaded image.
+        masks = openem.VectorImage()
+        status = mask_finder.Process(masks)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to process image {}!".format(img_path))
+
+        # Resize the mask back to the same size as the image.
+        mask = masks[0]
+        mask.Resize(img.Width(), img.Height())
+
+        # Initialize the mean mask if necessary.
+        if video_id not in mask_avg:
+            mask_avg[video_id] = np.zeros((img.Height(), img.Width()));
+
+        # Add the mask to the mask average.
+        mask_data = mask.DataCopy()
+        mask_data = np.array(mask_data)
+        mask_data = np.reshape(mask_data, (img.Height(), img.Width()))
+        mask_avg[video_id] += mask_data
+
+    for vid_id in mask_avg:
+
+        print("Finding ruler endpoints for video {}...".format(vid_id))
+
+        # Convert mask image from numpy to openem format.
+        mask_vec = mask_avg[video_id].copy()
+        mask_vec = mask_vec / np.max(mask_vec)
+        mask_vec = mask_vec * 255.0
+        mask_vec = mask_vec.reshape(-1).astype(np.uint8).tolist()
+        mask_img = openem.Image()
+        mask_img.FromData(mask_vec, img.Width(), img.Height(), 1);
+
+        # Get ruler endpoints from the mask averages.
+        p1, p2 = openem.RulerEndpoints(mask_img)
+        find_ruler_data['video_id'].append(vid_id)
+        find_ruler_data['x1'].append(p1[0])
+        find_ruler_data['y1'].append(p1[1])
+        find_ruler_data['x2'].append(p2[0])
+        find_ruler_data['y2'].append(p2[1])
+
+    # Write detections to csv.
+    os.makedirs(config.inference_dir(), exist_ok=True)
+    d = pd.DataFrame(find_ruler_data)
+    d.to_csv(config.find_ruler_inference_path(), index=False)

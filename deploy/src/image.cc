@@ -75,6 +75,16 @@ ErrorCode Image::FromFile(const std::string& image_path, bool color) {
   return kSuccess;
 }
 
+ErrorCode Image::ToFile(const std::string& image_path) {
+  try {
+    cv::imwrite(image_path, impl_->mat_);
+  }
+  catch (...) {
+    return kErrorSavingImage;
+  }
+  return kSuccess;
+}
+
 ErrorCode Image::FromData(
     const std::vector<uint8_t>& data, 
     int width, 

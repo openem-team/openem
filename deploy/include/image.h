@@ -73,6 +73,10 @@ class Image {
   /// @param color If true, load a color image.
   ErrorCode FromFile(const std::string& image_path, bool color=true);
 
+  /// Saves to image file.
+  /// @param image_path Path to image file.
+  ErrorCode ToFile(const std::string& image_path);
+
   /// Creates an image from existing data.  Data is copied.
   ///
   /// This function will check to make sure the size of data 

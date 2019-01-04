@@ -169,9 +169,9 @@ def predict(config):
         mask_data = np.reshape(mask_data, (img.Height(), img.Width()))
         mask_avg[video_id] += mask_data
 
-    for vid_id in mask_avg:
+    for video_id in mask_avg:
 
-        print("Finding ruler endpoints for video {}...".format(vid_id))
+        print("Finding ruler endpoints for video {}...".format(video_id))
 
         # Convert mask image from numpy to openem format.
         mask_vec = mask_avg[video_id].copy()
@@ -180,14 +180,17 @@ def predict(config):
         mask_vec = mask_vec.reshape(-1).astype(np.uint8).tolist()
         mask_img = openem.Image()
         mask_img.FromData(mask_vec, img.Width(), img.Height(), 1);
+        mask_img.Show()
 
         # Get ruler endpoints from the mask averages.
         p1, p2 = openem.RulerEndpoints(mask_img)
-        find_ruler_data['video_id'].append(vid_id)
-        find_ruler_data['x1'].append(p1[0])
-        find_ruler_data['y1'].append(p1[1])
-        find_ruler_data['x2'].append(p2[0])
-        find_ruler_data['y2'].append(p2[1])
+        x1, y1 = p1
+        x2, y2 = p2
+        find_ruler_data['video_id'].append(video_id)
+        find_ruler_data['x1'].append(x1)
+        find_ruler_data['y1'].append(y1)
+        find_ruler_data['x2'].append(x2)
+        find_ruler_data['y2'].append(y2)
 
     # Write detections to csv.
     os.makedirs(config.inference_dir(), exist_ok=True)

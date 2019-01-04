@@ -337,6 +337,11 @@ class ConfigInterface:
         """
         return os.path.join(self.work_dir(), 'inference')
 
+    def find_ruler_inference_path(self):
+        """Returns path to find ruler inference results.
+        """
+        return os.path.join(self.inference_dir(), 'find_ruler.csv')
+
     def detect_inference_path(self):
         """Returns path to detection inference results.
         """

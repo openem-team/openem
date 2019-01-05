@@ -129,32 +129,7 @@ def extract_rois(config):
             img.FromFile(img_path)
             roi = openem.Rectify(img, ((x1, y1), (x2, y2)))
             print("Saving ROI to: {}".format(roi_path))
-
-def _get_det_image(row, roi_path):
-    """Extracts detection image using info contained in detection
-       inference csv.
-
-    # Arguments
-        row: Row of detection inference csv.
-        roi_path: Path to ROI crop.
-    """
-    roi = scipy.misc.imread(roi_path)
-    x = row['x']
-    y = row['y']
-    w = row['w']
-    h = row['h']
-    diff = w - h
-    y -= int(diff / 2)
-    h = w
-    if x < 0:
-        x = 0
-    if y < 0:
-        y = 0
-    if x + w > roi.shape[1]:
-        w = roi.shape[1] - x
-    if y + h > roi.shape[0]:
-        h = roi.shape[0] - y
-    return roi[y:(y + h), x:(x + w)]
+            roi.ToFile(roi_path)
 
 def extract_dets(config):
     """Extracts detection images.
@@ -182,5 +157,8 @@ def extract_dets(config):
 
         # Extract detections.
         print("Saving detection image to: {}".format(det_path))
-        det = _get_det_image(row, roi_path)
-        scipy.misc.imsave(det_path, det)
+        roi = openem.Image()
+        roi.FromFile(roi_path)
+        rect = openem.Rect([row['x'], row['y'], row['w'], row['h']])
+        det = openem.GetDetImage(roi, rect)
+        det.ToFile(det_path)

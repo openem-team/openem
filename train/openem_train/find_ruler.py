@@ -196,7 +196,6 @@ def predict(config):
         mask_vec = mask_vec.reshape(-1).astype(np.uint8).tolist()
         mask_img = openem.Image()
         mask_img.FromData(mask_vec, img.Width(), img.Height(), 1);
-        mask_img.Show()
 
         # Get ruler endpoints from the mask averages.
         p1, p2 = openem.RulerEndpoints(mask_img)

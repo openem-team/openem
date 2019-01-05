@@ -18,13 +18,15 @@ __license__ = "GPLv3"
 """
 
 import os
+import sys
 from collections import defaultdict
 import pandas as pd
 import scipy.misc
 import skimage
 from cv2 import VideoCapture
 from cv2 import imwrite
-from openem_train.util.roi_transform import RoiTransform
+sys.path.append('../python')
+import openem
 
 def _find_cover_frames(config):
     """ Find frames in cover.csv.
@@ -101,8 +103,8 @@ def extract_rois(config):
     # Create directories to store ROIs.
     os.makedirs(config.train_rois_dir(), exist_ok=True)
 
-    # Create a transform object.
-    roi_transform = RoiTransform(config)
+    # Open find ruler results csv.
+    endpoints = pd.read_csv(config.find_ruler_inference_path())
 
     # Build a map between video ID and list of enum containing image
     # and roi paths.
@@ -115,26 +117,18 @@ def extract_rois(config):
             lookup[vid_id] = []
         lookup[vid_id].append((img_path, roi_path))
 
-    # Create the ROIs.
-    for vid_id in lookup:
-        vid_dir = os.path.join(config.train_rois_dir(), vid_id)
-        os.makedirs(vid_dir, exist_ok=True)
-        tform = roi_transform.transform_for_clip(
-            vid_id,
-            dst_w=config.detect_width(),
-            dst_h=config.detect_height())
+    # Extract ROIs.
+    for _, row in endpoints.iterrows():
+        vid_id = row['video_id']
+        x1 = row['x1']
+        y1 = row['y1']
+        x2 = row['x2']
+        y2 = row['y2']
         for img_path, roi_path in lookup[vid_id]:
-            img = scipy.misc.imread(img_path)
-            roi = skimage.transform.warp(
-                img,
-                tform,
-                mode='edge',
-                order=3,
-                output_shape=(
-                    config.detect_height(),
-                    config.detect_width()))
+            img = openem.Image()
+            img.FromFile(img_path)
+            roi = openem.Rectify(img, ((x1, y1), (x2, y2)))
             print("Saving ROI to: {}".format(roi_path))
-            scipy.misc.imsave(roi_path, roi)
 
 def _get_det_image(row, roi_path):
     """Extracts detection image using info contained in detection

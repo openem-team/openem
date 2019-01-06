@@ -34,10 +34,24 @@ def main():
     # Add the deployment library to path.
     sys.path.append('../python')
     parser = argparse.ArgumentParser(description='Top level training script.')
-    parser.add_argument('config_file',
-                        help="Path to config file.")
-    parser.add_argument('task',
-                        help="What task to do, one of: preprocess, detect.")
+    parser.add_argument(
+        'config_file',
+        help="Path to config file."
+    )
+    parser.add_argument(
+        'task',
+        help="What task to do, one of: \n"
+        "extract_images: Convert relevant video frames to images.\n"
+        "find_ruler_train: Train algorithm to find ruler.\n"
+        "find_ruler_predict: Predict ruler position for extracted images.\n"
+        "extract_rois: Use predicted ruler locations to extract ROIs.\n"
+        "detect_train: Train algorithm to detect fish.\n"
+        "detect_predict: Predict fish locations for extracted ROIs.\n"
+        "extract_dets: Use predicted fish locations to extract detections.\n"
+        "classify_train: Train algorithm to classify fish.\n"
+        "classify_predict: Predict fish species for extracted detections.\n"
+        "count_train: Train algorithm to count fish."
+    )
     args = parser.parse_args()
 
     # Read in the config file.

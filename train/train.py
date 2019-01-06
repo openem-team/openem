@@ -33,7 +33,10 @@ def main():
     """
     # Add the deployment library to path.
     sys.path.append('../python')
-    parser = argparse.ArgumentParser(description='Top level training script.')
+    parser = argparse.ArgumentParser(
+        description="Top level training script.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument(
         'config_file',
         help="Path to config file."

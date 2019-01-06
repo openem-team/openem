@@ -53,41 +53,44 @@ def main():
         "extract_dets: Use predicted fish locations to extract detections.\n"
         "classify_train: Train algorithm to classify fish.\n"
         "classify_predict: Predict fish species for extracted detections.\n"
-        "count_train: Train algorithm to count fish."
+        "count_train: Train algorithm to count fish.\n"
+        "all: Do all of the above in sequence."
     )
     args = parser.parse_args()
 
     # Read in the config file.
     config = ConfigInterface(args.config_file)
 
-    if args.task == 'extract_images':
+    do_all = args.task == 'all'
+
+    if (args.task == 'extract_images') or do_all:
         preprocess.extract_images(config)
 
-    if args.task == 'find_ruler_train':
+    if (args.task == 'find_ruler_train') or do_all:
         find_ruler.train(config)
 
-    if args.task == 'find_ruler_predict':
+    if (args.task == 'find_ruler_predict') or do_all:
         find_ruler.predict(config)
 
-    if args.task == 'extract_rois':
+    if (args.task == 'extract_rois') or do_all:
         preprocess.extract_rois(config)
 
-    if args.task == 'detect_train':
+    if (args.task == 'detect_train') or do_all:
         detect.train(config)
 
-    if args.task == 'detect_predict':
+    if (args.task == 'detect_predict') or do_all:
         detect.predict(config)
 
-    if args.task == 'extract_dets':
+    if (args.task == 'extract_dets') or do_all:
         preprocess.extract_dets(config)
 
-    if args.task == 'classify_train':
+    if (args.task == 'classify_train') or do_all:
         classify.train(config)
 
-    if args.task == 'classify_predict':
+    if (args.task == 'classify_predict') or do_all:
         classify.predict(config)
 
-    if args.task == 'count_train':
+    if (args.task == 'count_train') or do_all:
         count.train(config)
 
 if __name__ == '__main__':

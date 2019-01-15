@@ -361,9 +361,9 @@ class InceptionDataset:
 
             if len(samples_to_process) == batch_size:
                 batch_samples = pool.map(self.generate_xy, samples_to_process)
-                # batch_samples = [self.generate_xy(sample) for sample in samples_to_process]
                 x_batch = np.array([batch_sample[0] for batch_sample in batch_samples])
-                y_batch_species = np.array([batch_sample[1] for batch_sample in batch_samples])
+                y_batch_species = np.array([batch_sample[1] 
+                    if batch_sample[1] is not None else 0 for batch_sample in batch_samples])
                 y_batch_cover = np.array([batch_sample[2] for batch_sample in batch_samples])
                 if not skip_pp:
                     x_batch = preprocess_input(x_batch)
@@ -396,7 +396,8 @@ class InceptionDataset:
                 if len(samples_to_process) == batch_size:
                     batch_samples = pool.map(self.generate_xy, samples_to_process)
                     x_batch = np.array([batch_sample[0] for batch_sample in batch_samples])
-                    y_batch_species = np.array([batch_sample[1] for batch_sample in batch_samples])
+                    y_batch_species = np.array([batch_sample[1] 
+                        if batch_sample[1] is not None else 0 for batch_sample in batch_samples])
                     y_batch_cover = np.array([batch_sample[2] for batch_sample in batch_samples])
                     if not skip_pp:
                         x_batch = preprocess_input(x_batch)

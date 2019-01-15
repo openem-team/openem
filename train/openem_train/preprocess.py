@@ -112,7 +112,9 @@ def extract_rois(config):
     for img_path in config.train_imgs():
         path, f = os.path.split(img_path)
         vid_id = os.path.basename(path)
-        roi_path = os.path.join(config.train_rois_dir(), vid_id, f)
+        roi_dir = os.path.join(config.train_rois_dir(), vid_id)
+        os.makedirs(roi_dir, exist_ok=True)
+        roi_path = os.path.join(roi_dir, f)
         if vid_id not in lookup:
             lookup[vid_id] = []
         lookup[vid_id].append((img_path, roi_path))

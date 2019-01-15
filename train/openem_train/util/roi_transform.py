@@ -33,7 +33,7 @@ class RoiTransform:
             config: ConfigInterface object.
         """
         self.ruler_points = {}
-        ruler_points = pd.read_csv(config.ruler_position_path())
+        ruler_points = pd.read_csv(config.find_ruler_inference_path())
         for _, row in ruler_points.iterrows():
             self.ruler_points[row.video_id] = RulerPoints(
                 x1=row.x1,

@@ -64,8 +64,9 @@ ErrorCode KeyframeFinder::Process(
     const std::vector<std::vector<classify::Classification>>& classifications,
     const std::vector<std::vector<detect::Detection>>& detections,
     std::vector<int>* keyframes) {
-  constexpr float kKeyframeThresh = 0.2;
+  constexpr float kKeyframeThresh = 0.1;
   constexpr int kKeyframeOffset = 32;
+  constexpr int kMinSeparation = 2;
 
   // Get tensor size and do size checks.
   if (classifications.size() != detections.size()) return kErrorLenMismatch;
@@ -76,62 +77,105 @@ ErrorCode KeyframeFinder::Process(
   auto seq = seq_tensor.flat<float>();
 
   // Copy data from each detection/classification into sequence tensor.
-  for (int n = 0, offset = 0; n < detections.size(); ++n) {
-
-    // If this frame has no detections, continue.
-    if (detections[n].empty()) {
-      offset += fea_len;
-      continue;
-    }
-
-    // More size checking.
-    const auto& c = classifications[n][0];
-    const auto& d = detections[n][0];
-    int num_species = static_cast<int>(c.species.size());
-    int num_cover = static_cast<int>(c.cover.size());
-    int num_loc = static_cast<int>(d.location.size());
-    int num_fea = num_species + num_cover + num_loc + 2;
-    if (fea_len != (2 * num_fea) && fea_len != num_fea) {
-      return kErrorBadSeqLength;
-    }
-
-    // Normalize the bounding boxes to image size.
-    std::array<float, 4> norm_loc = {
-      static_cast<float>(d.location[0]) / impl_->width_,
-      static_cast<float>(d.location[1]) / impl_->height_,
-      static_cast<float>(d.location[2]) / impl_->width_,
-      static_cast<float>(d.location[3]) / impl_->height_};
-
-    // Copy based on number of expected inputs.
-    int num_models = fea_len / num_fea;
-    for (int m = 0; m < num_models; m++) {
-      std::copy_n(c.species.data(), num_species, seq.data() + offset);
-      offset += num_species;
-      std::copy_n(c.cover.data(), num_cover, seq.data() + offset);
-      offset += num_cover;
-      std::copy_n(norm_loc.data(), num_loc, seq.data() + offset);
-      offset += num_loc;
-      seq(offset) = d.confidence;
-      offset++;
-      seq(offset) = static_cast<float>(d.species);
-      offset++;
-    }
-  }
-  // Process the model.
-  std::vector<tf::Tensor> outputs;
-  ErrorCode status = impl_->model_.Process(
-      seq_tensor,
-      "input_1",
-      {"cumsum_values_1:0"},
-      &outputs);
-
-  // Find values over a threshold.
+  int k = 0;
+  int m = 0;
+  bool at_end = false;
   keyframes->clear();
-  auto out = outputs[0].tensor<float, 2>();
-  for (int i = 0; i < detections.size(); ++i) {
-    if (out(0, i) > kKeyframeThresh) {
-      keyframes->push_back(i + kKeyframeOffset);
+  while(true) {
+
+    // Fill sequence with zeros.
+    std::fill_n(seq.data(), seq.size(), 0.0);
+
+    // Add padding.
+    k -= kKeyframeOffset;
+
+    // Fill up a sequence.
+    for (int n = 0, offset = 0; n < seq_len; ++n, ++k) {
+
+      // Check if we are at end of data.
+      if (k == detections.size() + kKeyframeOffset) {
+        at_end = true;
+        break;
+      }
+
+      // If we are doing padding then just continue.
+      if (k < 0 || k >= detections.size()) {
+        offset += fea_len;
+        continue;
+      }
+
+      // If this frame has no detections, continue.
+      if (detections[k].empty()) {
+        offset += fea_len;
+        continue;
+      }
+
+      // More size checking.
+      const auto& c = classifications[k][0];
+      const auto& d = detections[k][0];
+      int num_species = static_cast<int>(c.species.size());
+      int num_cover = static_cast<int>(c.cover.size());
+      int num_loc = static_cast<int>(d.location.size());
+      int num_fea = num_species + num_cover + num_loc + 2;
+      if (fea_len != (2 * num_fea) && fea_len != num_fea) {
+        return kErrorBadSeqLength;
+      }
+
+      // Normalize the bounding boxes to image size.
+      std::array<float, 4> norm_loc = {
+        static_cast<float>(d.location[0]) / impl_->width_,
+        static_cast<float>(d.location[1]) / impl_->height_,
+        static_cast<float>(d.location[2]) / impl_->width_,
+        static_cast<float>(d.location[3]) / impl_->height_};
+
+      // Copy based on number of expected inputs.
+      int num_models = fea_len / num_fea;
+      for (int m = 0; m < num_models; m++) {
+        std::copy_n(c.species.data(), num_species, seq.data() + offset);
+        offset += num_species;
+        std::copy_n(c.cover.data(), num_cover, seq.data() + offset);
+        offset += num_cover;
+        std::copy_n(norm_loc.data(), num_loc, seq.data() + offset);
+        offset += num_loc;
+        seq(offset) = d.confidence;
+        offset++;
+        seq(offset) = static_cast<float>(d.species);
+        offset++;
+      }
+
     }
+
+    // Process the model.
+    std::vector<tf::Tensor> outputs;
+    ErrorCode status = impl_->model_.Process(
+        seq_tensor,
+        "input_1",
+        {"cumsum_values_1:0"},
+        &outputs);
+
+    // Find values over a threshold.
+    auto out = outputs[0].tensor<float, 2>();
+    int sep = kMinSeparation;
+    for (int i = 0; i < (seq_len - 2 * kKeyframeOffset); ++i, ++m, ++sep) {
+      // Check if we are at end of data.
+      if (m == detections.size()) {
+        break;
+      }
+
+      // If this frame has no detections, continue.
+      if (detections[m].empty()) {
+        continue;
+      }
+
+      if (out(0, i) > kKeyframeThresh && sep >= kMinSeparation) {
+        sep = 0;
+        keyframes->push_back(m);
+      }
+    }
+    if (at_end) break;
+
+    // Add padding.
+    k -= kKeyframeOffset;
   }
   return kSuccess;
 }

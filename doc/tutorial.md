@@ -63,27 +63,116 @@ ModelDir=<Path where you want to store models>
 TrainDir is the path to the example training data.  WorkDir is where temporary files are stored during training. ModelDir contains model outputs that can be used directly by the deployment library.  Once you have modified your copy of train.ini to use the right paths on your system, you can do the following:
 
 ```shell
-python train.py train.ini preprocess
+python train.py train.ini extract_images
 ```
 
-Where train.ini is your modified copy. This command will go through the videos and annotations and start dumping images into the working directory. It will take a few hours to complete.
-
-Next, you can do some training. To train the detection model you can do the following command:
+Where train.ini is your modified copy. This command will go through the videos and annotations and start dumping images into the working directory. It will take a few hours to complete. Images are dumped in:
 
 ```shell
-python train.py train.ini detect
+<WorkDir>/train_imgs
 ```
 
-This will start training the detection model.  This will take longer, potentially a couple days.  If you want to monitor the training outside of the command line, you can use Tensorboard. This is a program that serves a webpage for monitoring losses during training runs. Use the following command:
+Next, you can do some training. To train the find ruler model you can do the following command:
+
+```shell
+python train.py train.ini find_ruler_train
+```
+
+This will start training the find ruler model. This will take a while. If you want to monitor the training outside of the command line, you can use Tensorboard. This is a program that serves a webpage for monitoring losses during training runs. Use the following command:
 
 ```shell
 tensorboard --logdir <path to WorkDir>/tensorboard --port 10000
 ```
 
-Then you can open a web browser on the same machine and go to 127.0.0.1:10000. This will display a live view of the training results. You can also use a different machine on the same network and modify the IP address accordingly.
+Then you can open a web browser on the same machine and go to 127.0.0.1:10000. This will display a live view of the training results. You can also use a different machine on the same network and modify the IP address accordingly. All training steps output tensorboard files, so you can monitor training of any of the openem models using this utility.
 
-Once training completes, a new model will be converted to protobuf format at the location specified in train.ini as the ModelDir, subdirectory detect. The file here, detect.pb, is the same format used in the example data for the deployment library.
+Once training completes, a new model will be converted to protobuf format and saved at:
 
+```shell
+<ModelDir>/deploy/find_ruler/find_ruler.pb
+```
+
+This file is the same format used in the example data for the deployment library.
+
+Now that we have a model for finding rulers, we can run the algorithm on all of our extracted images. Run the following command:
+
+```shell
+python train.py train.ini find_ruler_predict
+```
+
+This will use the model that we just trained to find the ruler endpoints. The outputs of this are stored at:
+
+```shell
+<WorkDir>/inference/find_ruler.csv
+```
+
+This file has a simple format, which is just a csv containing the video ID and (x, y) location in pixels of the ruler endpoints. Note that this makes the assumption that the ruler is not moving within a particular video. If it is, you will need to split up your videos into segments in which the ruler is stationary (only for training purposes).
+
+It is possible to train only particular models in openem. Suppose we always know the position of the ruler in our videos and do not need the find ruler algorithm. In this case, we can manually create our own find ruler inference file that contains the same information and store it in the path above. So for example, if we know the ruler is always horizontal spanning the entire video frame, we would use the same (x, y) coordinates for every video in the csv.
+
+The next step is extracting the regions of interest for the videos as determined in the previous step. Run the following:
+
+```shell
+python train.py train.ini extract_rois
+```
+
+This will dump the ROI image corresponding to each extracted image into:
+
+```shell
+<WorkDir>/train_rois
+```
+
+Now we are ready to train the detection model. Run the following:
+
+```shell
+python train.py train.ini detect_train
+```
+
+This training will likely take a couple days. As before you can monitor progress using tensorboard.
+
+By default, the model weights saved to protobuf format are those that correspond to the epoch that yielded the lowest validation loss during training. For various reasons we may wish to choose a different epoch. In this tutorial, we will choose a different epoch for the detect model so that it will be more likely to work on fish when they are covered by a hand. To do this use the following command:
+
+```shell
+python select_epoch.py train.ini detect 8
+```
+
+This will save over the previously saved detection model in protobuf format, using the model weights from epoch 8. This epoch was selected for this tutorial after some experimentation. You can use the select_epoch.py script to select the epoch of any of the four openem models.
+
+Now we can do detection on all of the ROI images:
+
+```shell
+python train.py train.ini detect_predict
+```
+
+This will create a new inference output at:
+
+```shell
+<WorkDir>/inference/detect.csv
+```
+
+As with the find ruler output, if you have a situation where you do not need detection (you always know where the fish is) then you can create this file manually and continue with the next steps.
+
+Next we can extract the detection images:
+
+```shell
+python train.py train.ini extract_dets
+```
+
+This will dump all of the detection outputs into:
+
+```shell
+<WorkDir>/train_dets
+```
+
+And finally we can repeat the train/predict cycle for the classifier and counting algorithms:
+
+```shell
+python train.py train.ini classify_train
+python train.py train.ini classify_predict
+python train.py train.ini count_train
+```
+
+As with other training steps, these will take a while and can be monitored with TensorBoard. We should now have protobuf models in our designated model directory for all four models.
 
 # Building Datasets
 

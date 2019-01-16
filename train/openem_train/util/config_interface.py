@@ -102,6 +102,11 @@ class ConfigInterface:
         """
         return self.config.get('Paths', 'TrainDir')
 
+    def test_dir(self):
+        """Returns test directory.
+        """
+        return self.config.get('Paths', 'TestDir')
+
     def num_classes(self):
         """Returns number of classes, including null class.
         """
@@ -231,6 +236,12 @@ class ConfigInterface:
         """Returns list of paths to videos in training data.
         """
         patt = os.path.join(self.train_dir(), 'videos', '*.mp4')
+        return glob.glob(patt)
+
+    def test_vids(self):
+        """Returns list of paths to videos in test data.
+        """
+        patt = os.path.join(self.test_dir(), 'videos', '*.mp4')
         return glob.glob(patt)
 
     def all_video_ids(self):
@@ -370,3 +381,8 @@ class ConfigInterface:
         """Returns path to classification inference results.
         """
         return os.path.join(self.inference_dir(), 'classify.csv')
+
+    def test_output_dir(self):
+        """Returns path to test outputs.
+        """
+        return os.path.join(self.work_dir(), 'test')

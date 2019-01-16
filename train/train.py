@@ -26,6 +26,7 @@ from openem_train import find_ruler
 from openem_train import detect
 from openem_train import classify
 from openem_train import count
+from openem_train import test
 from openem_train.util.config_interface import ConfigInterface
 
 def main():
@@ -54,6 +55,7 @@ def main():
         "classify_train: Train algorithm to classify fish.\n"
         "classify_predict: Predict fish species for extracted detections.\n"
         "count_train: Train algorithm to count fish.\n"
+        "test: Test a fully trained model.\n"
         "all: Do all of the above in sequence."
     )
     args = parser.parse_args()
@@ -92,6 +94,9 @@ def main():
 
     if (args.task == 'count_train') or do_all:
         count.train(config)
+
+    if (args.task == 'test') or do_all:
+        test.predict(config)
 
 if __name__ == '__main__':
     main()

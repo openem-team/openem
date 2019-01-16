@@ -50,8 +50,9 @@ def train(config):
         config: ConfigInterface object.
     """
     # Create tensorboard and checkpoints directories.
+    tensorboard_dir = config.tensorboard_dir('classify')
     os.makedirs(config.checkpoints_dir('classify'), exist_ok=True)
-    os.makedirs(config.tensorboard_dir(), exist_ok=True)
+    os.makedirs(tensorboard_dir, exist_ok=True)
 
     # Build the inception model.
     model = inception_model(
@@ -91,7 +92,7 @@ def train(config):
         period=1)
 
     tensorboard = TensorBoard(
-        config.tensorboard_dir(),
+        tensorboard_dir,
         histogram_freq=0,
         write_graph=False,
         write_images=True)

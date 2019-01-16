@@ -56,8 +56,9 @@ def train(config):
     """
 
     # Create tensorboard and checkpoints directories.
+    tensorboard_dir = config.tensorboard_dir('detect')
     os.makedirs(config.checkpoints_dir('detect'), exist_ok=True)
-    os.makedirs(config.tensorboard_dir(), exist_ok=True)
+    os.makedirs(tensorboard_dir, exist_ok=True)
 
     # Build the ssd model.
     model = ssd.ssd_model(
@@ -117,7 +118,7 @@ def train(config):
         period=1)
 
     tensorboard = TensorBoard(
-        config.tensorboard_dir(),
+        tensorboard_dir,
         histogram_freq=0,
         write_graph=True,
         write_images=True)

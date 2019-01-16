@@ -19,6 +19,7 @@ __license__ = "GPLv3"
 import os
 import glob
 import configparser
+from datetime import datetime
 
 class ConfigInterface:
     """Interface to config file.
@@ -343,10 +344,12 @@ class ConfigInterface:
         fname = "checkpoint-{epoch:03d}-{val_loss:.4f}.hdf5"
         return os.path.join(self.checkpoints_dir(model), fname)
 
-    def tensorboard_dir(self):
+    def tensorboard_dir(self, model):
         """Returns path to tensorboard directory.
         """
-        return os.path.join(self.work_dir(), 'tensorboard')
+        name = datetime.now().strftime("%Y_%m_%d_")
+        name += model
+        return os.path.join(self.work_dir(), 'tensorboard', name)
 
     def inference_dir(self):
         """Returns output path for inference results.

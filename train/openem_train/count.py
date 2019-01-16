@@ -56,8 +56,9 @@ def train(config):
     model.summary()
 
     # Create checkpoint and tensorboard directories.
+    tensorboard_dir = config.tensorboard_dir('count')
     os.makedirs(config.checkpoints_dir('count'), exist_ok=True)
-    os.makedirs(config.tensorboard_dir(), exist_ok=True)
+    os.makedirs(tensorboard_dir, exist_ok=True)
 
     # Define learning rate schedule.
     def schedule(epoch):
@@ -89,7 +90,7 @@ def train(config):
         period=1)
 
     tensorboard = TensorBoard(
-        config.tensorboard_dir(),
+        tensorboard_dir,
         histogram_freq=0,
         write_graph=False,
         write_images=True)

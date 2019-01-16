@@ -51,8 +51,9 @@ def train(config):
         config: ConfigInterface object.
     """
     # Create tensorboard and checkpoints directories.
+    tensorboard_dir = config.tensorboard_dir('find_ruler')
     os.makedirs(config.checkpoints_dir('find_ruler'), exist_ok=True)
-    os.makedirs(config.tensorboard_dir(), exist_ok=True)
+    os.makedirs(tensorboard_dir, exist_ok=True)
 
     # Build the unet model.
     model = unet_model(
@@ -92,7 +93,7 @@ def train(config):
         period=1)
 
     tensorboard = TensorBoard(
-        config.tensorboard_dir(),
+        tensorboard_dir,
         histogram_freq=0,
         write_graph=False,
         write_images=True)

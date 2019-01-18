@@ -137,7 +137,8 @@ def predict(config):
         'covered' : [],
         'clear' : []
     }
-    for spc in config.species():
+    species_list = ['_',] + config.species()
+    for spc in species_list:
         class_data['species_' + spc] = []
 
     # Initialize detector from deployment library.
@@ -180,7 +181,7 @@ def predict(config):
             class_data['no_fish'].append(score.cover[0])
             class_data['covered'].append(score.cover[1])
             class_data['clear'].append(score.cover[2])
-            for spc, spc_score in zip(config.species(), score.species):
+            for spc, spc_score in zip(species_list, score.species):
                 class_data['species_' + spc].append(spc_score)
         print("Finished classification on {}".format(img_path))
 

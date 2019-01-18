@@ -64,9 +64,11 @@ ErrorCode KeyframeFinder::Process(
     const std::vector<std::vector<classify::Classification>>& classifications,
     const std::vector<std::vector<detect::Detection>>& detections,
     std::vector<int>* keyframes) {
-  constexpr float kKeyframeThresh = 0.1;
   constexpr int kKeyframeOffset = 32;
-  constexpr int kMinSeparation = 2;
+  constexpr int kStepsBefore = 8;
+  constexpr int kStepsAfter = 8;
+  constexpr float kPeakThresh = 0.05;
+  constexpr float kAreaThresh = 0.16;
 
   // Get tensor size and do size checks.
   if (classifications.size() != detections.size()) return kErrorLenMismatch;
@@ -155,28 +157,75 @@ ErrorCode KeyframeFinder::Process(
 
     // Find values over a threshold.
     auto out = outputs[0].tensor<float, 2>();
-    int sep = kMinSeparation;
-    for (int i = 0; i < (seq_len - 2 * kKeyframeOffset); ++i, ++m, ++sep) {
-      // Check if we are at end of data.
-      if (m == detections.size()) {
-        break;
+    const int out_size = seq_len - 2 * kKeyframeOffset;
+    while (true) {
+
+      // Get max value and index.
+      int max_idx = 0;
+      float max_val = 0.0;
+      for (int idx = 0; idx < out_size; ++idx) {
+        if (out(0, idx) > max_val) {
+          max_idx = idx;
+          max_val = out(0, idx);
+        }
       }
 
-      // If this frame has no detections, continue.
-      if (detections[m].empty()) {
-        continue;
+      // If below threshold, we are done.
+      if (max_val < kPeakThresh) break;
+
+      // Get the sum around the max.
+      float sum = 0.0;
+      for (
+          int idx = (max_idx - kStepsBefore);
+          idx < (max_idx + kStepsAfter);
+          ++idx) {
+        if (idx < 0) continue;
+        if (idx >= out_size) continue;
+        sum += out(0, idx);
       }
 
-      if (out(0, i) > kKeyframeThresh && sep >= kMinSeparation) {
-        sep = 0;
-        keyframes->push_back(m);
+      // If sum is over threshold, find the best detection.
+      if (sum > kAreaThresh) {
+        float max_clear = 0.0;
+        int clear_idx = -1;
+        for (
+            int idx = (max_idx - kStepsBefore);
+            idx < (max_idx + kStepsAfter);
+            ++idx) {
+          if (idx < 0) continue;
+          if (idx >= out_size) continue;
+          if (classifications[m + idx].size() > 0) {
+            if (classifications[m + idx][0].cover[2] > max_clear) {
+              max_clear = classifications[m + idx][0].cover[2];
+              clear_idx = idx;
+            }
+          }
+        }
+
+        // If a detection is found, add it to keyframes.
+        if (clear_idx != -1) {
+          keyframes->push_back(m + clear_idx);
+        }
+      }
+
+      // Zero out area around the keyframe.
+      for (
+          int idx = (max_idx - kStepsBefore);
+          idx < (max_idx + kStepsAfter);
+          ++idx) {
+        if (idx < 0) continue;
+        if (idx >= out_size) continue;
+        out(idx) = 0;
       }
     }
+    m += out_size;
+
     if (at_end) break;
 
     // Add padding.
     k -= kKeyframeOffset;
   }
+  std::sort(keyframes->begin(), keyframes->end());
   return kSuccess;
 }
 

@@ -58,6 +58,8 @@ TrainDir=<Path to OpenEM example data>/train
 WorkDir=<Path where you want to store working files>
 # Path to directory for storing final model outputs.
 ModelDir=<Path where you want to store models>
+# Path to directory that contains test data.
+TestDir=<Path to OpenEM example data>/test
 ```
 
 TrainDir is the path to the example training data.  WorkDir is where temporary files are stored during training. ModelDir contains model outputs that can be used directly by the deployment library.  Once you have modified your copy of train.ini to use the right paths on your system, you can do the following:
@@ -173,6 +175,24 @@ python train.py train.ini count_train
 ```
 
 As with other training steps, these will take a while and can be monitored with TensorBoard. We should now have protobuf models in our designated model directory for all four models.
+
+To test our newly trained models, we can use the test videos included with the openem example data. Run the following command:
+
+```shell
+python train.py train.ini test_predict
+```
+
+This will run the algorithm models end to end on all videos in the TestDir as specified in train.ini. The outputs will be in:
+
+```shell
+<WorkDir>/test
+```
+
+One csv will be output for each test video, and will contain the keyframe and species of each fish found. We can compare these outputs to the truth datacontained in the example data with the following command:
+
+```shell
+python train.py train.ini test_eval
+```
 
 # Building Datasets
 

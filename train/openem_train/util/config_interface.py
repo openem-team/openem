@@ -244,6 +244,12 @@ class ConfigInterface:
         patt = os.path.join(self.test_dir(), 'videos', '*.mp4')
         return glob.glob(patt)
 
+    def test_truth_files(self):
+        """Returns list of paths to truth files in test data.
+        """
+        patt = os.path.join(self.test_dir(), 'truth', '*.csv')
+        return glob.glob(patt)
+
     def all_video_ids(self):
         """Gets all video IDs as a list.
         """

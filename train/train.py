@@ -55,7 +55,8 @@ def main():
         "classify_train: Train algorithm to classify fish.\n"
         "classify_predict: Predict fish species for extracted detections.\n"
         "count_train: Train algorithm to count fish.\n"
-        "test: Test a fully trained model.\n"
+        "test_predict: Do predictions on test data.\n"
+        "test_eval: Compare the test outputs to ground truth.\n"
         "all: Do all of the above in sequence."
     )
     args = parser.parse_args()
@@ -95,8 +96,11 @@ def main():
     if (args.task == 'count_train') or do_all:
         count.train(config)
 
-    if (args.task == 'test') or do_all:
+    if (args.task == 'test_predict') or do_all:
         test.predict(config)
+
+    if (args.task == 'test_eval') or do_all:
+        test.eval(config)
 
 if __name__ == '__main__':
     main()

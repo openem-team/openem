@@ -17,6 +17,7 @@ __license__ = "GPLv3"
 import os
 import sys
 import math
+import glob
 sys.path.append('../python')
 import openem
 
@@ -162,7 +163,7 @@ def _detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
             break
     return (detections, scores)
 
-def _write_counts(count_path, out_path, roi, detections, scores):
+def _write_counts(count_path, out_path, roi, detections, scores, species_list, vid_width, detect_width):
     """Writes a csv file containing fish species and frame numbers.
 
     # Arguments
@@ -171,6 +172,8 @@ def _write_counts(count_path, out_path, roi, detections, scores):
         roi: Region of interest, needed for image width and height.
         detections: Detections for each frame.
         scores: Cover and species scores for each detection.
+        species_list: List of species.
+        vid_width: Width of the original video.
     """
     # Create and initialize keyframe finder.
     finder = openem.KeyframeFinder()
@@ -187,18 +190,21 @@ def _write_counts(count_path, out_path, roi, detections, scores):
 
     # Write the keyframes out.
     with open(out_path, "w") as csv:
-        csv.write("id,frame,species_index\n")
-        uid = 0
+        csv.write("frame,species,length\n")
         for i in keyframes:
             c = scores[i][0]
             max_score = 0.0
             species_index = 0
             for j, s in enumerate(c.species):
+                if j == 0:
+                    continue
                 if s > max_score:
                     max_score = s
-                    species_index = j
-            csv.write("{},{},{}\n".format(uid, i, species_index))
-            uid += 1
+                    species = species_list[j]
+            d = detections[i][0]
+            _, _, length, _ = d.location
+            length *= float(detect_width) / float(vid_width)
+            csv.write("{},{},{}\n".format(i, species, length))
 
 def predict(config):
 
@@ -213,11 +219,24 @@ def predict(config):
 
     # Iterate through videos.
     for vid in videos:
+
+        # Get the video width.
+        reader = openem.VideoReader()
+        status = reader.Init(vid)
+        if not status == openem.kSuccess:
+            raise IOError("Failed to read video {}!".format(vid))
+        vid_width = float(reader.Width())
+
+        # Get path to output csv.
         _, fname = os.path.split(vid)
         base, _ = os.path.splitext(fname)
         out_path = os.path.join(out_dir, base + '.csv')
+
+        # Find the ROI.
         print("Doing prediction on {}...".format(vid))
         roi, endpoints = _find_roi(find_ruler_path, vid)
+
+        # Do detection and classification.
         detections, scores = _detect_and_classify(
             detect_path,
             classify_path,
@@ -225,5 +244,32 @@ def predict(config):
             roi,
             endpoints
         )
-        _write_counts(count_path, out_path, roi, detections, scores)
+
+        # Write counts to csv.
+        _write_counts(
+            count_path,
+            out_path,
+            roi,
+            detections,
+            scores,
+            ['unknown',] + config.species(),
+            vid_width,
+            config.detect_width()
+        )
+
+def eval(config):
+
+    # Get paths from config file.
+    test_dir = config.test_output_dir()
+    truth_files = config.test_truth_files()
+
+    # Iterate through
+    for truth_file in truth_files:
+        _, fname = os.path.split(truth_file)
+        test_file = os.path.join(test_dir, fname)
+        if os.path.exists(test_file):
+            pass
+        else:
+            msg = "Could not find test output {}! Excluding from evaluation..."
+            print(msg.format(test_file))
 

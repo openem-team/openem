@@ -65,8 +65,7 @@ ErrorCode KeyframeFinder::Process(
     const std::vector<std::vector<detect::Detection>>& detections,
     std::vector<int>* keyframes) {
   constexpr int kKeyframeOffset = 32;
-  constexpr int kStepsBefore = 8;
-  constexpr int kStepsAfter = 8;
+  constexpr int kMinSpacing = 8;
   constexpr float kPeakThresh = 0.05;
   constexpr float kAreaThresh = 0.16;
 
@@ -163,6 +162,8 @@ ErrorCode KeyframeFinder::Process(
       // Get max value and index.
       int max_idx = 0;
       float max_val = 0.0;
+      float max_clear = 0.0;
+      int clear_idx = -1;
       for (int idx = 0; idx < out_size; ++idx) {
         if (out(0, idx) > max_val) {
           max_idx = idx;
@@ -176,24 +177,23 @@ ErrorCode KeyframeFinder::Process(
       // Get the sum around the max.
       float sum = 0.0;
       for (
-          int idx = (max_idx - kStepsBefore);
-          idx < (max_idx + kStepsAfter);
+          int idx = (max_idx - kMinSpacing);
+          idx <= (max_idx + kMinSpacing);
           ++idx) {
         if (idx < 0) continue;
-        if (idx >= out_size) continue;
+        if (idx >= out_size) break;
         sum += out(0, idx);
       }
 
       // If sum is over threshold, find the best detection.
       if (sum > kAreaThresh) {
-        float max_clear = 0.0;
-        int clear_idx = -1;
         for (
-            int idx = (max_idx - kStepsBefore);
-            idx < (max_idx + kStepsAfter);
+            int idx = (max_idx - kMinSpacing);
+            idx <= (max_idx + kMinSpacing);
             ++idx) {
           if (idx < 0) continue;
-          if (idx >= out_size) continue;
+          if (idx >= out_size) break;
+          if ((m + idx) >= classifications.size()) break;
           if (classifications[m + idx].size() > 0) {
             if (classifications[m + idx][0].cover[2] > max_clear) {
               max_clear = classifications[m + idx][0].cover[2];
@@ -210,12 +210,12 @@ ErrorCode KeyframeFinder::Process(
 
       // Zero out area around the keyframe.
       for (
-          int idx = (max_idx - kStepsBefore);
-          idx < (max_idx + kStepsAfter);
+          int idx = (max_idx - kMinSpacing);
+          idx <= (max_idx + kMinSpacing);
           ++idx) {
         if (idx < 0) continue;
-        if (idx >= out_size) continue;
-        out(idx) = 0;
+        if (idx >= out_size) break;
+        out(0, idx) = 0;
       }
     }
     m += out_size;

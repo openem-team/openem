@@ -108,3 +108,27 @@ def chunks(l, n):
     for i in range(0, len(l) // n * n + n - 1, n):
         if l[i:i + n]:
             yield l[i:i + n]
+
+def get_best_detection(video_id, frame, dets):
+    """Gets the best detection for a given video ID and frame.
+
+    # Arguments:
+        video_id: Video ID.
+        frame: Frame number.
+        dets: DataFrame containing detection data.
+
+    # Returns:
+        None if no detection found, best row otherwise.
+    """
+    same_vid = dets['video_id'] == video_id
+    same_frame = dets['frame'] == frame
+    matches = dets[same_vid & same_frame]
+
+    if matches.shape[0] == 0:
+        return None
+
+    best = matches.sort_values('det_conf', ascending=False).iloc[0]
+    if best.det_conf < 0.075:
+        return None
+
+    return best

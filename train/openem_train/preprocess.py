@@ -20,16 +20,44 @@ __license__ = "GPLv3"
 import os
 import sys
 from collections import defaultdict
+from multiprocessing import Pool
+from multiprocessing import cpu_count
+from functools import partial
 import pandas as pd
 import scipy.misc
 import skimage
 from cv2 import VideoCapture
 from cv2 import imwrite
-sys.path.append('../python')
-import openem
+
+def _extract_images(vid, train_imgs_dir):
+    """Extracts images from a single video.
+
+    # Arguments
+        vid: Path to video.
+        train_imgs_dir: Path to output images.
+
+    # Returns
+        Tuple containing video ID and number of frames.
+    """
+    vid_id, _ = os.path.splitext(os.path.basename(vid))
+    img_dir = os.path.join(train_imgs_dir, vid_id)
+    os.makedirs(img_dir, exist_ok=True)
+    reader = VideoCapture(vid)
+    frame = 0
+    while reader.isOpened():
+        ret, img = reader.read()
+        img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
+        if (frame % 100) == 0:
+            print("Saving image to: {}...".format(img_path))
+        imwrite(img_path, img)
+        frame += 1
+        if not ret:
+            break
+    print("Finished converting {}".format(vid))
+    return (vid_id, frame)
 
 def extract_images(config):
-    """Extracts images from video.
+    """Extracts images from all videos.
 
     # Arguments
         config: ConfigInterface object.
@@ -38,26 +66,19 @@ def extract_images(config):
     # Create directories to store images.
     os.makedirs(config.train_imgs_dir(), exist_ok=True)
 
-    # Record total number of frames in video.
-    num_frames = defaultdict(list)
+    # Make a pool to convert videos.
+    pool = Pool(24)
 
     # Start converting images.
-    for vid in config.train_vids():
-        vid_id, _ = os.path.splitext(os.path.basename(vid))
-        img_dir = os.path.join(config.train_imgs_dir(), vid_id)
-        os.makedirs(img_dir, exist_ok=True)
-        reader = VideoCapture(vid)
-        frame = 0
-        while reader.isOpened():
-            ret, img = reader.read()
-            img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
-            print("Saving image to: {}".format(img_path))
-            imwrite(img_path, img)
-            frame += 1
-            if not ret:
-                break
-        num_frames['video_id'].append(vid_id)
-        num_frames['num_frames'].append(frame)
+    func = partial(_extract_images, train_imgs_dir = config.train_imgs_dir())
+    vid_frames = pool.map(func, config.train_vids())
+
+    # Record total number of frames in each video.
+    vid_id, frames = list(map(list, zip(*vid_frames)))
+    num_frames = {
+        'video_id': vid_id,
+        'num_frames': frames
+    }
 
     # Write number of frames to csv.
     df = pd.DataFrame(num_frames)
@@ -70,6 +91,8 @@ def extract_rois(config):
     # Arguments:
         config: ConfigInterface object.
     """
+    sys.path.append('../python')
+    import openem
 
     # Create directories to store ROIs.
     os.makedirs(config.train_rois_dir(), exist_ok=True)
@@ -110,6 +133,8 @@ def extract_dets(config):
     # Arguments:
         config: ConfigInterface object.
     """
+    sys.path.append('../python')
+    import openem
 
     # Create directories to store detections.
     os.makedirs(config.train_dets_dir(), exist_ok=True)

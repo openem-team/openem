@@ -28,23 +28,6 @@ from cv2 import imwrite
 sys.path.append('../python')
 import openem
 
-def _find_cover_frames(config):
-    """ Find frames in cover.csv.
-
-    # Arguments
-        config: ConfigInterface object.
-
-    # Returns
-        Dict containing video ID as keys, list of frame numbers as values.
-    """
-    cover = pd.read_csv(config.cover_path())
-    cover_frames = {}
-    for _, row in cover.iterrows():
-        if row.video_id not in cover_frames:
-            cover_frames[row.video_id] = []
-        cover_frames[row.video_id].append(int(row.frame))
-    return cover_frames
-
 def extract_images(config):
     """Extracts images from video.
 
@@ -55,14 +38,6 @@ def extract_images(config):
     # Create directories to store images.
     os.makedirs(config.train_imgs_dir(), exist_ok=True)
 
-    # Read in length annotations.
-    ann = pd.read_csv(config.length_path())
-    vid_ids = ann.video_id.tolist()
-    ann_frames = ann.frame.tolist()
-
-    # Find frames in cover list.
-    cover_frames = _find_cover_frames(config)
-
     # Record total number of frames in video.
     num_frames = defaultdict(list)
 
@@ -72,16 +47,12 @@ def extract_images(config):
         img_dir = os.path.join(config.train_imgs_dir(), vid_id)
         os.makedirs(img_dir, exist_ok=True)
         reader = VideoCapture(vid)
-        keyframes = [a for a, b in zip(ann_frames, vid_ids) if b == vid_id]
-        if vid_id in cover_frames:
-            keyframes += cover_frames[vid_id]
         frame = 0
         while reader.isOpened():
             ret, img = reader.read()
-            if frame in keyframes:
-                img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
-                print("Saving image to: {}".format(img_path))
-                imwrite(img_path, img)
+            img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
+            print("Saving image to: {}".format(img_path))
+            imwrite(img_path, img)
             frame += 1
             if not ret:
                 break

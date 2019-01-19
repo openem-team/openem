@@ -187,6 +187,13 @@ class InceptionDataset:
     def load(self):
         """ Loads data to be used from annotation csv file.
         """
+        # This dict is used to multiply the number of samples in
+        # each cover class. It is a rough way of class balancing.
+        repeat_samples = {
+            CLASS_FISH_CLEAR_ID: 1,
+            CLASS_HAND_OVER_ID: 4,
+            CLASS_NO_FISH_ID: 2
+        }
         length = pd.read_csv(self.config.length_path())
         cover = pd.read_csv(self.config.cover_path())
         detections = pd.read_csv(self.config.detect_inference_path())
@@ -196,74 +203,78 @@ class InceptionDataset:
         known_species = {}
         for _, row in length.iterrows():
             if row['species_id'] == 0:
-                data.append(
-                    FishClassification(
-                        video_id=row['video_id'],
-                        frame=row['frame'],
-                        x=0,
-                        y=0,
-                        w=0,
-                        species_class=0,
-                        cover_class=CLASS_NO_FISH_ID
+                for _ in range(repeat_samples[CLASS_NO_FISH_ID]):
+                    data.append(
+                        FishClassification(
+                            video_id=row['video_id'],
+                            frame=row['frame'],
+                            x=0,
+                            y=0,
+                            w=0,
+                            species_class=0,
+                            cover_class=CLASS_NO_FISH_ID
+                        )
                     )
-                )
             else:
                 if row['video_id'] not in known_species:
                     known_species[row['video_id']] = {}
                 known_species[row['video_id']][row['frame']] = row['species_id']
-                dets = detections.loc[(
-                    (detections['video_id'] == row['video_id']) &
-                    (detections['frame'] == row['frame'])
-                )]
-                if not dets.empty:
-                    det = dets.iloc[0] # Only use the first detection
-                    data.append(
-                        FishClassification(
-                            video_id=det['video_id'],
-                            frame=det['frame'],
-                            x=det['x'],
-                            y=det['y'],
-                            w=det['w'],
-                            species_class=row['species_id'],
-                            cover_class=CLASS_FISH_CLEAR_ID
+                det = utils.get_best_detection(
+                    row['video_id'],
+                    row['frame'],
+                    detections
+                )
+                if not det is None:
+                    for _ in range(repeat_samples[CLASS_FISH_CLEAR_ID]):
+                        data.append(
+                            FishClassification(
+                                video_id=det['video_id'],
+                                frame=det['frame'],
+                                x=det['x'],
+                                y=det['y'],
+                                w=det['w'],
+                                species_class=row['species_id'],
+                                cover_class=CLASS_FISH_CLEAR_ID
+                            )
                         )
-                    )
 
         # Load in cover data.
         for _, row in cover.iterrows():
             if row['cover'] == CLASS_NO_FISH_ID:
-                data.append(
-                    FishClassification(
-                        video_id=row['video_id'],
-                        frame=row['frame'],
-                        x=0,
-                        y=0,
-                        w=0,
-                        species_class=0,
-                        cover_class=CLASS_NO_FISH_ID
+                for _ in range(repeat_samples[CLASS_NO_FISH_ID]):
+                    data.append(
+                        FishClassification(
+                            video_id=row['video_id'],
+                            frame=row['frame'],
+                            x=0,
+                            y=0,
+                            w=0,
+                            species_class=0,
+                            cover_class=CLASS_NO_FISH_ID
+                        )
                     )
-                )
             else:
-                dets = detections.loc[(
-                    (detections['video_id'] == row['video_id']) &
-                    (detections['frame'] == row['frame'])
-                )]
-                if not dets.empty:
-                    det = dets.iloc[0] # Only use the first detection
+                det = utils.get_best_detection(
+                    row['video_id'],
+                    row['frame'],
+                    detections
+                )
+                if not det is None:
                     species_class = guess_species(
                         known_species[row['video_id']],
                         row['frame'])
-                    data.append(
-                        FishClassification(
-                            video_id=det['video_id'],
-                            frame=det['frame'],
-                            x=det['x'],
-                            y=det['y'],
-                            w=det['w'],
-                            species_class=species_class,
-                            cover_class=row['cover']
+                    for _ in range(repeat_samples[row['cover']]):
+                        data.append(
+                            FishClassification(
+                                video_id=det['video_id'],
+                                frame=det['frame'],
+                                x=det['x'],
+                                y=det['y'],
+                                w=det['w'],
+                                species_class=species_class,
+                                cover_class=row['cover']
+                            )
                         )
-                    )
         return data, known_species
 
     def generate_x(self, cfg: SampleCfg):

@@ -10,6 +10,8 @@ option(BUILD_EXAMPLES "Whether to build example executables."            ON)
 
 if(MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /MP")
+else()
+  set(BUILD_CSHARP OFF)
 endif()
 
 set(CXX_STANDARD 11)

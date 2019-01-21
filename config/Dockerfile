@@ -13,6 +13,7 @@ RUN apt-get install -y --no-install-recommends \
     apt-mark hold libcudnn7
 RUN apt-get install -y curl git swig pkg-config zip g++ zlib1g-dev unzip \
     cmake autoconf automake libtool make mercurial
+RUN apt-get clean
 
 # Install miniconda
 RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -27,6 +28,7 @@ RUN conda install -y pandas==0.23.4
 RUN conda install -y opencv==3.4.2
 RUN conda install -y scikit-image==0.14.0
 RUN conda install -y scikit-learn==0.20.1
+RUN conda clean -y -a
 
 # Install bazel
 RUN curl -LO https://github.com/bazelbuild/bazel/releases/download/0.18.0/bazel-0.18.0-installer-linux-x86_64.sh 
@@ -56,6 +58,9 @@ RUN cmake \
     -DCMAKE_INSTALL_PREFIX=/opencv \
     ..
 RUN make -j8 install
+WORKDIR /
+RUN rm -rf opencv_src
+RUN rm -rf opencv_contrib
 
 # Build and install protobuf
 WORKDIR /
@@ -68,14 +73,19 @@ RUN make
 RUN make check
 RUN make install
 RUN ldconfig
+WORKDIR /
+RUN rm -rf protobuf
 
 # Build and install eigen
 WORKDIR /
 RUN hg clone -r ea85a5993547 http://bitbucket.org/eigen/eigen
+WORKDIR eigen
 RUN mkdir build
 WORKDIR build
-RUN cmake ..
+RUN cmake -DINCLUDE_INSTALL_DIR=/usr/include ..
 RUN make -j8 install
+WORKDIR /
+RUN rm -rf eigen
 
 # Build and install openem
 WORKDIR /
@@ -97,3 +107,5 @@ RUN cmake \
     -DCMAKE_INSTALL_PREFIX=/openem \
     ..
 RUN make -j8 install
+WORKDIR /
+RUN rm -rf openem_src

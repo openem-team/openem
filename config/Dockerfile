@@ -53,7 +53,7 @@ WORKDIR opencv_src
 RUN mkdir build
 WORKDIR build
 RUN cmake \
-    -DBUILD_SHARED_LIBS=ON \
+    -DBUILD_SHARED_LIBS=OFF \
     -DOPENCV_EXTRA_MODULES_PATH=/opencv_contrib/modules \
     -DCMAKE_INSTALL_PREFIX=/opencv \
     ..
@@ -69,9 +69,9 @@ WORKDIR protobuf
 RUN git submodule update --init --recursive
 RUN ./autogen.sh
 RUN ./configure --prefix=/usr
-RUN make
-RUN make check
-RUN make install
+RUN make -j8
+RUN make -j8 check
+RUN make -j8 install
 RUN ldconfig
 WORKDIR /
 RUN rm -rf protobuf
@@ -87,6 +87,9 @@ RUN make -j8 install
 WORKDIR /
 RUN rm -rf eigen
 
+# Copy abseil to include dir
+RUN cp -R /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/.
+
 # Build and install openem
 WORKDIR /
 RUN mkdir /openem_src
@@ -96,6 +99,7 @@ COPY train train
 COPY doc doc
 COPY examples examples
 COPY CMakeLists.txt CMakeLists.txt
+COPY LICENSE.md LICENSE.md
 RUN mkdir build
 WORKDIR build
 COPY config/tensorflow-config.cmake /config/tensorflow-config.cmake
@@ -103,9 +107,13 @@ RUN cmake \
     -DTensorflow_DIR=/config \
     -DOpenCV_DIR=/opencv/share/OpenCV \
     -DPYTHON_LIBRARY=/miniconda/lib/libpython3.6m.so \
-    -DPYTHON_INCLUDE_DIR=/miniconda/include \
+    -DPYTHON_INCLUDE_DIR=/miniconda/include/python3.6m \
     -DCMAKE_INSTALL_PREFIX=/openem \
     ..
 RUN make -j8 install
 WORKDIR /
 RUN rm -rf openem_src
+RUN rm -rf opencv
+
+# Add libraries to path
+ENV LD_LIBRARY_PATH=/tensorflow/bazel-bin/tensorflow:$LD_LIBRARY_PATH

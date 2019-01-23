@@ -1,32 +1,42 @@
 # Tutorial
 
-This tutorial will guide you through some examples.  Before you get 
-started, make sure you have built the library, including its examples by
-following the [build instructions](build.md) for your operating
-system.  You can also download the library from the 
-[release section][Releases] if available for your operating system.
+## Example data
 
-## Deployment Library
+This tutorial requires the OpenEM example data which can be downloaded via BitTorrent [here][ExampleData].
 
-First, you will need to download the [OpenEM example data][ExampleData].  The
-example data includes model files for the deployment library in protobuf 
-format, as well as input data that can be used to run the examples.  You can
-try running the examples on your own data as well.  The examples should accept
-input data in various file formats and resolutions.  They will expect 8-bit 
-color image/video data, however.
+## Installation
 
-After you have built your library, you should end up with a subdirectory
-called examples/deploy in the top level install directory.  This contains
-the examples for the main library in the cc directory, plus python and csharp
-if you built the bindings to the main library.  Source files for these examples 
-are located [here][ExampleSources] for your inspection.  In addition, there is a
-script that will run all of the examples for you if you point it to the
-location of the example data.  This script is called [run_all.py][RunAll].
+OpenEM is distributed as a native Windows library or as a Docker image. See below for your selected option.
 
-To run this script, you will need to have Python installed.  We recommend
-downloading the latest version of [Anaconda][Anaconda].  Open a command prompt
-that has access to python and change directories to the examples/deploy 
-subdirectory.  Now invoke the [run_all.py][RunAll] script to see how to run it:
+### Windows
+
+* Download the library from our [releases][Releases] page.
+* Follow the [instructions][TrainingEnvironment] to set up a Python environment.
+* Open an Anaconda command prompt.
+* Navigate to where you downloaded OpenEM.
+
+### Docker
+
+* Make sure you have installed nvidia-docker 2 as described [here][NvidiaDocker].
+* Pull the docker image from Docker Hub:
+
+```shell
+docker pull cvisionai/openem
+```
+
+* Start a bash session in the image with the volume containing the example data mounted:
+
+```shell
+nvidia-docker run --rm -ti -v <Path to example data on host>:/openem_example_data cvisionai/openem bash
+```
+
+* The openem library is located at /openem. The above command mounts the example data to /openem_example_data.
+
+## Deployment library
+
+Navigate to examples/deploy.  This directory contains the examples for the main library in the cc directory, plus python and csharp if you built the bindings to the main library.  Source files for these examples are located [here][ExampleSources] for your inspection.  In addition, there is a script that will run all of the examples for you if you point it to the location of the example data.  This script is called [run_all.py][RunAll].
+
+Now invoke the [run_all.py][RunAll] script to see how to run it:
 
 ```shell
 python run_all.py -h
@@ -46,9 +56,9 @@ built the software.
 Once you are able to run the examples, you are encouraged to inspect the 
 source code for the language that you plan to use for your application.
 
-## Training Library
+## Training library
 
-To build your own models, you will first need to create an appropriate python environment according to the training environment [instructions][TrainingEnvironment]. You will then need to modify the configuration file included with this repository at train/train.ini. This file is included as an example but you will need to modify some paths in it to get it working. Start by making a copy of this file and modify the paths section as follows:
+To train a model from the example data you will need to modify the configuration file included with the distribution at train/train.ini. This file is included as an example so you will need to modify some paths in it to get it working. Start by making a copy of this file and modify the paths section as follows:
 
 ```shell
 [Paths]
@@ -62,7 +72,7 @@ ModelDir=<Path where you want to store models>
 TestDir=<Path to OpenEM example data>/test
 ```
 
-TrainDir is the path to the example training data.  WorkDir is where temporary files are stored during training. ModelDir contains model outputs that can be used directly by the deployment library.  Once you have modified your copy of train.ini to use the right paths on your system, you can do the following:
+TrainDir is the path to the example training data. WorkDir is where temporary files are stored during training. ModelDir contains model outputs that can be used directly by the deployment library.  Once you have modified your copy of train.ini to use the right paths on your system, you can do the following:
 
 ```shell
 python train.py train.ini extract_images
@@ -199,11 +209,12 @@ python train.py train.ini test_eval
 Now that you have done training using the example data, you can try doing the same with your own data.  Follow the [data collection][DataCollection] and [annotation][Annotation] guidelines to build your own training set. Once you have a dataset, you can modify the train.ini file's Data section to include new species to match your data, then repeat the same training process you went through with the example data.
 
 [Releases]: https://github.com/openem-team/openem/releases
-[ExampleData]:https://drive.google.com/drive/folders/18silAFzXaP27VHLS0texHJz1ZxSMGhjx?usp=sharing
+[ExampleData]: http://academictorrents.com/download/b2a418e07b033bbb37ff46d030d9633d365c148e.torrent
 [ExampleSources]: ../examples/deploy
 [Anaconda]: https://www.anaconda.com/download/
 [RunAll]: ../examples/deploy/run_all.py
 [TrainingEnvironment]: ./training_environment.md
+[NvidiaDocker]: https://github.com/nvidia/nvidia-docker/wiki/Installation-(version-2.0)
 [DataCollection]: ./data_collection.md
 [Annotation]: ./annotation.md
 

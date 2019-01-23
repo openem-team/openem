@@ -20,6 +20,7 @@ __license__ = "GPLv3"
 import os
 import glob
 import sys
+from collections import defaultdict
 import pandas as pd
 import numpy as np
 from keras.callbacks import ModelCheckpoint
@@ -152,6 +153,9 @@ def predict(config):
     # Make a dict to store mean of all masks.
     mask_avg = {}
 
+    # Make a dict to store number of masks found per video.
+    num_masks = defaultdict(int)
+
     # Create and initialize the mask finder.
     mask_finder = openem.RulerMaskFinder()
     status = mask_finder.Init(config.find_ruler_model_path())
@@ -160,12 +164,17 @@ def predict(config):
 
     for img_path in config.train_imgs():
 
-        print("Finding mask for image {}...".format(img_path))
-
         # Get video id from path.
         path, fname = os.path.split(img_path)
         frame, _ = os.path.splitext(fname)
         video_id = os.path.basename(os.path.normpath(path))
+
+        if num_masks[video_id] > 200:
+            continue
+        else:
+            num_masks[video_id] += 1
+
+        print("Finding mask for image {}...".format(img_path))
 
         # Load in image.
         img = openem.Image()

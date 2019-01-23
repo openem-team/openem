@@ -46,13 +46,13 @@ def _extract_images(vid, train_imgs_dir):
     frame = 0
     while reader.isOpened():
         ret, img = reader.read()
+        if not ret:
+            break
         img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
         if (frame % 100) == 0:
             print("Saving image to: {}...".format(img_path))
         imwrite(img_path, img)
         frame += 1
-        if not ret:
-            break
     print("Finished converting {}".format(vid))
     return (vid_id, frame)
 

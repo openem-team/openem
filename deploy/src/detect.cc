@@ -190,6 +190,11 @@ ErrorCode Detector::Process(std::vector<std::vector<Detection>>* detections) {
       det.species = class_index[idx];
       dets.push_back(std::move(det));
     }
+    // Sort detections by confidence (high to low).
+    std::sort(dets.begin(), dets.end(),
+      [](const Detection& left, const Detection& right) -> bool {
+      return left.confidence > right.confidence;
+    });
     impl_->img_scale_.clear();
     detections->push_back(std::move(dets));
   }

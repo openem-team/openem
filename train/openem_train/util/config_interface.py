@@ -177,6 +177,11 @@ class ConfigInterface:
         """
         return self.config.getint('Detect', 'NumEpochs')
 
+    def detect_frame_jitter(self):
+        """Returns frame jitter setting for detection training.
+        """
+        return self.config.getint('Detect', 'FrameJitter')
+
     def detect_initial_epoch(self):
         """Returns initial epoch for detection training.
         """

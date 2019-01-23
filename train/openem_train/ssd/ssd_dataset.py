@@ -119,6 +119,8 @@ class SSDDataset:
         self.roi_transform = RoiTransform(config)
         self.bbox_util = bbox_util
         self.preprocess_input = preproc
+        self.frame_jitter = list(range(1+self.config.detect_frame_jitter()))
+        self.frame_jitter += [-a for a in self.frame_jitter]
 
     def load(self):
         """ Loads data to be used from annotation csv file.
@@ -163,10 +165,22 @@ class SSDDataset:
         # Arguments
             cfg: SampleCfg object.
         """
-        img = scipy.misc.imread(os.path.join(
-            self.config.train_imgs_dir(),
-            cfg.detection.video_id,
-            '{:04}.jpg'.format(cfg.detection.frame)))
+        # Allow a random frame variation, which creates
+        # training data for some covered examples. This also assumes
+        # the fish is not moving much within the frame jitter window.
+        diff = random.choice(self.frame_jitter)
+        frame = cfg.detection.frame + diff
+        frame = max(0, frame)
+        def get_path(frame_num):
+            return os.path.join(
+                self.config.train_imgs_dir(),
+                cfg.detection.video_id,
+                '{:04}.jpg'.format(frame_num))
+        if not os.path.exists(get_path(frame)):
+            frame -= 1
+        if os.stat(get_path(frame)).st_size == 0:
+            frame -= 1
+        img = scipy.misc.imread(get_path(frame))
         crop = skimage.transform.warp(
             img,
             cfg.transformation,

@@ -21,6 +21,7 @@ import os
 import sys
 from collections import defaultdict
 from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
 from multiprocessing import cpu_count
 from functools import partial
 import pandas as pd
@@ -84,7 +85,6 @@ def extract_images(config):
     df = pd.DataFrame(num_frames)
     df.to_csv(config.num_frames_path(), index=False)
     
-
 def extract_rois(config):
     """Extracts region of interest.
 
@@ -93,6 +93,17 @@ def extract_rois(config):
     """
     sys.path.append('../python')
     import openem
+
+    def _extract_roi(paths):
+        img_path, roi_path = paths
+        img = openem.Image()
+        status = img.FromFile(img_path)
+        if status != openem.kSuccess:
+            print("Failed to read image {}".format(img_path))
+        else:
+            roi = openem.Rectify(img, ((x1, y1), (x2, y2)))
+            print("Saving ROI to: {}".format(roi_path))
+            roi.ToFile(roi_path)
 
     # Create directories to store ROIs.
     os.makedirs(config.train_rois_dir(), exist_ok=True)
@@ -114,18 +125,14 @@ def extract_rois(config):
         lookup[vid_id].append((img_path, roi_path))
 
     # Extract ROIs.
+    pool = ThreadPool(24) # Can't pickle _extract_roi so have to use ThreadPool
     for _, row in endpoints.iterrows():
         vid_id = row['video_id']
         x1 = row['x1']
         y1 = row['y1']
         x2 = row['x2']
         y2 = row['y2']
-        for img_path, roi_path in lookup[vid_id]:
-            img = openem.Image()
-            img.FromFile(img_path)
-            roi = openem.Rectify(img, ((x1, y1), (x2, y2)))
-            print("Saving ROI to: {}".format(roi_path))
-            roi.ToFile(roi_path)
+        pool.map(_extract_roi, lookup[vid_id])
 
 def extract_dets(config):
     """Extracts detection images.

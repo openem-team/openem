@@ -28,6 +28,7 @@ from keras.callbacks import LearningRateScheduler
 from openem_train.unet.unet import unet_model
 from openem_train.unet.unet_dataset import UnetDataset
 from openem_train.util.model_utils import keras_to_tensorflow
+from openem_train.util.utils import find_epoch
 sys.path.append('../python')
 import openem
 
@@ -59,6 +60,16 @@ def train(config):
     model = unet_model(
         input_shape=(config.find_ruler_height(), config.find_ruler_width(), 3)
     )
+
+    # If initial epoch is nonzero we load the model from checkpoints 
+    # directory.
+    initial_epoch = config.find_ruler_initial_epoch()
+    if initial_epoch != 0:
+        checkpoint = find_epoch(
+            config.checkpoints_dir('find_ruler'),
+            initial_epoch
+        )
+        model.load_weights(checkpoint)
 
     # Set up dataset interface.
     dataset = UnetDataset(config)
@@ -116,7 +127,8 @@ def train(config):
         validation_data=dataset.generate_validation(
             batch_size=config.find_ruler_val_batch_size()
         ),
-        validation_steps=len(dataset.test_idx)//config.find_ruler_val_batch_size()
+        validation_steps=len(dataset.test_idx)//config.find_ruler_val_batch_size(),
+        initial_epoch=initial_epoch
     )
 
     # Save the model.

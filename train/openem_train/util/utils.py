@@ -16,6 +16,8 @@ __license__ = "GPLv3"
 
 """Generic utility functions."""
 
+import os
+import glob
 import math
 import numpy as np
 import skimage
@@ -132,3 +134,23 @@ def get_best_detection(video_id, frame, dets):
         return None
 
     return best
+
+def find_epoch(checkpoints_dir, epoch):
+    """Finds checkpoint associated with the given epoch.
+
+    # Arguments
+        checkpoints_dir: Directory containing checkpoints.
+        epoch: Epoch to find.
+
+    # Returns
+        Path to most recent checkpoint file for this epoch.
+    """
+    patt = os.path.join(
+        checkpoints_dir, 
+        "checkpoint-{:03d}*".format(epoch))
+    files = glob.glob(patt)
+    if not files:
+        msg = "Could not find checkpoint for epoch {}!"
+        raise ValueError(msg.format(epoch))
+    latest = max(files, key=os.path.getctime)
+    return latest

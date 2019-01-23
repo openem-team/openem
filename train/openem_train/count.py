@@ -25,6 +25,7 @@ from keras.callbacks import LearningRateScheduler
 from openem_train.rnn.rnn_dataset import RNNDataset
 from openem_train.rnn.rnn import rnn_model
 from openem_train.util.model_utils import keras_to_tensorflow
+from openem_train.util.utils import find_epoch
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -54,6 +55,16 @@ def train(config):
         num_steps_crop=config.count_num_steps_crop()
     )
     model.summary()
+
+    # If initial epoch is nonzero we load the model from checkpoints 
+    # directory.
+    initial_epoch = config.count_initial_epoch()
+    if initial_epoch != 0:
+        checkpoint = find_epoch(
+            config.checkpoints_dir('count'),
+            initial_epoch
+        )
+        model.load_weights(checkpoint)
 
     # Create checkpoint and tensorboard directories.
     tensorboard_dir = config.tensorboard_dir('count')
@@ -115,7 +126,8 @@ def train(config):
         ),
         validation_steps=dataset.test_batches(
             config.count_val_batch_size()
-        )
+        ),
+        initial_epoch=initial_epoch
     )
 
     # Save the model.

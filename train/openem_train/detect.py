@@ -31,6 +31,7 @@ from openem_train.ssd.ssd_training import MultiboxLoss
 from openem_train.ssd.ssd_utils import BBoxUtility
 from openem_train.ssd.ssd_dataset import SSDDataset
 from openem_train.util.model_utils import keras_to_tensorflow
+from openem_train.util.utils import find_epoch
 sys.path.append('../python')
 import openem
 
@@ -64,6 +65,16 @@ def train(config):
     model = ssd.ssd_model(
         input_shape=(config.detect_height(), config.detect_width(), 3),
         num_classes=config.num_classes())
+    
+    # If initial epoch is nonzero we load the model from checkpoints 
+    # directory.
+    initial_epoch = config.detect_initial_epoch()
+    if initial_epoch != 0:
+        checkpoint = find_epoch(
+            config.checkpoints_dir('detect'),
+            initial_epoch
+        )
+        model.load_weights(checkpoint)
 
     # Set trainable layers.
     for layer in model.layers:
@@ -138,7 +149,7 @@ def train(config):
             batch_size=val_batch_size,
             is_training=False),
         validation_steps=dataset.nb_test_samples // val_batch_size,
-        initial_epoch=0)
+        initial_epoch=initial_epoch)
 
     # Save the model.
     _save_model(config, model)

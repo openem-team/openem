@@ -147,6 +147,11 @@ class ConfigInterface:
         """
         return self.config.getint('FindRuler', 'NumEpochs')
 
+    def find_ruler_initial_epoch(self):
+        """Returns initial epoch for find ruler training.
+        """
+        return self.config.getint('FindRuler', 'InitialEpoch')
+
     def detect_width(self):
         """Returns width of ROI used for detection.
         """
@@ -172,6 +177,11 @@ class ConfigInterface:
         """
         return self.config.getint('Detect', 'NumEpochs')
 
+    def detect_initial_epoch(self):
+        """Returns initial epoch for detection training.
+        """
+        return self.config.getint('Detect', 'InitialEpoch')
+
     def classify_width(self):
         """Returns width of detections used for classification training.
         """
@@ -196,6 +206,11 @@ class ConfigInterface:
         """Returns number of epochs used for classification training.
         """
         return self.config.getint('Classify', 'NumEpochs')
+
+    def classify_initial_epoch(self):
+        """Returns initial epoch for classify training.
+        """
+        return self.config.getint('Classify', 'InitialEpoch')
 
     def count_num_steps(self):
         """Returns number of timesteps used as input to count model.
@@ -226,6 +241,11 @@ class ConfigInterface:
         """Returns number of epochs used for count training.
         """
         return self.config.getint('Count', 'NumEpochs')
+
+    def count_initial_epoch(self):
+        """Returns initial epoch for count training.
+        """
+        return self.config.getint('Count', 'InitialEpoch')
 
     def count_num_res_steps(self):
         """Returns number of timesteps after cropping.

@@ -27,6 +27,7 @@ from keras.callbacks import LearningRateScheduler
 from openem_train.inception.inception import inception_model
 from openem_train.inception.inception_dataset import InceptionDataset
 from openem_train.util.model_utils import keras_to_tensorflow
+from openem_train.util.utils import find_epoch
 sys.path.append('../python')
 import openem
 
@@ -58,6 +59,16 @@ def train(config):
     model = inception_model(
         input_shape=(config.classify_height(), config.classify_width(), 3),
         num_classes=config.num_classes())
+
+    # If initial epoch is nonzero we load the model from checkpoints 
+    # directory.
+    initial_epoch = config.classify_initial_epoch()
+    if initial_epoch != 0:
+        checkpoint = find_epoch(
+            config.checkpoints_dir('classify'),
+            initial_epoch
+        )
+        model.load_weights(checkpoint)
 
     # Set up dataset interface.
     dataset = InceptionDataset(config)
@@ -117,7 +128,8 @@ def train(config):
         ),
         validation_steps=dataset.test_batches(
             config.classify_val_batch_size()
-        )
+        ),
+        initial_epoch=initial_epoch
     )
 
     # Save the model.

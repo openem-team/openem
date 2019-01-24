@@ -117,3 +117,15 @@ RUN rm -rf opencv
 
 # Add libraries to path
 ENV LD_LIBRARY_PATH=/tensorflow/bazel-bin/tensorflow:$LD_LIBRARY_PATH
+
+# Set up environment variables for command line invokation
+ENV find_ruler_model /openem_example_data/deploy/find_ruler/find_ruler.pb
+ENV detect_model /openem_example_data/deploy/detect/detect.pb
+ENV classify_model /openem_example_data/deploy/classify/classify.pb
+ENV count_model /openem_example_data/deploy/count/count.pb
+ENV video_paths "/openem_example_data/deploy/video/test_video_000.mp4 /openem_example_data/deploy/video/test_video_001.mp4 /openem_example_data/deploy/video/test_video_002.mp4"
+ENV video_out "--no_video"
+
+# Define run command
+WORKDIR /openem/examples/deploy/python
+CMD ["sh", "-c", "python video.py ${find_ruler_model} ${detect_model} ${classify_model} ${count_model} ${video_paths} ${video_out}"]

@@ -268,6 +268,9 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
         help="One or more paths to video files.")
+    parser.add_argument("--no_video",
+        action="store_true",
+        help="Disable writing annotated video.")
     args = parser.parse_args()
     for i, video_path in enumerate(args.video_paths):
         # Find the ROI.
@@ -294,11 +297,11 @@ if __name__ == "__main__":
 
         # Write annotated video to file.
         print("Writing video to file...")
-        write_video(
-            video_path,
-            "annotated_video_{}.avi".format(i),
-            roi,
-            endpoints,
-            detections,
-            scores)
-
+        if not args.no_video:
+            write_video(
+                video_path,
+                "annotated_video_{}.avi".format(i),
+                roi,
+                endpoints,
+                detections,
+                scores)

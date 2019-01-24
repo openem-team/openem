@@ -40,10 +40,12 @@ ENV PATH=/bazel/bin:${PATH}
 RUN mkdir config
 RUN git clone -b v1.12.0 https://github.com/tensorflow/tensorflow.git
 WORKDIR tensorflow
+RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH
 COPY config/tf_config.txt /config/tf_config.txt
 RUN ./configure < /config/tf_config.txt
-ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
 RUN bazel build --config=opt --verbose_failures //tensorflow:libtensorflow_cc.so
+RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1
 
 # Build OpenCV with contrib modules
 WORKDIR /
@@ -103,6 +105,7 @@ COPY LICENSE.md LICENSE.md
 RUN mkdir build
 WORKDIR build
 COPY config/tensorflow-config.cmake /config/tensorflow-config.cmake
+RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
 RUN cmake \
     -DTensorflow_DIR=/config \
     -DOpenCV_DIR=/opencv/share/OpenCV \
@@ -117,6 +120,8 @@ RUN rm -rf opencv
 
 # Add libraries to path
 ENV LD_LIBRARY_PATH=/tensorflow/bazel-bin/tensorflow:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 # Set up environment variables for command line invokation
 ENV find_ruler_model /openem_example_data/deploy/find_ruler/find_ruler.pb

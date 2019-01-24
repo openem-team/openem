@@ -288,9 +288,11 @@ if __name__ == "__main__":
 
         # Write counts to csv.
         print("Writing counts to csv...")
+        video_base, _ = os.path.splitext(video_path)
+        csv_path = video_base + ".csv"
         write_counts(
             args.count_model,
-            "fish_counts_{}.csv".format(i),
+            csv_path,
             roi,
             detections,
             scores)

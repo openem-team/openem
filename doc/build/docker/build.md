@@ -13,7 +13,7 @@ docker pull cvisionai/openem
 * From the openem root directory run the following command:
 
 ```shell
-nvidia-docker build -t openem -f config/Dockerfile .
+nvidia-docker build -t cvisionai/openem -f config/Dockerfile .
 ```
 
 The resulting image will have the OpenEM binary distribution in /openem.

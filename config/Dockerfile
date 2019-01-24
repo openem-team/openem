@@ -42,7 +42,7 @@ RUN git clone -b v1.12.0 https://github.com/tensorflow/tensorflow.git
 WORKDIR tensorflow
 COPY config/tf_config.txt /config/tf_config.txt
 RUN ./configure < /config/tf_config.txt
-ENV LD_LIBRARY_PATH=/usr/local/cuda-10.0/compat
+ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
 RUN bazel build --config=opt --verbose_failures //tensorflow:libtensorflow_cc.so
 
 # Build OpenCV with contrib modules

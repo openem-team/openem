@@ -19,6 +19,7 @@ __license__ = "GPLv3"
 import argparse
 import sys
 import math
+import os
 sys.path.append("../../../python")
 sys.path.append("../../python")
 import openem

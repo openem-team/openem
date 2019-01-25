@@ -12,7 +12,9 @@ RUN apt-get install -y --no-install-recommends \
         libcudnn7-dev=$CUDNN_VERSION-1+cuda10.0 && \
     apt-mark hold libcudnn7
 RUN apt-get install -y curl git swig pkg-config zip g++ zlib1g-dev unzip \
-    cmake autoconf automake libtool make mercurial
+    cmake autoconf automake libtool make mercurial ffmpeg libavcodec-dev \
+    libavformat-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev \
+    libv4l-dev
 RUN apt-get clean
 
 # Install miniconda
@@ -55,6 +57,8 @@ WORKDIR opencv_src
 RUN mkdir build
 WORKDIR build
 RUN cmake \
+    -DWITH_FFMPEG=ON \
+    -DWITH_LIBV4L=ON \
     -DBUILD_SHARED_LIBS=OFF \
     -DOPENCV_EXTRA_MODULES_PATH=/opencv_contrib/modules \
     -DCMAKE_INSTALL_PREFIX=/opencv \

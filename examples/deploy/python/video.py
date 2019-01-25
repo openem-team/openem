@@ -96,7 +96,7 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
         endpoints: Ruler endpoints from find_roi.
 
     # Returns
-        Detection rects and classification scores.
+        Detection rects and classification scores. Also ROI width.
 
     # Raises
         IOError: If video or model files cannot be opened.
@@ -110,6 +110,9 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
     status = detector.Init(detect_path, 0.5)
     if not status == openem.kSuccess:
         raise IOError("Failed to initialize detector!")
+
+    # Get ROI width.
+    _, detect_width = detector.ImageSize()
 
     # Create and initialize the classifier.
     classifier = openem.Classifier()
@@ -162,9 +165,16 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
             scores.append(score_batch)
         if vid_end:
             break
-    return (detections, scores)
+    return (detections, scores, detect_width)
 
-def write_counts(count_path, out_path, roi, detections, scores):
+def write_counts(
+        count_path,
+        out_path,
+        roi,
+        detections,
+        scores,
+        vid_width,
+        detect_width):
     """Writes a csv file containing fish species and frame numbers.
 
     # Arguments
@@ -173,6 +183,7 @@ def write_counts(count_path, out_path, roi, detections, scores):
         roi: Region of interest, needed for image width and height.
         detections: Detections for each frame.
         scores: Cover and species scores for each detection.
+        vid_width: Width of the original video.
     """
     # Create and initialize keyframe finder.
     finder = openem.KeyframeFinder()
@@ -189,18 +200,21 @@ def write_counts(count_path, out_path, roi, detections, scores):
 
     # Write the keyframes out.
     with open(out_path, "w") as csv:
-        csv.write("id,frame,species_index\n")
-        uid = 0
+        csv.write("frame,species_index,length\n")
         for i in keyframes:
             c = scores[i][0]
             max_score = 0.0
             species_index = 0
             for j, s in enumerate(c.species):
+                if j == 0:
+                    continue
                 if s > max_score:
                     max_score = s
                     species_index = j
-            csv.write("{},{},{}\n".format(uid, i, species_index))
-            uid += 1
+            d = detections[i][0]
+            _, _, length, _ = d.location
+            length *= float(detect_width) / float(vid_width)
+            csv.write("{},{},{}\n".format(i, species_index, length))
 
 def write_video(vid_path, out_path, roi, endpoints, detections, scores):
     """Writes a new video with bounding boxes around detections.
@@ -274,13 +288,20 @@ if __name__ == "__main__":
         help="Disable writing annotated video.")
     args = parser.parse_args()
     for i, video_path in enumerate(args.video_paths):
+        # Get the video width.
+        reader = openem.VideoReader()
+        status = reader.Init(video_path)
+        if not status == openem.kSuccess:
+            raise IOError("Failed to read video {}!".format(video_path))
+        vid_width = float(reader.Width())
+
         # Find the ROI.
         print("Finding region of interest...")
         roi, endpoints = find_roi(args.find_ruler_model, video_path)
 
         # Find detections and classify them.
         print("Performing detection and classification...")
-        detections, scores = detect_and_classify(
+        detections, scores, detect_width = detect_and_classify(
             args.detect_model,
             args.classify_model,
             video_path,
@@ -296,11 +317,14 @@ if __name__ == "__main__":
             csv_path,
             roi,
             detections,
-            scores)
+            scores,
+            vid_width,
+            detect_width
+        )
 
         # Write annotated video to file.
-        print("Writing video to file...")
         if not args.no_video:
+            print("Writing video to file...")
             write_video(
                 video_path,
                 "annotated_video_{}.avi".format(i),

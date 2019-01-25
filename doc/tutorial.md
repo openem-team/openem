@@ -32,6 +32,43 @@ nvidia-docker run --rm -ti -v <Path to example data on host>:/openem_example_dat
 
 * The openem library is located at /openem. The above command mounts the example data to /openem_example_data.
 
+## I just want to run it
+
+* Navigate to examples/deploy/python.
+* Type:
+
+```shell
+python video.py -h
+```
+
+* This will show you the command line arguments to process a series of videos end to end. The command will look something like:
+
+```shell
+python video.py \
+    <path to openem_example_data>/find_ruler/find_ruler.pb \
+    <path to openem_example_data>/detect/detect.pb \
+    <path to openem_example_data>/classify/classify.pb \
+    <path to openem_example_data>/count/count.pb \
+    <path to video 1> <path to video 2> <path to video 3>
+```
+
+* The output will be a csv file with the same base name and location as each video.
+
+## Running with docker run
+
+* If you do not want to enter a docker bash shell and instead want to process a video directly, you can use the following command:
+
+```shell
+nvidia-docker run --rm -ti -v \
+    <path to openem_example_data>/deploy:/openem_models \
+    -e find_ruler_model=/openem_models/find_ruler/find_ruler.pb \
+    -e detect_model=/openem_models/detect/detect.pb \
+    -e classify_model=/openem_models/classify/classify.pb \
+    -e count_model=/openem_models/count/count.pb \
+    -e video_paths="<path to video 1> <path to video 2> <path to video 3>" \
+    -e CUDA_VISIBLE_DEVICES=0 cvisionai/openem
+```
+
 ## Deployment library
 
 Navigate to examples/deploy.  This directory contains the examples for the main library in the cc directory, plus python and csharp if you built the bindings to the main library.  Source files for these examples are located [here][ExampleSources] for your inspection.  In addition, there is a script that will run all of the examples for you if you point it to the location of the example data.  This script is called [run_all.py][RunAll].

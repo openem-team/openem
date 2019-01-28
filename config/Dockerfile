@@ -1,4 +1,4 @@
-FROM nvidia/cuda
+FROM nvidia/cuda AS cvbase
 MAINTAINER CVision AI <info@cvisionai.com>
 
 # Configure cuDNN
@@ -16,57 +16,6 @@ RUN apt-get install -y curl git swig pkg-config zip g++ zlib1g-dev unzip \
     libavformat-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev \
     libv4l-dev
 RUN apt-get clean
-
-# Install miniconda
-RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-RUN bash Miniconda3-latest-Linux-x86_64.sh -p /miniconda -b
-RUN rm Miniconda3-latest-Linux-x86_64.sh
-ENV PATH=/miniconda/bin:${PATH}
-RUN conda update -y conda
-
-# Install conda packages
-RUN conda install -y keras-gpu==2.2.4
-RUN conda install -y pandas==0.23.4
-RUN conda install -y opencv==3.4.2
-RUN conda install -y scikit-image==0.14.0
-RUN conda install -y scikit-learn==0.20.1
-RUN conda clean -y -a
-
-# Install bazel
-RUN curl -LO https://github.com/bazelbuild/bazel/releases/download/0.18.0/bazel-0.18.0-installer-linux-x86_64.sh 
-RUN bash bazel-0.18.0-installer-linux-x86_64.sh --prefix=/bazel
-RUN rm bazel-0.18.0-installer-linux-x86_64.sh
-ENV PATH=/bazel/bin:${PATH}
-
-# Build TensorFlow C++ API
-RUN mkdir config
-RUN git clone -b v1.12.0 https://github.com/tensorflow/tensorflow.git
-WORKDIR tensorflow
-RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH
-COPY config/tf_config.txt /config/tf_config.txt
-RUN ./configure < /config/tf_config.txt
-RUN bazel build --config=opt --verbose_failures //tensorflow:libtensorflow_cc.so
-RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1
-
-# Build OpenCV with contrib modules
-WORKDIR /
-RUN git clone -b 3.4.1 https://github.com/opencv/opencv.git opencv_src
-RUN git clone -b 3.4.1 https://github.com/opencv/opencv_contrib.git
-WORKDIR opencv_src
-RUN mkdir build
-WORKDIR build
-RUN cmake \
-    -DWITH_FFMPEG=ON \
-    -DWITH_LIBV4L=ON \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DOPENCV_EXTRA_MODULES_PATH=/opencv_contrib/modules \
-    -DCMAKE_INSTALL_PREFIX=/opencv \
-    ..
-RUN make -j8 install
-WORKDIR /
-RUN rm -rf opencv_src
-RUN rm -rf opencv_contrib
 
 # Build and install protobuf
 WORKDIR /
@@ -92,6 +41,67 @@ RUN cmake -DINCLUDE_INSTALL_DIR=/usr/include ..
 RUN make -j8 install
 WORKDIR /
 RUN rm -rf eigen
+
+# Install miniconda
+RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+RUN bash Miniconda3-latest-Linux-x86_64.sh -p /miniconda -b
+RUN rm Miniconda3-latest-Linux-x86_64.sh
+ENV PATH=/miniconda/bin:${PATH}
+RUN conda update -y conda
+
+# Install conda packages
+RUN conda install -y keras-gpu==2.2.4
+RUN conda install -y pandas==0.23.4
+RUN conda install -y opencv==3.4.2
+RUN conda install -y scikit-image==0.14.0
+RUN conda install -y scikit-learn==0.20.1
+RUN conda clean -y -a
+
+FROM cvbase AS cvtensorflow
+# Install bazel
+RUN curl -LO https://github.com/bazelbuild/bazel/releases/download/0.18.0/bazel-0.18.0-installer-linux-x86_64.sh 
+RUN bash bazel-0.18.0-installer-linux-x86_64.sh --prefix=/bazel
+RUN rm bazel-0.18.0-installer-linux-x86_64.sh
+ENV PATH=/bazel/bin:${PATH}
+
+# Build TensorFlow C++ API
+RUN mkdir config
+RUN git clone -b v1.12.0 https://github.com/tensorflow/tensorflow.git
+WORKDIR tensorflow
+RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH
+COPY config/tf_config.txt /config/tf_config.txt
+RUN ./configure < /config/tf_config.txt
+RUN bazel build --config=opt --verbose_failures //tensorflow:libtensorflow_cc.so
+RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1
+
+FROM cvbase AS cvopencv
+# Build OpenCV with contrib modules
+WORKDIR /
+RUN git clone -b 3.4.1 https://github.com/opencv/opencv.git opencv_src
+RUN git clone -b 3.4.1 https://github.com/opencv/opencv_contrib.git
+WORKDIR opencv_src
+RUN mkdir build
+WORKDIR build
+RUN cmake \
+    -DWITH_FFMPEG=ON \
+    -DWITH_LIBV4L=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DOPENCV_EXTRA_MODULES_PATH=/opencv_contrib/modules \
+    -DCMAKE_INSTALL_PREFIX=/opencv \
+    ..
+RUN make -j8 install
+WORKDIR /
+RUN rm -rf opencv_src
+RUN rm -rf opencv_contrib
+
+
+
+FROM cvbase as cvopenem
+
+#Copy build artifacts from previous layer
+COPY --from=cvtensorflow /tensorflow /tensorflow
+COPY --from=cvopencv /opencv /opencv
 
 # Copy abseil to include dir
 RUN cp -R /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/.

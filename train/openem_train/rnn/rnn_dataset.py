@@ -63,6 +63,10 @@ class RNNDataset:
         num_frames = pd.read_csv(self.config.num_frames_path())
         detect_out = pd.read_csv(self.config.detect_inference_path())
         classify_out = pd.read_csv(self.config.classify_inference_path())
+        detect_out = detect_out.drop_duplicates(
+            subset=['video_id', 'frame'],
+            keep='first'
+        )
         species_cols = ['species_' + s for s in self.config.species()]
         columns = ['species__',]
         columns += species_cols

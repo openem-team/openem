@@ -149,7 +149,7 @@ COPY --from=cvopenem /tensorflow /tensorflow
 COPY --from=cvopenem /openem /openem
 
 # Add libraries to path
-ENV LD_LIBRARY_PATH=/tensorflow/bazel-bin/tensorflow:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/tensorflow/lib:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 

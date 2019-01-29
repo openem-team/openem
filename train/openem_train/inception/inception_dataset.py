@@ -350,9 +350,9 @@ class InceptionDataset:
                 contrast=rand_or_05(),
                 brightness=rand_or_05(),
                 color_shift=rand_or_05(),
-                shift_x_ratio=random.uniform(-0.2, 0.2),
-                shift_y_ratio=random.uniform(-0.2, 0.2),
-                angle=random.uniform(-20.0, 20.0),
+                shift_x_ratio=random.uniform(-0.1, 0.1),
+                shift_y_ratio=random.uniform(-0.1, 0.1),
+                angle=random.uniform(-10.0, 10.0),
                 hflip=random.choice([True, False]),
                 vflip=random.choice([True, False]),
                 blurred_by_downscaling=np.random.choice([1, 1, 1, 1, 1, 1, 1, 1, 2, 2.5, 3, 4])

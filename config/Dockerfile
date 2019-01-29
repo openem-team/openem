@@ -105,12 +105,13 @@ FROM cvbase as cvopenem
 # Only copy in what we need to build
 RUN mkdir -p /tensorflow/lib
 RUN mkdir -p /tensorflow/include
+RUN mkdir -p /tensorflow/include/bazel-genfiles
 
 COPY --from=cvtensorflow /tensorflow/bazel-bin/tensorflow/libtensorflow_cc.so /tensorflow/lib
 COPY --from=cvtensorflow /tensorflow/bazel-bin/tensorflow/libtensorflow_framework.so /tensorflow/lib
 COPY --from=cvtensorflow /tensorflow/tensorflow /tensorflow/include/tensorflow
 COPY --from=cvtensorflow /tensorflow/third_party /tensorflow/include/third_party
-COPY --from=cvtensorflow /tensorflow/bazel-genfiles /tensorflow/include/bazel-genfiles
+COPY --from=cvtensorflow /tensorflow/bazel-genfiles/tensorflow /tensorflow/include/bazel-genfiles/tensorflow
 # Copy abseil to include dir
 COPY --from=cvtensorflow /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/absl
 

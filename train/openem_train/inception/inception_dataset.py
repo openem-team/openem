@@ -42,17 +42,6 @@ FishClassification = namedtuple(
         'species_class',
         'cover_class'])
 
-
-SSDDetection = namedtuple(
-    'SSDDetection', [
-        'video_id',
-        'frame',
-        'x', 'y', 'w', 'h',
-        'class_id',
-        'confidence'
-    ]
-)
-
 Rect = namedtuple('Rect', ['x', 'y', 'w', 'h'])
 
 class SampleCfg:
@@ -94,7 +83,7 @@ class SampleCfg:
         self.blurred_by_downscaling = blurred_by_downscaling
         self.cache_img = False
 
-        w = np.clip(fish_classification.w + 64, 200, 360)
+        w = np.clip(fish_classification.w, 200, 360)
         x = fish_classification.x
         y = np.clip(
             fish_classification.y,
@@ -107,7 +96,7 @@ class SampleCfg:
             x = random.randrange(200, config.detect_width() - 200)
             y = random.randrange(config.detect_height() / 2 - 64, config.detect_height() / 2 + 64)
 
-        self.rect = Rect(x=x - w / 2, y=y - w / 2, w=w, h=w)
+        self.rect = Rect(x=x, y=y, w=w, h=w)
 
     def __lt__(self, other):
         return True

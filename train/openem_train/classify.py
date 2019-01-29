@@ -190,11 +190,11 @@ def predict(config):
         for score in scores:
             class_data['video_id'].append(video_id)
             class_data['frame'].append(int(frame))
+            for spc, spc_score in zip(species_list, score.species):
+                class_data['species_' + spc].append(spc_score)
             class_data['no_fish'].append(score.cover[0])
             class_data['covered'].append(score.cover[1])
             class_data['clear'].append(score.cover[2])
-            for spc, spc_score in zip(species_list, score.species):
-                class_data['species_' + spc].append(spc_score)
         print("Finished classification on {}".format(img_path))
 
     # Write classification results to csv.

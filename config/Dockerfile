@@ -99,15 +99,22 @@ RUN rm -rf opencv_contrib
 
 FROM cvbase as cvopenem
 
-#Copy build artifacts from previous layer
-COPY --from=cvtensorflow /tensorflow /tensorflow
-#Bazel hides things in /root which isn't very pleasant. 
-COPY --from=cvtensorflow /root /root 
-COPY --from=cvopencv /opencv /opencv
+# Naive Implementation copies everything:
+# COPY --from=cvtensorflow /tensorflow /tensorflow
+# Bazel hides things in /root which isn't very pleasant. 
+# Only copy in what we need to build
+RUN mkdir -p /tensorflow/lib
+RUN mkdir -p /tensorflow/include
 
-
+COPY --from=cvtensorflow /tensorflow/bazel-bin/tensorflow/libtensorflow_cc.so /tensorflow/lib
+COPY --from=cvtensorflow /tensorflow/bazel-bin/tensorflow/libtensorflow_framework.so /tensorflow/lib
+COPY --from=cvtensorflow /tensorflow/tensorflow /tensorflow/include/tensorflow
+COPY --from=cvtensorflow /tensorflow/third_party /tensorflow/include/third_party
+COPY --from=cvtensorflow /tensorflow/bazel-genfiles /tensorflow/include/bazel-genfiles
 # Copy abseil to include dir
-RUN cp -R /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/.
+COPY --from=cvtensorflow /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/absl
+
+COPY --from=cvopencv /opencv /opencv
 
 # Build and install openem
 WORKDIR /

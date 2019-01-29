@@ -61,7 +61,7 @@ FROM cvbase AS cvtensorflow
 # Install bazel
 RUN curl -LO https://github.com/bazelbuild/bazel/releases/download/0.18.0/bazel-0.18.0-installer-linux-x86_64.sh 
 RUN bash bazel-0.18.0-installer-linux-x86_64.sh --prefix=/bazel
-RUN rm bazel-0.18.0-installer-linux-x86_64.sh
+RUN rm bazel-0.18.0-installer-linux-x86_64.sh #
 ENV PATH=/bazel/bin:${PATH}
 
 # Build TensorFlow C++ API
@@ -101,7 +101,10 @@ FROM cvbase as cvopenem
 
 #Copy build artifacts from previous layer
 COPY --from=cvtensorflow /tensorflow /tensorflow
+#Bazel hides things in /root which isn't very pleasant. 
+COPY --from=cvtensorflow /root /root 
 COPY --from=cvopencv /opencv /opencv
+
 
 # Copy abseil to include dir
 RUN cp -R /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/.
@@ -120,6 +123,7 @@ RUN mkdir build
 WORKDIR build
 COPY config/tensorflow-config.cmake /config/tensorflow-config.cmake
 RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:${LD_LIBRARY_PATH}
 RUN cmake \
     -DTensorflow_DIR=/config \
     -DOpenCV_DIR=/opencv/share/OpenCV \

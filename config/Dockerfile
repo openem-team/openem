@@ -1,4 +1,5 @@
-FROM nvidia/cuda AS cvbase
+# Top Layer just gets an updated cuda image
+FROM nvidia/cuda AS cvbase0
 MAINTAINER CVision AI <info@cvisionai.com>
 
 # Configure cuDNN
@@ -6,24 +7,30 @@ ENV CUDNN_VERSION 7.4.1.5
 LABEL com.nvidia.cudnn.version="${CUDNN_VERSION}"
 
 # System packages
+# Clean this out first to ensure apt-get update always runs!
+RUN rm -fr /var/lib/apt/lists/*
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends \
         libcudnn7=$CUDNN_VERSION-1+cuda10.0 \
         libcudnn7-dev=$CUDNN_VERSION-1+cuda10.0 && \
-    apt-mark hold libcudnn7
-RUN apt-get install -y curl git swig pkg-config zip g++ zlib1g-dev unzip \
+    apt-mark hold libcudnn7 && apt-get install -y --no-install-recommends curl git swig pkg-config zip g++ zlib1g-dev unzip \
     cmake autoconf automake libtool make mercurial ffmpeg libavcodec-dev \
     libavformat-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev \
     libv4l-dev
 RUN apt-get clean
+RUN rm -fr /var/lib/apt/lists/*
 
+# Temporary layer to do utility wrangling
+# miniconda, eigen, protobuf
+
+FROM cvbase0 AS cvwrangler
 # Build and install protobuf
 WORKDIR /
 RUN git clone -b v3.6.0 https://github.com/protocolbuffers/protobuf.git
 WORKDIR protobuf
 RUN git submodule update --init --recursive
 RUN ./autogen.sh
-RUN ./configure --prefix=/usr
+RUN ./configure --prefix=/opt
 RUN make -j8
 RUN make -j8 check
 RUN make -j8 install
@@ -37,7 +44,7 @@ RUN hg clone -r ea85a5993547 http://bitbucket.org/eigen/eigen
 WORKDIR eigen
 RUN mkdir build
 WORKDIR build
-RUN cmake -DINCLUDE_INSTALL_DIR=/usr/include ..
+RUN cmake -DINCLUDE_INSTALL_DIR=/opt ..
 RUN make -j8 install
 WORKDIR /
 RUN rm -rf eigen
@@ -50,12 +57,13 @@ ENV PATH=/miniconda/bin:${PATH}
 RUN conda update -y conda
 
 # Install conda packages
-RUN conda install -y keras-gpu==2.2.4
-RUN conda install -y pandas==0.23.4
-RUN conda install -y opencv==3.4.2
-RUN conda install -y scikit-image==0.14.0
-RUN conda install -y scikit-learn==0.20.1
+RUN conda install -y scikit-image=0.14.0 scikit-learn==0.20.1 opencv==3.4.2 pandas==0.23.4 keras-gpu==2.2.4
 RUN conda clean -y -a
+
+# cvbase is now clean of temporary layers used in construction.
+FROM cvbase0 AS cvbase 
+copy --from=cvwrangler /opt /opt
+copy --from=cvwrangler /miniconda /miniconda
 
 FROM cvbase AS cvtensorflow
 # Install bazel
@@ -152,6 +160,7 @@ COPY --from=cvopenem /openem /openem
 ENV LD_LIBRARY_PATH=/tensorflow/lib:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV PATH=/miniconda/bin:$PATH
 
 # Set up environment variables for command line invokation
 ENV find_ruler_model /openem_example_data/deploy/find_ruler/find_ruler.pb

@@ -17,6 +17,11 @@ endif()
 
 set(CXX_STANDARD 11)
 
+# Not Ideal, but let's do this for now -- screwed up Eigen didn't go in
+# include.
+include_directories(BEFORE /opt/include /opt)
+link_directories(/opt/lib)
+
 if(BUILD_DOCS)
   add_subdirectory(doc)
 endif()

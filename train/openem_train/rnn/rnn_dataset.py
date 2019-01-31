@@ -79,11 +79,10 @@ class RNNDataset:
             video_frames_count[video_id] = nb_frames
             ds_detection = detect_out.loc[detect_out['video_id'] == video_id]
             ds_classification = classify_out.loc[classify_out['video_id'] == video_id]
-            ds_combined = ds_classification.join(
+            ds_combined = ds_classification.merge(
                 ds_detection,
                 on='frame',
-                how='left',
-                rsuffix='_det'
+                how='left'
             )
             ds_combined.x /= self.config.detect_width()
             ds_combined.y /= self.config.detect_height()

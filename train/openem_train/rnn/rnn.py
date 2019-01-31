@@ -24,6 +24,7 @@ from keras.layers import Dense
 from keras.layers import Cropping1D
 from keras.layers import Flatten
 from keras.layers import Lambda
+from keras.layers import concatenate
 from keras.models import Model
 from keras.optimizers import Adam
 from keras import backend as K
@@ -44,9 +45,11 @@ def rnn_model(input_shape, num_steps_crop, unroll=True):
     out = Dense(1, activation='sigmoid')(out)
     out = Cropping1D(cropping=(num_steps_crop, num_steps_crop))(out)
     out = Flatten(name='current_values')(out)
-    cumsum_value = Lambda(lambda a: K.cumsum(a, axis=1), name='cumsum_values')(out)
+    cumsum1 = Lambda(lambda x: K.cumsum(x))(out)
+    cumsum2 = Lambda(lambda x: K.cumsum(K.reverse(x, axes=1)))(out)
+    cumsum_value = concatenate([cumsum1, cumsum2], name='cumsum_values')
     model = Model(inputs=inputs, outputs=[out, cumsum_value])
     model.compile(optimizer=Adam(lr=1e-4),
                   loss={'current_values': 'binary_crossentropy', 'cumsum_values': 'mse'},
-                  loss_weights={'current_values': 1.0, 'cumsum_values': 0.001})
+                  loss_weights={'current_values': 1.0, 'cumsum_values': 0.05})
     return model

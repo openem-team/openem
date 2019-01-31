@@ -176,7 +176,10 @@ class RNNDataset:
                     batch_x,
                     {
                         'current_values': batch_y,
-                        'cumsum_values': np.cumsum(batch_y, axis=1)
+                        'cumsum_values': np.concatenate((
+                            np.cumsum(batch_y, axis=1),
+                            np.cumsum(np.flip(batch_y, axis=1), axis=1)
+                        ), axis=1)
                     }
                 )
             else:

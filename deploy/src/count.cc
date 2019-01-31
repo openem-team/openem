@@ -66,8 +66,8 @@ ErrorCode KeyframeFinder::Process(
     std::vector<int>* keyframes) {
   constexpr int kKeyframeOffset = 32;
   constexpr int kMinSpacing = 8;
-  constexpr float kPeakThresh = 0.05;
-  constexpr float kAreaThresh = 0.16;
+  constexpr float kPeakThresh = 0.03;
+  constexpr float kAreaThresh = 0.10;
 
   // Get tensor size and do size checks.
   if (classifications.size() != detections.size()) return kErrorLenMismatch;

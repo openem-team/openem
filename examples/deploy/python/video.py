@@ -20,6 +20,7 @@ import argparse
 import sys
 import math
 import os
+import numpy as np
 sys.path.append("../../../python")
 sys.path.append("../../python")
 import openem
@@ -47,15 +48,16 @@ def find_roi(mask_finder_path, vid_path):
     if not status == openem.kSuccess:
         raise IOError("Failed to initialize mask finder!")
 
-    # Decode the first 100 frames and find the mask that corresponds
-    # to the largest ruler area.
+    # Set up video reader.
     reader = openem.VideoReader()
     status = reader.Init(vid_path)
     if not status == openem.kSuccess:
         raise IOError("Failed to open video!")
+
+    # Decode the first 100 frames and take the average mask.
+    mask_avg = np.zeros((reader.Height(), reader.Width()))
+    num_masks = 0
     masks = openem.VectorImage()
-    best_mask = openem.Image()
-    max_mask_sum = 0.0
     vid_end = False
     for i in range(math.ceil(100 / max_img)):
         for j in range(max_img):
@@ -71,17 +73,26 @@ def find_roi(mask_finder_path, vid_path):
         if not status == openem.kSuccess:
             raise RuntimeError("Failed to process mask finder!")
         for mask in masks:
-            mask_sum = mask.Sum()[0]
-            if mask_sum > max_mask_sum:
-                max_mask_sum = mask_sum
-                best_mask = mask
+            mask.Resize(reader.Width(), reader.Height())
+            mask_data = mask.DataCopy()
+            mask_data = np.array(mask_data)
+            mask_data = np.reshape(mask_data, (reader.Height(), reader.Width()))
+            mask_avg += mask_data
+            num_masks += 1
         if vid_end:
             break
 
+    # Convert mean mask from numpy to openem format.
+    mask_vec = mask_avg.copy()
+    mask_vec = mask_vec / np.max(mask_vec)
+    mask_vec = mask_vec * 255.0
+    mask_vec = mask_vec.reshape(-1).astype(np.uint8).tolist()
+    mask_img = openem.Image()
+    mask_img.FromData(mask_vec, reader.Width(), reader.Height(), 1)
+
     # Now that we have the best mask, use this to compute the ROI.
-    best_mask.Resize(reader.Width(), reader.Height())
-    endpoints = openem.RulerEndpoints(best_mask)
-    r_mask = openem.Rectify(best_mask, endpoints)
+    endpoints = openem.RulerEndpoints(mask_img)
+    r_mask = openem.Rectify(mask_img, endpoints)
     roi = openem.FindRoi(r_mask)
     return (roi, endpoints)
 

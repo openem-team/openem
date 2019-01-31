@@ -216,33 +216,34 @@ class RNNDataset:
         # Yields
             Validation batch.
         """
-        valid_video_ids = sorted(self.test_video_ids.intersection(self.video_data.keys()))
-        print('test valid_video_ids:', len(valid_video_ids))
-
+        valid_video_ids = list(self.test_video_ids.intersection(self.video_data.keys()))
         shape = (self.config.count_num_steps(), self.config.count_num_features())
         batch_x = np.zeros((batch_size,) + shape, dtype=np.float32)
         batch_y = np.zeros((batch_size, self.config.count_num_res_steps()), dtype=np.float32)
         while True:
-            batch_idx = 0
-            for video_id in valid_video_ids:
-                stop = self.video_frames_count[video_id]
-                inc = self.config.count_num_res_steps()
-                for offset in range(0, stop, inc):
-                    batch_x[batch_idx] = self.generate_x(video_id, offset)
-                    batch_y[batch_idx] = self.generate_y(video_id, offset)
-                    batch_idx += 1
+            for batch_idx in range(batch_size):
+                video_id = random.choice(valid_video_ids)
 
-                    self.last_offset = offset
+                if self.video_frames_count[video_id] < self.config.count_num_res_steps():
+                    offset = 0
+                else:
+                    max_offset = self.video_frames_count[video_id]
+                    max_offset -= self.config.count_num_res_steps()
+                    offset = random.randrange(0, max_offset)
 
-                    if batch_idx == batch_size:
-                        batch_idx = 0
-                        if use_cumsum:
-                            yield (
-                                batch_x,
-                                {
-                                    'current_values': batch_y,
-                                    'cumsum_values': np.cumsum(batch_y, axis=1)
-                                }
-                            )
-                        else:
-                            yield (batch_x, batch_y)
+                batch_x[batch_idx] = self.generate_x(video_id, offset)
+                batch_y[batch_idx] = self.generate_y(video_id, offset)
+
+            if use_cumsum:
+                yield (
+                    batch_x,
+                    {
+                        'current_values': batch_y,
+                        'cumsum_values': np.concatenate((
+                            np.cumsum(batch_y, axis=1),
+                            np.cumsum(np.flip(batch_y, axis=1), axis=1)
+                        ), axis=1)
+                    }
+                )
+            else:
+                yield (batch_x, batch_y)

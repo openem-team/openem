@@ -1,4 +1,5 @@
-FROM nvidia/cuda
+# Top Layer just gets an updated cuda image
+FROM nvidia/cuda AS cvbase0
 MAINTAINER CVision AI <info@cvisionai.com>
 
 # Configure cuDNN
@@ -6,16 +7,47 @@ ENV CUDNN_VERSION 7.4.1.5
 LABEL com.nvidia.cudnn.version="${CUDNN_VERSION}"
 
 # System packages
+# Clean this out first to ensure apt-get update always runs!
+RUN rm -fr /var/lib/apt/lists/*
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends \
         libcudnn7=$CUDNN_VERSION-1+cuda10.0 \
         libcudnn7-dev=$CUDNN_VERSION-1+cuda10.0 && \
-    apt-mark hold libcudnn7
-RUN apt-get install -y curl git swig pkg-config zip g++ zlib1g-dev unzip \
+    apt-mark hold libcudnn7 && apt-get install -y --no-install-recommends curl git swig pkg-config zip g++ zlib1g-dev unzip \
     cmake autoconf automake libtool make mercurial ffmpeg libavcodec-dev \
     libavformat-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev \
     libv4l-dev
 RUN apt-get clean
+RUN rm -fr /var/lib/apt/lists/*
+
+# Temporary layer to do utility wrangling
+# miniconda, eigen, protobuf
+
+FROM cvbase0 AS cvwrangler
+# Build and install protobuf
+WORKDIR /
+RUN git clone -b v3.6.0 https://github.com/protocolbuffers/protobuf.git
+WORKDIR protobuf
+RUN git submodule update --init --recursive
+RUN ./autogen.sh
+RUN ./configure --prefix=/opt
+RUN make -j8
+RUN make -j8 check
+RUN make -j8 install
+RUN ldconfig
+WORKDIR /
+RUN rm -rf protobuf
+
+# Build and install eigen
+WORKDIR /
+RUN hg clone -r ea85a5993547 http://bitbucket.org/eigen/eigen
+WORKDIR eigen
+RUN mkdir build
+WORKDIR build
+RUN cmake -DINCLUDE_INSTALL_DIR=/opt ..
+RUN make -j8 install
+WORKDIR /
+RUN rm -rf eigen
 
 # Install miniconda
 RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -25,17 +57,19 @@ ENV PATH=/miniconda/bin:${PATH}
 RUN conda update -y conda
 
 # Install conda packages
-RUN conda install -y keras-gpu==2.2.4
-RUN conda install -y pandas==0.23.4
-RUN conda install -y opencv==3.4.2
-RUN conda install -y scikit-image==0.14.0
-RUN conda install -y scikit-learn==0.20.1
+RUN conda install -y scikit-image=0.14.0 scikit-learn==0.20.1 opencv==3.4.2 pandas==0.23.4 keras-gpu==2.2.4
 RUN conda clean -y -a
 
+# cvbase is now clean of temporary layers used in construction.
+FROM cvbase0 AS cvbase 
+copy --from=cvwrangler /opt /opt
+copy --from=cvwrangler /miniconda /miniconda
+
+FROM cvbase AS cvtensorflow
 # Install bazel
 RUN curl -LO https://github.com/bazelbuild/bazel/releases/download/0.18.0/bazel-0.18.0-installer-linux-x86_64.sh 
 RUN bash bazel-0.18.0-installer-linux-x86_64.sh --prefix=/bazel
-RUN rm bazel-0.18.0-installer-linux-x86_64.sh
+RUN rm bazel-0.18.0-installer-linux-x86_64.sh #
 ENV PATH=/bazel/bin:${PATH}
 
 # Build TensorFlow C++ API
@@ -49,6 +83,7 @@ RUN ./configure < /config/tf_config.txt
 RUN bazel build --config=opt --verbose_failures //tensorflow:libtensorflow_cc.so
 RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1
 
+FROM cvbase AS cvopencv
 # Build OpenCV with contrib modules
 WORKDIR /
 RUN git clone -b 3.4.1 https://github.com/opencv/opencv.git opencv_src
@@ -68,33 +103,27 @@ WORKDIR /
 RUN rm -rf opencv_src
 RUN rm -rf opencv_contrib
 
-# Build and install protobuf
-WORKDIR /
-RUN git clone -b v3.6.0 https://github.com/protocolbuffers/protobuf.git
-WORKDIR protobuf
-RUN git submodule update --init --recursive
-RUN ./autogen.sh
-RUN ./configure --prefix=/usr
-RUN make -j8
-RUN make -j8 check
-RUN make -j8 install
-RUN ldconfig
-WORKDIR /
-RUN rm -rf protobuf
 
-# Build and install eigen
-WORKDIR /
-RUN hg clone -r ea85a5993547 http://bitbucket.org/eigen/eigen
-WORKDIR eigen
-RUN mkdir build
-WORKDIR build
-RUN cmake -DINCLUDE_INSTALL_DIR=/usr/include ..
-RUN make -j8 install
-WORKDIR /
-RUN rm -rf eigen
 
+FROM cvbase as cvopenem
+
+# Naive Implementation copies everything:
+# COPY --from=cvtensorflow /tensorflow /tensorflow
+# Bazel hides things in /root which isn't very pleasant. 
+# Only copy in what we need to build
+RUN mkdir -p /tensorflow/lib
+RUN mkdir -p /tensorflow/include
+RUN mkdir -p /tensorflow/include/bazel-genfiles
+
+COPY --from=cvtensorflow /tensorflow/bazel-bin/tensorflow/libtensorflow_cc.so /tensorflow/lib
+COPY --from=cvtensorflow /tensorflow/bazel-bin/tensorflow/libtensorflow_framework.so /tensorflow/lib
+COPY --from=cvtensorflow /tensorflow/tensorflow /tensorflow/include/tensorflow
+COPY --from=cvtensorflow /tensorflow/third_party /tensorflow/include/third_party
+COPY --from=cvtensorflow /tensorflow/bazel-genfiles/tensorflow /tensorflow/include/bazel-genfiles/tensorflow
 # Copy abseil to include dir
-RUN cp -R /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/.
+COPY --from=cvtensorflow /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/absl
+
+COPY --from=cvopencv /opencv /opencv
 
 # Build and install openem
 WORKDIR /
@@ -110,6 +139,7 @@ RUN mkdir build
 WORKDIR build
 COPY config/tensorflow-config.cmake /config/tensorflow-config.cmake
 RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:${LD_LIBRARY_PATH}
 RUN cmake \
     -DTensorflow_DIR=/config \
     -DOpenCV_DIR=/opencv/share/OpenCV \
@@ -122,10 +152,15 @@ WORKDIR /
 RUN rm -rf openem_src
 RUN rm -rf opencv
 
+FROM cvbase as cvopenem_deploy
+COPY --from=cvopenem /tensorflow /tensorflow
+COPY --from=cvopenem /openem /openem
+
 # Add libraries to path
-ENV LD_LIBRARY_PATH=/tensorflow/bazel-bin/tensorflow:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/tensorflow/lib:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV PATH=/miniconda/bin:$PATH
 
 # Set up environment variables for command line invokation
 ENV find_ruler_model /openem_example_data/deploy/find_ruler/find_ruler.pb

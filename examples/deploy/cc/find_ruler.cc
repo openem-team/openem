@@ -82,12 +82,12 @@ int main(int argc, char* argv[]) {
     }
 
     // Find orientation and region of interest based on the mask.
-    std::vector<double> transform = fr::RulerOrientation(masks[i]);
-    em::Image r_mask = fr::Rectify(masks[i], transform);
+    em::PointPair endpoints = fr::RulerEndpoints(masks[i]);
+    em::Image r_mask = fr::Rectify(masks[i], endpoints);
     std::array<int, 4> roi = fr::FindRoi(r_mask);
 
     // Rectify, crop, and display the image.
-    em::Image r_img = fr::Rectify(imgs[i], transform);
+    em::Image r_img = fr::Rectify(imgs[i], endpoints);
     em::Image c_img = fr::Crop(r_img, roi);
     c_img.Show();
   }

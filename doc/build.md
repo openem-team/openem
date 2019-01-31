@@ -1,8 +1,7 @@
 # Build and Test Instructions
 
-Choose your operating system:
+Choose your distribution:
 
-* [Windows](build/windows/build.md)
-* Ubuntu (Coming soon)
-* macOS (Coming soon)
+* [Windows library](build/windows/build.md)
+* [Docker image](build/docker/build.md)
 

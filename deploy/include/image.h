@@ -19,6 +19,7 @@
 #define OPENEM_DEPLOY_IMAGE_H_
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <array>
 #include <memory>
@@ -32,6 +33,12 @@ using Rect = std::array<int, 4>;
 
 /// Type for storing RGB color.
 using Color = std::array<uint8_t, 3>;
+
+/// Type for storing a pair of points.
+using PointPair = std::pair<
+  std::pair<double, double>,
+  std::pair<double, double>
+>;
 
 /// Class for holding image data.
 ///
@@ -65,6 +72,10 @@ class Image {
   /// @param image_path Path to image file.
   /// @param color If true, load a color image.
   ErrorCode FromFile(const std::string& image_path, bool color=true);
+
+  /// Saves to image file.
+  /// @param image_path Path to image file.
+  ErrorCode ToFile(const std::string& image_path);
 
   /// Creates an image from existing data.  Data is copied.
   ///
@@ -123,18 +134,8 @@ class Image {
       const Rect& rect, 
       const Color& color={0, 0, 255}, 
       int linewidth=2,
-      const std::vector<double>& transform={1.0, 0.0, 0.0, 0.0, 1.0, 0.0},
+      const PointPair& endpoints={{0.0, 0.0}, {0.0, 0.0}},
       const Rect& roi={0, 0, 0, 0});
-
-  /// Draws text in the image.
-  /// @param text Text to write.
-  /// @param loc Bottom left text corner location on the image.
-  /// @param color Color of the text.
-  void DrawText(
-      const std::string& text,
-      const std::pair<int, int>& loc={0, 0},
-      const Color& color={0, 0, 255},
-      double scale=10.0);
 
   /// Displays the image in a named window.
   ///

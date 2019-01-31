@@ -32,20 +32,20 @@ namespace em = openem;
 /// @param mask_finder_path Path to find_ruler model file.
 /// @param vid_path Path to the video.
 /// @param roi Rect specifying the ROI.
-/// @param transform Transform specifying rectification matrix.
+/// @param endpoints Ruler endpoints.
 /// @return Error code.
 em::ErrorCode FindRoi(
     const std::string& mask_finder_path,
     const std::string& vid_path, 
     em::Rect* roi, 
-    std::vector<double>* transform);
+    em::PointPair* endpoints);
 
 /// Finds and classifies detections for all frames in a video.
 /// @param detect_path Path to detect model file.
 /// @param classify_path Path to classify model file.
 /// @param vid_path Path to the video.
 /// @param roi Region of interest output from FindRoi.
-/// @param transform Transform output from FindRoi.
+/// @param endpoints Ruler endpoints output from FindRoi.
 /// @param detections Detections for each frame.
 /// @param scores Cover and species scores for each detection.
 em::ErrorCode DetectAndClassify(
@@ -53,7 +53,7 @@ em::ErrorCode DetectAndClassify(
     const std::string& classify_path,
     const std::string& vid_path,
     const em::Rect& roi,
-    const std::vector<double>& transform,
+    const em::PointPair& endpoints,
     std::vector<std::vector<em::detect::Detection>>* detections, 
     std::vector<std::vector<em::classify::Classification>>* scores);
 
@@ -74,14 +74,14 @@ em::ErrorCode WriteCounts(
 /// @param vid_path Path to the original video.
 /// @param out_path Path to the output video.
 /// @param roi Region of interest output from FindRoi.
-/// @param transform Transform output from FindRoi.
+/// @param endpoints Ruler endpoints output from FindRoi.
 /// @param detections Detections for each frame.
 /// @param scores Cover and species scores for each detection.
 em::ErrorCode WriteVideo(
     const std::string& vid_path,
     const std::string& out_path,
     const em::Rect& roi,
-    const std::vector<double>& transform,
+    const em::PointPair& endpoints,
     const std::vector<std::vector<em::detect::Detection>>& detections,
     const std::vector<std::vector<em::classify::Classification>>& scores);
 
@@ -101,8 +101,8 @@ int main(int argc, char* argv[]) {
     // Find the roi.
     std::cout << "Finding region of interest..." << std::endl;
     em::Rect roi;
-    std::vector<double> transform;
-    em::ErrorCode status = FindRoi(argv[1], argv[vid_idx], &roi, &transform);
+    em::PointPair endpoints;
+    em::ErrorCode status = FindRoi(argv[1], argv[vid_idx], &roi, &endpoints);
     if (status != em::kSuccess) return -1;
 
     // Find detections and classify them.
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
         argv[3], 
         argv[vid_idx], 
         roi, 
-        transform, 
+        endpoints, 
         &detections, 
         &scores);
     if (status != em::kSuccess) return -1;
@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
         argv[vid_idx],
         ss.str(),
         roi,
-        transform,
+        endpoints,
         detections,
         scores);
     if (status != em::kSuccess) return -1;
@@ -154,7 +154,7 @@ em::ErrorCode FindRoi(
     const std::string& mask_finder_path,
     const std::string& vid_path, 
     em::Rect* roi, 
-    std::vector<double>* transform) {
+    em::PointPair* endpoints) {
   // Determined by experimentation with GPU having 8GB memory.
   static const int kMaxImg = 8;
 
@@ -209,8 +209,8 @@ em::ErrorCode FindRoi(
 
   // Now that we have the best mask, use this to compute the ROI.
   best_mask.Resize(reader.Width(), reader.Height());
-  *transform = em::find_ruler::RulerOrientation(best_mask);
-  em::Image r_mask = em::find_ruler::Rectify(best_mask, *transform);
+  *endpoints = em::find_ruler::RulerEndpoints(best_mask);
+  em::Image r_mask = em::find_ruler::Rectify(best_mask, *endpoints);
   *roi = em::find_ruler::FindRoi(r_mask);
   return em::kSuccess;
 }
@@ -220,7 +220,7 @@ em::ErrorCode DetectAndClassify(
     const std::string& classify_path,
     const std::string& vid_path,
     const em::Rect& roi,
-    const std::vector<double>& transform,
+    const em::PointPair& endpoints,
     std::vector<std::vector<em::detect::Detection>>* detections, 
     std::vector<std::vector<em::classify::Classification>>* scores) {
   // Determined by experimentation with GPU having 8GB memory.
@@ -264,7 +264,7 @@ em::ErrorCode DetectAndClassify(
         vid_end = true;
         break;
       }
-      img = em::find_ruler::Rectify(img, transform);
+      img = em::find_ruler::Rectify(img, endpoints);
       img = em::find_ruler::Crop(img, roi);
       imgs.push_back(img);
       status = detector.AddImage(img);
@@ -353,7 +353,7 @@ em::ErrorCode WriteVideo(
     const std::string& vid_path,
     const std::string& out_path,
     const em::Rect& roi,
-    const std::vector<double>& transform,
+    const em::PointPair& endpoints,
     const std::vector<std::vector<em::detect::Detection>>& detections,
     const std::vector<std::vector<em::classify::Classification>>& scores) {
 
@@ -385,21 +385,19 @@ em::ErrorCode WriteVideo(
       std::cout << "Error retrieving video frame!" << std::endl;
       return status;
     }
-    frame.DrawRect(roi, {255, 0, 0}, 1, transform);
+    frame.DrawRect(roi, {255, 0, 0}, 1, endpoints);
     for (int j = 0; j < detections[i].size(); ++j) {
       em::Color det_color;
       double clear = scores[i][j].cover[2];
       double hand = scores[i][j].cover[1];
       if (j == 0) {
         if (clear > hand) {
-          frame.DrawText("Clear", {0, 0}, {0, 255, 0});
           det_color = {0, 255, 0};
         } else {
-          frame.DrawText("Hand", {0, 0}, {0, 0, 255});
           det_color = {0, 0, 255};
         }
       }
-      frame.DrawRect(detections[i][j].location, det_color, 2, transform, roi);
+      frame.DrawRect(detections[i][j].location, det_color, 2, endpoints, roi);
     }
     status = writer.AddFrame(frame);
     if (status != em::kSuccess) {

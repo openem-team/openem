@@ -32,6 +32,7 @@ enum ErrorCode {
   kErrorNotContinuous, ///< cv::Mat expected to be continuous.
   kErrorRunSession,    ///< Failed to run session.
   kErrorReadingImage,  ///< Failed to read image.
+  kErrorSavingImage,   ///< Failed to save image.
   kErrorImageSize,     ///< Invalid image data size for given dimensions.
   kErrorNumChann,      ///< Invalid number of image channels.
   kErrorVidFileOpen,   ///< Failed to open video file.

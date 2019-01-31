@@ -24,6 +24,8 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 
+#include "detail/util.h"
+
 namespace openem {
 
 /// Implementation details for Image.
@@ -73,6 +75,16 @@ ErrorCode Image::FromFile(const std::string& image_path, bool color) {
   return kSuccess;
 }
 
+ErrorCode Image::ToFile(const std::string& image_path) {
+  try {
+    cv::imwrite(image_path, impl_->mat_);
+  }
+  catch (...) {
+    return kErrorSavingImage;
+  }
+  return kSuccess;
+}
+
 ErrorCode Image::FromData(
     const std::vector<uint8_t>& data, 
     int width, 
@@ -87,8 +99,7 @@ ErrorCode Image::FromData(
   } else {
     return kErrorNumChann;
   }
-  impl_->mat_.convertTo(impl_->mat_, dtype);
-  Resize(width, height);
+  impl_->mat_ = cv::Mat(height, width, dtype, cv::Scalar(0));
   std::memcpy(impl_->mat_.data, data.data(), data.size() * sizeof(uint8_t));
   return kSuccess;
 }
@@ -140,12 +151,14 @@ void Image::DrawRect(
     const Rect& rect, 
     const Color& color, 
     int linewidth,
-    const std::vector<double>& transform,
+    const PointPair& endpoints,
     const Rect& roi) {
   cv::Scalar c(color[0], color[1], color[2]);
-  cv::Mat t(2, 3, CV_64F);
-  std::memcpy(t.data, transform.data(), transform.size() * sizeof(double));
-  cv::invertAffineTransform(t, t);
+  bool apply_transform = (
+      endpoints.first.first != 0 ||
+      endpoints.first.second != 0 ||
+      endpoints.second.first != 0 ||
+      endpoints.second.second != 0);
   double x = static_cast<double>(rect[0]);
   double y = static_cast<double>(rect[1]);
   double w = static_cast<double>(rect[2]);
@@ -159,24 +172,20 @@ void Image::DrawRect(
   v[1] = cv::Point2d(x0, y1);
   v[2] = cv::Point2d(x1, y1);
   v[3] = cv::Point2d(x1, y0);
-  cv::transform(v, v, t);
+  if (apply_transform) {
+    cv::Mat t = detail::EndpointsToTransform(
+        endpoints.first.first,
+        endpoints.first.second,
+        endpoints.second.first,
+        endpoints.second.second,
+        impl_->mat_.rows,
+        impl_->mat_.cols);
+    cv::invertAffineTransform(t, t);
+    cv::transform(v, v, t);
+  }
   for (int i = 0; i < 4; ++i) {
     cv::line(impl_->mat_, v[i], v[(i+1)%4], c, linewidth);
   }
-}
-
-void Image::DrawText(
-    const std::string& text,
-    const std::pair<int, int>& loc,
-    const Color& color,
-    double scale) {
-  cv::putText(
-      impl_->mat_,
-      text,
-      cv::Point2d(loc.first, loc.second),
-      cv::FONT_HERSHEY_SIMPLEX,
-      scale,
-      cv::Scalar(color[0], color[1], color[2]));
 }
 
 void Image::Show(const std::string& window_name) {

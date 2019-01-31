@@ -69,8 +69,8 @@ if __name__ == "__main__":
             continue
 
         # Find orientation and region of interest based on the mask.
-        transform = openem.RulerOrientation(mask)
-        r_mask = openem.Rectify(mask, transform)
+        endpoints = openem.RulerEndpoints(mask)
+        r_mask = openem.Rectify(mask, endpoints)
         roi = openem.FindRoi(r_mask)
 
         # Rectify, crop, and display the image.

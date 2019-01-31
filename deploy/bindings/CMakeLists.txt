@@ -4,7 +4,7 @@ include_directories(../include)
 set_source_files_properties(openem.i PROPERTIES CPLUSPLUS ON)
 
 if(BUILD_PYTHON)
-  find_package(PythonLibs REQUIRED)
+  find_package(PythonLibs 3 REQUIRED)
   include_directories(${PYTHON_INCLUDE_DIRS})
   swig_add_library(openem TYPE MODULE LANGUAGE python SOURCES openem.i)
   swig_link_libraries(openem ${PYTHON_LIBRARIES} openem)

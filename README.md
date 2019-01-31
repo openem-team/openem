@@ -10,14 +10,23 @@ pretrained models available in our example data (see tutorial).  The base
 library is written in C++, with bindings available for both Python and C#.
 Examples are included for all three languages.
 
-The current release includes a training library for the detection 
-model.  There are immediate plans to expand this library to include 
-all OpenEM functionality.  Currently builds have only been tested on 
-Windows.  We plan to support both Ubuntu and macOS in the future.
+The current release also includes a training library for the all OpenEM
+functionality. The library is distributed as a native Windows library and
+as a Docker image.
 
 Click the image below to see a video of OpenEM in action:
 
 [![OpenEM detection example](https://img.youtube.com/vi/EZ1Xyg_mnhM/0.jpg)](https://youtu.be/EZ1Xyg_mnhM)
+
+### Distributions
+
+Get the latest Windows library from our [GitHub releases page][Releases].
+
+The docker image can be obtained with:
+
+```shell
+docker pull cvisionai/openem
+```
 
 ### Contents
 
@@ -26,4 +35,6 @@ Click the image below to see a video of OpenEM in action:
 * [Data Collection Guidelines](doc/data_collection.md)
 * [Annotation Guidelines](doc/annotation.md)
 * [Library reference](https://jrtcppv.bitbucket.io)
+
+[Releases]: https://github.com/openem-team/openem/releases
 

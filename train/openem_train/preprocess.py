@@ -1,31 +1,64 @@
+__copyright__ = "Copyright (C) 2018 CVision AI."
+__license__ = "GPLv3"
+# This file is part of OpenEM, released under GPLv3.
+# OpenEM is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with OpenEM.  If not, see <http://www.gnu.org/licenses/>.
+
 """Functions for preprocessing training data.
 """
 
 import os
-import pandas
+import sys
+from collections import defaultdict
+from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
+from multiprocessing import cpu_count
+from functools import partial
+import pandas as pd
+import scipy.misc
+import skimage
 from cv2 import VideoCapture
 from cv2 import imwrite
 
-def _find_no_fish(config):
-    """ Find frames containing no fish.
+def _extract_images(vid, train_imgs_dir):
+    """Extracts images from a single video.
 
     # Arguments
-        config: ConfigInterface object.
+        vid: Path to video.
+        train_imgs_dir: Path to output images.
 
     # Returns
-        Dict containing video ID as keys, list of frame numbers as values.
+        Tuple containing video ID and number of frames.
     """
-    cover = pandas.read_csv(config.cover_path())
-    no_fish = {}
-    for _, row in cover.iterrows():
-        if row.cover == 0:
-            if row.video_id not in no_fish:
-                no_fish[row.video_id] = []
-            no_fish[row.video_id].append(int(row.frame))
-    return no_fish
+    vid_id, _ = os.path.splitext(os.path.basename(vid))
+    img_dir = os.path.join(train_imgs_dir, vid_id)
+    os.makedirs(img_dir, exist_ok=True)
+    reader = VideoCapture(vid)
+    frame = 0
+    while reader.isOpened():
+        ret, img = reader.read()
+        if not ret:
+            break
+        img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
+        if (frame % 100) == 0:
+            print("Saving image to: {}...".format(img_path))
+        imwrite(img_path, img)
+        frame += 1
+    print("Finished converting {}".format(vid))
+    return (vid_id, frame)
 
 def extract_images(config):
-    """Extracts images from video.
+    """Extracts images from all videos.
 
     # Arguments
         config: ConfigInterface object.
@@ -34,30 +67,103 @@ def extract_images(config):
     # Create directories to store images.
     os.makedirs(config.train_imgs_dir(), exist_ok=True)
 
-    # Read in length annotations.
-    ann = pandas.read_csv(config.length_path())
-    vid_ids = ann.video_id.tolist()
-    ann_frames = ann.frame.tolist()
-
-    # Find frames containing no fish.
-    no_fish = _find_no_fish(config)
+    # Make a pool to convert videos.
+    pool = Pool(24)
 
     # Start converting images.
-    for vid in config.train_vids():
-        vid_id, _ = os.path.splitext(os.path.basename(vid))
-        img_dir = os.path.join(config.train_imgs_dir(), vid_id)
-        os.makedirs(img_dir, exist_ok=True)
-        reader = VideoCapture(vid)
-        keyframes = [a for a, b in zip(ann_frames, vid_ids) if b == vid_id]
-        if vid_id in no_fish:
-            keyframes += no_fish[vid_id]
-        frame = 0
-        while reader.isOpened():
-            ret, img = reader.read()
-            if frame in keyframes:
-                img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
-                print("Saving image to: {}".format(img_path))
-                imwrite(img_path, img)
-            frame += 1
-            if not ret:
-                break
+    func = partial(_extract_images, train_imgs_dir = config.train_imgs_dir())
+    vid_frames = pool.map(func, config.train_vids())
+
+    # Record total number of frames in each video.
+    vid_id, frames = list(map(list, zip(*vid_frames)))
+    num_frames = {
+        'video_id': vid_id,
+        'num_frames': frames
+    }
+
+    # Write number of frames to csv.
+    df = pd.DataFrame(num_frames)
+    df.to_csv(config.num_frames_path(), index=False)
+    
+def extract_rois(config):
+    """Extracts region of interest.
+
+    # Arguments:
+        config: ConfigInterface object.
+    """
+    sys.path.append('../python')
+    import openem
+
+    def _extract_roi(paths):
+        img_path, roi_path = paths
+        img = openem.Image()
+        status = img.FromFile(img_path)
+        if status != openem.kSuccess:
+            print("Failed to read image {}".format(img_path))
+        else:
+            roi = openem.Rectify(img, ((x1, y1), (x2, y2)))
+            print("Saving ROI to: {}".format(roi_path))
+            roi.ToFile(roi_path)
+
+    # Create directories to store ROIs.
+    os.makedirs(config.train_rois_dir(), exist_ok=True)
+
+    # Open find ruler results csv.
+    endpoints = pd.read_csv(config.find_ruler_inference_path())
+
+    # Build a map between video ID and list of enum containing image
+    # and roi paths.
+    lookup = {}
+    for img_path in config.train_imgs():
+        path, f = os.path.split(img_path)
+        vid_id = os.path.basename(path)
+        roi_dir = os.path.join(config.train_rois_dir(), vid_id)
+        os.makedirs(roi_dir, exist_ok=True)
+        roi_path = os.path.join(roi_dir, f)
+        if vid_id not in lookup:
+            lookup[vid_id] = []
+        lookup[vid_id].append((img_path, roi_path))
+
+    # Extract ROIs.
+    pool = ThreadPool(24) # Can't pickle _extract_roi so have to use ThreadPool
+    for _, row in endpoints.iterrows():
+        vid_id = row['video_id']
+        x1 = row['x1']
+        y1 = row['y1']
+        x2 = row['x2']
+        y2 = row['y2']
+        pool.map(_extract_roi, lookup[vid_id])
+
+def extract_dets(config):
+    """Extracts detection images.
+
+    # Arguments:
+        config: ConfigInterface object.
+    """
+    sys.path.append('../python')
+    import openem
+
+    # Create directories to store detections.
+    os.makedirs(config.train_dets_dir(), exist_ok=True)
+
+    # Open the detection results csv.
+    det_results = pd.read_csv(config.detect_inference_path())
+
+    # Create the detection images.
+    for _, row in det_results.iterrows():
+
+        # Get the new path.
+        vid_id = row['video_id']
+        f = "{:04d}.jpg".format(row['frame'])
+        roi_path = os.path.join(config.train_rois_dir(), vid_id, f)
+        det_dir = os.path.join(config.train_dets_dir(), vid_id)
+        os.makedirs(det_dir, exist_ok=True)
+        det_path = os.path.join(det_dir, f)
+
+        # Extract detections.
+        print("Saving detection image to: {}".format(det_path))
+        roi = openem.Image()
+        roi.FromFile(roi_path)
+        rect = openem.Rect([row['x'], row['y'], row['w'], row['h']])
+        det = openem.GetDetImage(roi, rect)
+        det.ToFile(det_path)

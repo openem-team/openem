@@ -84,12 +84,13 @@ class Program {
       }
 
       // Find orientation and region of interest based on the mask.
-      VectorDouble transform = openem.RulerOrientation(masks[i]);
-      Image r_mask = openem.Rectify(masks[i], transform);
+      PointPair endpoints = new PointPair();
+      endpoints = openem.RulerEndpoints(masks[i]);
+      Image r_mask = openem.Rectify(masks[i], endpoints);
       Rect roi = openem.FindRoi(r_mask);
 
       // Rectify, crop, and display the image.
-      Image r_img = openem.Rectify(imgs[i], transform);
+      Image r_img = openem.Rectify(imgs[i], endpoints);
       Image c_img = openem.Crop(r_img, roi);
       c_img.Show();
     }

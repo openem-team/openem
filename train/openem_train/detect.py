@@ -1,17 +1,40 @@
+__copyright__ = "Copyright (C) 2018 CVision AI."
+__license__ = "GPLv3"
+# This file is part of OpenEM, released under GPLv3.
+# OpenEM is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with OpenEM.  If not, see <http://www.gnu.org/licenses/>.
+
 """Functions for training detection algorithm.
 """
 
 import os
+import sys
 import glob
 import numpy as np
+import pandas as pd
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
+from keras.applications.inception_v3 import preprocess_input
 from openem_train.ssd import ssd
 from openem_train.ssd.ssd_training import MultiboxLoss
 from openem_train.ssd.ssd_utils import BBoxUtility
 from openem_train.ssd.ssd_dataset import SSDDataset
 from openem_train.util.model_utils import keras_to_tensorflow
+from openem_train.util.utils import find_epoch
+sys.path.append('../python')
+import openem
+
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -20,7 +43,7 @@ def _save_model(config, model):
         config: ConfigInterface object.
         model: Keras Model object.
     """
-    best = glob.glob(os.path.join(config.checkpoints_dir(), '*best*'))
+    best = glob.glob(os.path.join(config.checkpoints_dir('detect'), '*best*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
     os.makedirs(config.detect_model_dir(), exist_ok=True)
@@ -34,13 +57,24 @@ def train(config):
     """
 
     # Create tensorboard and checkpoints directories.
-    os.makedirs(config.checkpoints_dir(), exist_ok=True)
-    os.makedirs(config.tensorboard_dir(), exist_ok=True)
+    tensorboard_dir = config.tensorboard_dir('detect')
+    os.makedirs(config.checkpoints_dir('detect'), exist_ok=True)
+    os.makedirs(tensorboard_dir, exist_ok=True)
 
     # Build the ssd model.
     model = ssd.ssd_model(
         input_shape=(config.detect_height(), config.detect_width(), 3),
         num_classes=config.num_classes())
+    
+    # If initial epoch is nonzero we load the model from checkpoints 
+    # directory.
+    initial_epoch = config.detect_initial_epoch()
+    if initial_epoch != 0:
+        checkpoint = find_epoch(
+            config.checkpoints_dir('detect'),
+            initial_epoch
+        )
+        model.load_weights(checkpoint)
 
     # Set trainable layers.
     for layer in model.layers:
@@ -83,19 +117,19 @@ def train(config):
 
     # Set up keras callbacks.
     checkpoint_best = ModelCheckpoint(
-        config.checkpoint_best(),
+        config.checkpoint_best('detect'),
         verbose=1,
         save_weights_only=False,
         save_best_only=True)
 
     checkpoint_periodic = ModelCheckpoint(
-        config.checkpoint_periodic(),
+        config.checkpoint_periodic('detect'),
         verbose=1,
         save_weights_only=False,
         period=1)
 
     tensorboard = TensorBoard(
-        config.tensorboard_dir(),
+        tensorboard_dir,
         histogram_freq=0,
         write_graph=True,
         write_images=True)
@@ -115,7 +149,72 @@ def train(config):
             batch_size=val_batch_size,
             is_training=False),
         validation_steps=dataset.nb_test_samples // val_batch_size,
-        initial_epoch=0)
+        initial_epoch=initial_epoch)
 
-    # Load weights of the best model.
+    # Save the model.
     _save_model(config, model)
+
+def predict(config):
+    """Runs detection model on extracted ROIs.
+
+    # Arguments
+        config: ConfigInterface object.
+    """
+    # Make a dict to contain detection results.
+    det_data = {
+        'video_id' : [],
+        'frame' : [],
+        'x' : [],
+        'y' : [],
+        'w' : [],
+        'h' : [],
+        'det_conf' : [],
+        'det_species' : []
+    }
+
+    # Initialize detector from deployment library.
+    detector = openem.Detector()
+    status = detector.Init(config.detect_model_path())
+    if not status == openem.kSuccess:
+        raise IOError("Failed to initialize detector!")
+
+    for img_path in config.train_rois():
+
+        # Load in image.
+        img = openem.Image()
+        status = img.FromFile(img_path)
+        if not status == openem.kSuccess:
+            raise IOError("Failed to load image {}".format(p))
+
+        # Add image to processing queue.
+        status = detector.AddImage(img)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to add image for processing!")
+
+        # Process the loaded image.
+        detections = openem.VectorVectorDetection()
+        status = detector.Process(detections)
+        if not status == openem.kSuccess:
+            raise RuntimeError("Failed to process image {}!".format(img_path))
+
+        # Write detection to dict.
+        for dets in detections:
+            for det in dets:
+                path, f = os.path.split(img_path)
+                frame, _ = os.path.splitext(f)
+                video_id = os.path.basename(os.path.normpath(path))
+                x, y, w, h = det.location
+                det_data['video_id'].append(video_id)
+                det_data['frame'].append(frame)
+                det_data['x'].append(x)
+                det_data['y'].append(y)
+                det_data['w'].append(w)
+                det_data['h'].append(h)
+                det_data['det_conf'].append(det.confidence)
+                det_data['det_species'].append(det.species)
+        print("Finished detection on {}".format(img_path))
+
+    # Write detections to csv.
+    os.makedirs(config.inference_dir(), exist_ok=True)
+    d = pd.DataFrame(det_data)
+    d.to_csv(config.detect_inference_path(), index=False)

@@ -25,14 +25,12 @@ class Program {
   /// <param name="mask_finder_path">Path to find_ruler model file.</param>
   /// <param name="vid_path">Path to the video.</param>
   /// <param name="roi">Rect specifying the ROI.</param>
-  /// <param name="transform">
-  /// Transform specifying rectification matrix.
-  /// </param>
+  /// <param name="endpoints">Ruler endpoints. </param>
   static void FindVideoRoi(
       string mask_finder_path,
       string vid_path,
       out Rect roi,
-      out VectorDouble transform) {
+      out PointPair endpoints) {
     // Determined by experimentation with GPU having 8GB memory.
     const int kMaxImg = 8;
 
@@ -83,8 +81,8 @@ class Program {
 
     // Now that we have the best mask, use this to compute ROI.
     best_mask.Resize(reader.Width(), reader.Height());
-    transform = openem.RulerOrientation(best_mask);
-    Image r_mask = openem.Rectify(best_mask, transform);
+    endpoints = openem.RulerEndpoints(best_mask);
+    Image r_mask = openem.Rectify(best_mask, endpoints);
     roi = openem.FindRoi(r_mask);
   }
 
@@ -94,7 +92,7 @@ class Program {
   /// <param name="detect_path">Path to detect model file.</param>
   /// <param name="classify_path">Path to classify model file.</param>
   /// <param name="roi">Region of interest output from FindVideoRoi.</param>
-  /// <param name="transform">Transform output from FindVideoRoi.</param>
+  /// <param name="endpoints">Ruler endpoints output from FindVideoRoi.</param>
   /// <param name="detections">Detections for each frame.</param>
   /// <param name="scores">Cover and species scores for each detection.</param>
   static void DetectAndClassify(
@@ -102,7 +100,7 @@ class Program {
       string classify_path,
       string vid_path,
       Rect roi,
-      VectorDouble transform,
+      PointPair endpoints,
       out VectorVectorDetection detections,
       out VectorVectorClassification scores) {
     // Determined by experimentation with GPU having 8GB memory.
@@ -147,7 +145,7 @@ class Program {
           vid_end = true;
           break;
         }
-        img = openem.Rectify(img, transform);
+        img = openem.Rectify(img, endpoints);
         img = openem.Crop(img, roi);
         imgs.Add(img);
         status = detector.AddImage(img);
@@ -241,14 +239,14 @@ class Program {
   /// <param name="vid_path">Path to the original video.</param>
   /// <param name="out_path">Path to the output video.</param>
   /// <param name="roi">Region of interest output from FindVideoRoi.</param>
-  /// <param name="transform">Transform output from FindVideoRoi.</param>
+  /// <param name="endpoints">Transform output from FindVideoRoi.</param>
   /// <param name="detections">Detections for each frame.</param>
   /// <param name="scores">Cover and species scores for each detection.</param>
   static void WriteVideo(
       string vid_path,
       string out_path,
       Rect roi,
-      VectorDouble transform,
+      PointPair endpoints,
       VectorVectorDetection detections,
       VectorVectorClassification scores) {
 
@@ -280,21 +278,19 @@ class Program {
       Color blue = new Color(); blue[0] = 255; blue[1] = 0; blue[2] = 0;
       Color red = new Color(); red[0] = 0; red[1] = 0; red[2] = 255;
       Color green = new Color(); green[0] = 0; green[1] = 255; green[2] = 0;
-      frame.DrawRect(roi, blue, 1, transform);
+      frame.DrawRect(roi, blue, 1, endpoints);
       for (int j = 0; j < detections[i].Count; ++j) {
         Color det_color = red;
         double clear = scores[i][j].cover[2];
         double hand = scores[i][j].cover[1];
         if (j == 0) {
           if (clear > hand) {
-            frame.DrawText("Clear", new PairIntInt(0, 0), green);
             det_color = green;
           } else {
-            frame.DrawText("Hand", new PairIntInt(0, 0), red);
             det_color = red;
           }
         }
-        frame.DrawRect(detections[i][j].location, det_color, 2, transform, roi);
+        frame.DrawRect(detections[i][j].location, det_color, 2, endpoints, roi);
       }
       status = writer.AddFrame(frame);
       if (status != ErrorCode.kSuccess) {
@@ -322,8 +318,8 @@ class Program {
       // Find the roi.
       Console.WriteLine("Finding region of interest...");
       Rect roi;
-      VectorDouble transform;
-      FindVideoRoi(args[0], args[vid_idx], out roi, out transform);
+      PointPair endpoints;
+      FindVideoRoi(args[0], args[vid_idx], out roi, out endpoints);
 
       // Find detections and classify them.
       Console.WriteLine("Performing detection and classification...");
@@ -334,7 +330,7 @@ class Program {
           args[2], 
           args[vid_idx], 
           roi, 
-          transform, 
+          endpoints, 
           out detections,
           out scores);
 
@@ -353,7 +349,7 @@ class Program {
           args[vid_idx],
           String.Format("annotated_video_{0}.avi", vid_idx - 4),
           roi,
-          transform,
+          endpoints,
           detections,
           scores);
     }

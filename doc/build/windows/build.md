@@ -1,4 +1,4 @@
-## Build and Test Instructions for Deployment Library on Windows
+## Build instructions for OpenEM on Windows
 
 ### Install build tools
 

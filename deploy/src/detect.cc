@@ -131,8 +131,6 @@ ErrorCode Detector::AddImage(const Image& image) {
 }
 
 ErrorCode Detector::Process(std::vector<std::vector<Detection>>* detections) {
-  constexpr int kBackgroundClass = 0;
-
   // Run the model.
   std::vector<tensorflow::Tensor> outputs;
   ErrorCode status = impl_->model_.Process(
@@ -152,35 +150,51 @@ ErrorCode Detector::Process(std::vector<std::vector<Detection>>* detections) {
   int var_stop = anc_stop + 4;
   cv::Mat loc, conf, variances, anchors;
   std::vector<cv::Rect> boxes;
-  std::vector<float> scores;
   std::vector<int> indices;
-  double min, max;
+  std::vector<float> scores;
+  std::vector<int> class_index;
+  cv::Point max_index;
   for (int i = 0; i < pred.size(); ++i) {
     auto& p = pred[i];
     loc = p(cv::Range::all(), cv::Range(0, pred_stop));
     conf = p(cv::Range::all(), cv::Range(pred_stop, conf_stop));
-    cv::minMaxLoc(loc, &min, &max);
     anchors = p(cv::Range::all(), cv::Range(conf_stop, anc_stop));
     variances = p(cv::Range::all(), cv::Range(anc_stop, var_stop));
     boxes = DecodeBoxes(loc, anchors, variances, impl_->model_.ImageSize());
     std::vector<Detection> dets;
-    for (int c = 0; c < conf.cols; ++c) {
-      if (c == kBackgroundClass) continue;
-      cv::Mat& c_conf = conf.col(c);
-      scores.assign(c_conf.begin<float>(), c_conf.end<float>());
-      cv::dnn::NMSBoxes(boxes, scores, 0.01, 0.45, indices, 1.0, 200);
-      for (int idx : indices) {
-        Detection det;
-        det.location = {
-          int(boxes[idx].x * impl_->img_scale_[i].first),
-          int(boxes[idx].y * impl_->img_scale_[i].second),
-          int(boxes[idx].width * impl_->img_scale_[i].first),
-          int(boxes[idx].height * impl_->img_scale_[i].second)};
-        det.confidence = scores[idx];
-        det.species = c;
-        dets.push_back(std::move(det));
-      }
+    // Find the class with highest confidence for each region proposal.
+    double max_score;
+    scores.resize(conf.rows);
+    class_index.resize(conf.rows);
+    for (int r = 0; r < conf.rows; ++r) {
+      cv::minMaxLoc(
+        conf(
+          cv::Range(r, r+1),
+          cv::Range(1, conf.cols)), // exclude background class
+        nullptr,
+        &max_score,
+        nullptr,
+        &max_index);
+      scores[r] = max_score;
+      class_index[r] = max_index.x + 1; // +1 for background class
     }
+    cv::dnn::NMSBoxes(boxes, scores, 0.01, 0.45, indices, 1.0, 200);
+    for (int idx : indices) {
+      Detection det;
+      det.location = {
+        int(boxes[idx].x * impl_->img_scale_[i].first),
+        int(boxes[idx].y * impl_->img_scale_[i].second),
+        int(boxes[idx].width * impl_->img_scale_[i].first),
+        int(boxes[idx].height * impl_->img_scale_[i].second)};
+      det.confidence = scores[idx];
+      det.species = class_index[idx];
+      dets.push_back(std::move(det));
+    }
+    // Sort detections by confidence (high to low).
+    std::sort(dets.begin(), dets.end(),
+      [](const Detection& left, const Detection& right) -> bool {
+      return left.confidence > right.confidence;
+    });
     impl_->img_scale_.clear();
     detections->push_back(std::move(dets));
   }

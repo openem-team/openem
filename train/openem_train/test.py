@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 __copyright__ = "Copyright (C) 2018 CVision AI."
 __license__ = "GPLv3"
 # This file is part of OpenEM, released under GPLv3.
@@ -16,16 +14,19 @@ __license__ = "GPLv3"
 # You should have received a copy of the GNU General Public License
 # along with OpenEM.  If not, see <http://www.gnu.org/licenses/>.
 
-import argparse
+import os
 import sys
 import math
-import os
+import glob
+from collections import defaultdict
 import numpy as np
-sys.path.append("../../../python")
-sys.path.append("../../python")
+import pandas as pd
+sys.path.append('../python')
 import openem
 
-def find_roi(mask_finder_path, vid_path):
+"""Functions for testing end to end model.
+"""
+def _find_roi(mask_finder_path, vid_path):
     """Finds ROI in a video.
 
     # Arguments
@@ -96,7 +97,7 @@ def find_roi(mask_finder_path, vid_path):
     roi = openem.FindRoi(r_mask)
     return (roi, endpoints)
 
-def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
+def _detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
     """Finds and classifies detections for all frames in a video.
 
     # Arguments
@@ -107,7 +108,7 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
         endpoints: Ruler endpoints from find_roi.
 
     # Returns
-        Detection rects and classification scores. Also ROI width.
+        Detection rects and classification scores.
 
     # Raises
         IOError: If video or model files cannot be opened.
@@ -121,9 +122,6 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
     status = detector.Init(detect_path, 0.5)
     if not status == openem.kSuccess:
         raise IOError("Failed to initialize detector!")
-
-    # Get ROI width.
-    _, detect_width = detector.ImageSize()
 
     # Create and initialize the classifier.
     classifier = openem.Classifier()
@@ -176,14 +174,15 @@ def detect_and_classify(detect_path, classify_path, vid_path, roi, endpoints):
             scores.append(score_batch)
         if vid_end:
             break
-    return (detections, scores, detect_width)
+    return (detections, scores)
 
-def write_counts(
+def _write_counts(
         count_path,
         out_path,
         roi,
         detections,
         scores,
+        species_list,
         vid_width,
         detect_width):
     """Writes a csv file containing fish species and frame numbers.
@@ -194,6 +193,7 @@ def write_counts(
         roi: Region of interest, needed for image width and height.
         detections: Detections for each frame.
         scores: Cover and species scores for each detection.
+        species_list: List of species.
         vid_width: Width of the original video.
     """
     # Create and initialize keyframe finder.
@@ -211,7 +211,7 @@ def write_counts(
 
     # Write the keyframes out.
     with open(out_path, "w") as csv:
-        csv.write("frame,species_index,length\n")
+        csv.write("frame,species,length\n")
         for i in keyframes:
             c = scores[i][0]
             max_score = 0.0
@@ -221,125 +221,168 @@ def write_counts(
                     continue
                 if s > max_score:
                     max_score = s
-                    species_index = j
+                    species = species_list[j]
             d = detections[i][0]
             _, _, length, _ = d.location
             length *= float(detect_width) / float(vid_width)
-            csv.write("{},{},{}\n".format(i, species_index, length))
+            csv.write("{},{},{}\n".format(i, species, length))
 
-def write_video(vid_path, out_path, roi, endpoints, detections, scores):
-    """Writes a new video with bounding boxes around detections.
+def _losses(pred, truth, species):
+    """Computes the losses between two sequences of keyframes.
 
-    # Arguments
-        vid_path: Path to the original video.
-        out_path: Path to the output video.
-        roi: Region of interest output from find_roi.
-        endpoints: Ruler endpoints from find_roi.
-        detections: Detections for each frame.
-        scores: Cover and species scores for each detection.
+    # Arguments:
+        pred: N by 3 pandas data frame containing frame, species, length.
+        truth: N by 3 pandas data frame containing frame, species, length.
+        species: List of species names for confusion matrix.
+
+    # Returns:
+        Tuple containing:
+        - Number of true positives
+        - Number of false positives
+        - Number of false negatives
+        - Number of correct classifications (for true positives only)
+        - Sum of absolute differences in length (for true positives only)
+        - Confusion matrix (for true positives only)
     """
-    # Initialize the video reader.
-    reader = openem.VideoReader()
-    status = reader.Init(vid_path)
-    if not status == openem.kSuccess:
-        raise IOError("Failed to read video {}!".format(vid_path))
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+    num_correct = 0
+    sum_abs_diff = 0.0
+    num_classes = len(species)
+    confusion = np.zeros((num_classes, num_classes))
 
-    # Initialize the video writer.
-    print("Writing annotated video to {}".format(out_path))
-    writer = openem.VideoWriter()
-    status = writer.Init(
-        out_path,
-        reader.FrameRate(),
-        openem.kWmv2,
-        (reader.Width(), reader.Height()))
-    if not status == openem.kSuccess:
-        raise IOError("Failed to write video {}!".format(out_path))
+    # Map between truth index (key) and pred indices (values).
+    mapping = defaultdict(list)
+    for p_idx, p_row in pred.iterrows():
+        t_idx = (truth['frame'] - p_row.frame).abs().argsort()[0]
+        mapping[t_idx].append((p_row.frame, p_row.species, p_row.length))
 
-    # Iterate through frames.
-    for det_frame, score_frame in zip(detections, scores):
-        frame = openem.Image()
-        status = reader.GetFrame(frame)
-        if not status == openem.kSuccess:
-            raise RuntimeError("Error retrieving video frame!")
-        frame.DrawRect(roi, (255, 0, 0), 1, endpoints)
-        for j, (det, score) in enumerate(zip(det_frame, score_frame)):
-            clear = score.cover[2]
-            hand = score.cover[1]
-            if j == 0:
-                if clear > hand:
-                    det_color = (0, 255, 0)
-                else:
-                    det_color = (0, 0, 255)
-            frame.DrawRect(det.location, det_color, 2, endpoints, roi)
-        status = writer.AddFrame(frame)
-        if not status == openem.kSuccess:
-            raise RuntimeError("Error adding frame to video!")
+    # Iterate through map and compute statistics.
+    for t_idx, _ in truth.iterrows():
+        matches = mapping[t_idx]
+        t_row = truth.iloc[t_idx]
+        if matches:
+            true_pos += 1
+            false_pos += len(matches) - 1
+            matches.sort(key=lambda x: abs(x[0] - t_row.frame))
+            truth_species = t_row.species.lower()
+            pred_species = matches[0][1].lower()
+            if truth_species not in species:
+                truth_species = 'other'
+            confusion[
+                species.index(truth_species),
+                species.index(pred_species)
+            ] += 1
+            if pred_species == truth_species:
+                num_correct += 1
+            sum_abs_diff += abs(matches[0][2] - t_row.length)
+        else:
+            false_neg += 1
+    return (true_pos, false_pos, false_neg, num_correct, sum_abs_diff, confusion)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="End to end example on a video clip.")
-    parser.add_argument("find_ruler_model",
-        type=str,
-        help="Path to pb file with find_ruler model.")
-    parser.add_argument("detect_model",
-        type=str,
-        help="Path to pb file with detect model.")
-    parser.add_argument("classify_model",
-        type=str,
-        help="Path to pb file with classify model.")
-    parser.add_argument("count_model",
-        type=str,
-        help="Path to pb file with count model.")
-    parser.add_argument("video_paths",
-        type=str,
-        nargs="+",
-        help="One or more paths to video files.")
-    parser.add_argument("--no_video",
-        action="store_true",
-        help="Disable writing annotated video.")
-    args = parser.parse_args()
-    for i, video_path in enumerate(args.video_paths):
+def predict(config):
+
+    # Get paths from config file.
+    videos = config.test_vids()
+    out_dir = config.test_output_dir()
+    find_ruler_path = config.find_ruler_model_path()
+    detect_path = config.detect_model_path()
+    classify_path = config.classify_model_path()
+    count_path = config.count_model_path()
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Iterate through videos.
+    for vid in videos:
+
         # Get the video width.
         reader = openem.VideoReader()
-        status = reader.Init(video_path)
+        status = reader.Init(vid)
         if not status == openem.kSuccess:
-            raise IOError("Failed to read video {}!".format(video_path))
+            raise IOError("Failed to read video {}!".format(vid))
         vid_width = float(reader.Width())
 
+        # Get path to output csv.
+        _, fname = os.path.split(vid)
+        base, _ = os.path.splitext(fname)
+        out_path = os.path.join(out_dir, base + '.csv')
+
         # Find the ROI.
-        print("Finding region of interest...")
-        roi, endpoints = find_roi(args.find_ruler_model, video_path)
+        print("Doing prediction on {}...".format(vid))
+        roi, endpoints = _find_roi(find_ruler_path, vid)
 
-        # Find detections and classify them.
-        print("Performing detection and classification...")
-        detections, scores, detect_width = detect_and_classify(
-            args.detect_model,
-            args.classify_model,
-            video_path,
+        # Do detection and classification.
+        detections, scores = _detect_and_classify(
+            detect_path,
+            classify_path,
+            vid,
             roi,
-            endpoints)
-
+            endpoints
+        )
         # Write counts to csv.
-        print("Writing counts to csv...")
-        video_base, _ = os.path.splitext(video_path)
-        csv_path = video_base + ".csv"
-        write_counts(
-            args.count_model,
-            csv_path,
+        _write_counts(
+            count_path,
+            out_path,
             roi,
             detections,
             scores,
+            ['unknown',] + config.species(),
             vid_width,
-            detect_width
+            config.detect_width()
         )
 
-        # Write annotated video to file.
-        if not args.no_video:
-            print("Writing video to file...")
-            write_video(
-                video_path,
-                "annotated_video_{}.avi".format(i),
-                roi,
-                endpoints,
-                detections,
-                scores)
+def eval(config):
+
+    # Get paths from config file.
+    test_dir = config.test_output_dir()
+    truth_files = config.test_truth_files()
+
+    # Initialize evaluation metrics.
+    species = config.species()
+    species = [s.lower() for s in species]
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+    num_correct = 0
+    sum_abs_diff = 0.0
+    confusion = np.zeros((len(species), len(species)))
+
+    # Iterate through truth/test files and sum up the metrics.
+    for truth_file in truth_files:
+        _, fname = os.path.split(truth_file)
+        test_file = os.path.join(test_dir, fname)
+        if os.path.exists(test_file):
+            print("Evaluating performance with {}...".format(test_file))
+            truth = pd.read_csv(truth_file)
+            pred = pd.read_csv(test_file)
+            metrics = _losses(pred, truth, species)
+            true_pos += metrics[0]
+            false_pos += metrics[1]
+            false_neg += metrics[2]
+            num_correct += metrics[3]
+            sum_abs_diff += metrics[4]
+            confusion += metrics[5]
+        else:
+            msg = "Could not find test output {}! Excluding from evaluation..."
+            print(msg.format(test_file))
+
+    # Compute summary statistics.
+    print("True positives: {}".format(true_pos))
+    print("False positives: {}".format(false_pos))
+    print("False negatives: {}".format(false_neg))
+    true_pos = float(true_pos)
+    false_pos = float(false_pos)
+    false_neg = float(false_neg)
+    precision = true_pos / (true_pos + false_pos)
+    recall = true_pos / (true_pos + false_neg)
+    f1 = 2 * precision * recall / (precision + recall)
+    print("Precision: {0:.4f}".format(precision))
+    print("Recall: {0:.4f}".format(recall))
+    print("F1 score: {0:.4f}".format(f1))
+    class_acc = float(num_correct) / true_pos
+    print("Classification accuracy: {0:.4f}".format(class_acc))
+    np.set_printoptions(suppress=True)
+    print("Confusion matrix:")
+    print("{}".format(confusion))
+    mean_abs_diff = sum_abs_diff / true_pos
+    print("Mean absolute length difference: {0:.4f}".format(mean_abs_diff))

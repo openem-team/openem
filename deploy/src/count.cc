@@ -95,18 +95,21 @@ ErrorCode KeyframeFinder::Process(
 
       // Check if we are at end of data.
       if (k == detections.size() + kKeyframeOffset) {
+        seq.data()[offset] = 1.0;
         at_end = true;
         break;
       }
 
       // If we are doing padding then just continue.
       if (k < 0 || k >= detections.size()) {
+        seq.data()[offset] = 1.0;
         offset += fea_len;
         continue;
       }
 
       // If this frame has no detections, continue.
       if (detections[k].empty()) {
+        seq.data()[offset] = 1.0;
         offset += fea_len;
         continue;
       }

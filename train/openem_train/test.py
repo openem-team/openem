@@ -381,6 +381,7 @@ def eval(config):
     print("F1 score: {0:.4f}".format(f1))
     class_acc = float(num_correct) / true_pos
     print("Classification accuracy: {0:.4f}".format(class_acc))
+    np.set_printoptions(suppress=True)
     print("Confusion matrix:")
     print("{}".format(confusion))
     mean_abs_diff = sum_abs_diff / true_pos

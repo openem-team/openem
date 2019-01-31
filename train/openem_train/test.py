@@ -227,12 +227,13 @@ def _write_counts(
             length *= float(detect_width) / float(vid_width)
             csv.write("{},{},{}\n".format(i, species, length))
 
-def _losses(pred, truth):
+def _losses(pred, truth, species):
     """Computes the losses between two sequences of keyframes.
 
     # Arguments:
         pred: N by 3 pandas data frame containing frame, species, length.
         truth: N by 3 pandas data frame containing frame, species, length.
+        species: List of species names for confusion matrix.
 
     # Returns:
         Tuple containing:
@@ -241,12 +242,15 @@ def _losses(pred, truth):
         - Number of false negatives
         - Number of correct classifications (for true positives only)
         - Sum of absolute differences in length (for true positives only)
+        - Confusion matrix (for true positives only)
     """
     true_pos = 0
     false_pos = 0
     false_neg = 0
     num_correct = 0
     sum_abs_diff = 0.0
+    num_classes = len(species)
+    confusion = np.zeros((num_classes, num_classes))
 
     # Map between truth index (key) and pred indices (values).
     mapping = defaultdict(list)
@@ -262,12 +266,20 @@ def _losses(pred, truth):
             true_pos += 1
             false_pos += len(matches) - 1
             matches.sort(key=lambda x: abs(x[0] - t_row.frame))
-            if matches[0][1].lower() == t_row.species.lower():
+            truth_species = t_row.species.lower()
+            pred_species = matches[0][1].lower()
+            if truth_species not in species:
+                truth_species = 'other'
+            confusion[
+                species.index(truth_species),
+                species.index(pred_species)
+            ] += 1
+            if pred_species == truth_species:
                 num_correct += 1
             sum_abs_diff += abs(matches[0][2] - t_row.length)
         else:
             false_neg += 1
-    return (true_pos, false_pos, false_neg, num_correct, sum_abs_diff)
+    return (true_pos, false_pos, false_neg, num_correct, sum_abs_diff, confusion)
 
 def predict(config):
 
@@ -326,11 +338,14 @@ def eval(config):
     truth_files = config.test_truth_files()
 
     # Initialize evaluation metrics.
+    species = config.species()
+    species = [s.lower() for s in species]
     true_pos = 0
     false_pos = 0
     false_neg = 0
     num_correct = 0
     sum_abs_diff = 0.0
+    confusion = np.zeros((len(species), len(species)))
 
     # Iterate through truth/test files and sum up the metrics.
     for truth_file in truth_files:
@@ -340,12 +355,13 @@ def eval(config):
             print("Evaluating performance with {}...".format(test_file))
             truth = pd.read_csv(truth_file)
             pred = pd.read_csv(test_file)
-            metrics = _losses(pred, truth)
+            metrics = _losses(pred, truth, species)
             true_pos += metrics[0]
             false_pos += metrics[1]
             false_neg += metrics[2]
             num_correct += metrics[3]
             sum_abs_diff += metrics[4]
+            confusion += metrics[5]
         else:
             msg = "Could not find test output {}! Excluding from evaluation..."
             print(msg.format(test_file))
@@ -365,5 +381,7 @@ def eval(config):
     print("F1 score: {0:.4f}".format(f1))
     class_acc = float(num_correct) / true_pos
     print("Classification accuracy: {0:.4f}".format(class_acc))
+    print("Confusion matrix:")
+    print("{}".format(confusion))
     mean_abs_diff = sum_abs_diff / true_pos
     print("Mean absolute length difference: {0:.4f}".format(mean_abs_diff))

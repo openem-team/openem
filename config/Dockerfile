@@ -26,9 +26,7 @@ WORKDIR protobuf
 RUN git submodule update --init --recursive
 RUN ./autogen.sh
 RUN ./configure --prefix=/opt
-RUN make -j8
-RUN make -j8 check
-RUN make -j8 install
+RUN make -j8 && make -j8 check && make -j8 install
 RUN ldconfig
 WORKDIR /
 RUN rm -rf protobuf
@@ -39,8 +37,7 @@ RUN hg clone -r ea85a5993547 http://bitbucket.org/eigen/eigen
 WORKDIR eigen
 RUN mkdir build
 WORKDIR build
-RUN cmake -DINCLUDE_INSTALL_DIR=/opt/include ..
-RUN make -j8 install
+RUN cmake -DINCLUDE_INSTALL_DIR=/opt/include .. && make -j8 install
 WORKDIR /
 RUN rm -rf eigen
 

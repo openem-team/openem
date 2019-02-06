@@ -17,8 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libv4l-dev python3 python3-pip python3-dev python3-setuptools && apt-get clean && rm -fr /var/lib/apt/lists/*
 
 # Temporary layer to do utility wrangling
-# miniconda, eigen, protobuf
-
+# Eigen, protobuf
 FROM cvbase0 AS cvwrangler
 # Build and install protobuf
 WORKDIR /
@@ -45,21 +44,12 @@ RUN make -j8 install
 WORKDIR /
 RUN rm -rf eigen
 
-# Install miniconda
-RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-RUN bash Miniconda3-latest-Linux-x86_64.sh -p /miniconda -b
-RUN rm Miniconda3-latest-Linux-x86_64.sh
-ENV PATH=/miniconda/bin:${PATH}
-RUN conda update -y conda
-
-# Install conda packages
-RUN conda install -y scikit-image=0.14.0 scikit-learn==0.20.1 opencv==3.4.2 pandas==0.23.4 keras-gpu==2.2.4
-RUN conda clean -y -a
+# Install python packages
+RUN pip3 --no-cache-dir install numpy==1.16.1 scikit-image==0.14.0 scikit-learn==0.20.1 pandas==0.23.4 opencv-python==3.4.2.17
 
 # cvbase is now clean of temporary layers used in construction.
 FROM cvbase0 AS cvbase 
 copy --from=cvwrangler /opt /opt
-copy --from=cvwrangler /miniconda /miniconda
 
 FROM cvbase AS cvtensorflow
 # Install bazel
@@ -156,7 +146,6 @@ COPY --from=cvopenem /openem /openem
 ENV LD_LIBRARY_PATH=/tensorflow/lib:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-ENV PATH=/miniconda/bin:$PATH
 
 # Set up environment variables for command line invokation
 ENV find_ruler_model /openem_example_data/deploy/find_ruler/find_ruler.pb

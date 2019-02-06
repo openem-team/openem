@@ -44,7 +44,7 @@ RUN hg clone -r ea85a5993547 http://bitbucket.org/eigen/eigen
 WORKDIR eigen
 RUN mkdir build
 WORKDIR build
-RUN cmake -DINCLUDE_INSTALL_DIR=/opt ..
+RUN cmake -DINCLUDE_INSTALL_DIR=/opt/include ..
 RUN make -j8 install
 WORKDIR /
 RUN rm -rf eigen

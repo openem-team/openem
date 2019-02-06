@@ -78,6 +78,8 @@ RUN cmake \
     -DWITH_FFMPEG=ON \
     -DWITH_LIBV4L=ON \
     -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_opencv_python2=OFF \
+    -DBUILD_opencv_python3=OFF \
     -DOPENCV_EXTRA_MODULES_PATH=/opencv_contrib/modules \
     -DCMAKE_INSTALL_PREFIX=/opencv \
     ..

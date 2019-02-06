@@ -63,7 +63,10 @@ RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/lib
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH
 COPY config/tf_config.txt /config/tf_config.txt
 RUN ./configure < /config/tf_config.txt
-RUN bazel build --config=opt --verbose_failures //tensorflow:libtensorflow_cc.so
+RUN bazel build --config=opt --config=cuda --verbose_failures //tensorflow:libtensorflow_cc.so
+RUN bazel build --config=opt --config=cuda --verbose_failures //tensorflow/tools/pip_package:build_pip_package
+RUN ./bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
+RUN cp /tmp/tensorflow_pkg/`find /tmp/tensorflow_pkg/ -name "*.whl"` /tensorflow/tf.whl 
 RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1
 
 FROM cvbase AS cvopencv
@@ -107,6 +110,8 @@ COPY --from=cvtensorflow /tensorflow/third_party /tensorflow/include/third_party
 COPY --from=cvtensorflow /tensorflow/bazel-genfiles/tensorflow /tensorflow/include/bazel-genfiles/tensorflow
 # Copy abseil to include dir
 COPY --from=cvtensorflow /tensorflow/bazel-tensorflow/external/com_google_absl/absl /usr/include/absl
+COPY --from=cvtensorflow /tensorflow/tf.whl /tensorflow/tf.whl
+RUN pip3 install /tensorflow/tf.whl
 
 COPY --from=cvopencv /opencv /opencv
 

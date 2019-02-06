@@ -7,18 +7,14 @@ ENV CUDNN_VERSION 7.4.1.5
 LABEL com.nvidia.cudnn.version="${CUDNN_VERSION}"
 
 # System packages
-# Clean this out first to ensure apt-get update always runs!
-RUN rm -fr /var/lib/apt/lists/*
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends \
+# Combine apt-get update and apt-get install to fix cache bug.
+RUN apt-get update && apt-get install -y --no-install-recommends \
         libcudnn7=$CUDNN_VERSION-1+cuda10.0 \
         libcudnn7-dev=$CUDNN_VERSION-1+cuda10.0 && \
     apt-mark hold libcudnn7 && apt-get install -y --no-install-recommends curl git swig pkg-config zip g++ zlib1g-dev unzip \
     cmake autoconf automake libtool make mercurial ffmpeg libavcodec-dev \
     libavformat-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev \
-    libv4l-dev
-RUN apt-get clean
-RUN rm -fr /var/lib/apt/lists/*
+    libv4l-dev python3 python3-pip python3-dev python3-setuptools && apt-get clean && rm -fr /var/lib/apt/lists/*
 
 # Temporary layer to do utility wrangling
 # miniconda, eigen, protobuf

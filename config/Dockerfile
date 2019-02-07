@@ -41,12 +41,13 @@ RUN cmake -DINCLUDE_INSTALL_DIR=/opt/include .. && make -j8 install
 WORKDIR /
 RUN rm -rf eigen
 
-# Install python packages
-RUN pip3 --no-cache-dir install numpy==1.16.1 scikit-image==0.14.0 scikit-learn==0.20.1 pandas==0.23.4 opencv-python==3.4.2.17
-
 # cvbase is now clean of temporary layers used in construction.
 FROM cvbase0 AS cvbase 
 copy --from=cvwrangler /opt /opt
+
+# Install python packages
+RUN pip3 --no-cache-dir install numpy==1.16.1 scikit-image==0.14.0 scikit-learn==0.20.1 pandas==0.23.4 opencv-python==3.4.2.17 ##
+
 
 FROM cvbase AS cvtensorflow
 # Install bazel

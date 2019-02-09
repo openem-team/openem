@@ -87,7 +87,6 @@ FROM cvbase AS cvopencv
 # Build OpenCV with contrib modules
 WORKDIR /
 RUN git clone -b 3.4.1 https://github.com/opencv/opencv.git opencv_src
-RUN git clone -b 3.4.1 https://github.com/opencv/opencv_contrib.git
 WORKDIR opencv_src
 RUN mkdir build
 WORKDIR build
@@ -95,13 +94,13 @@ RUN cmake \
     -DWITH_FFMPEG=ON \
     -DWITH_LIBV4L=ON \
     -DBUILD_SHARED_LIBS=OFF \
-    -DOPENCV_EXTRA_MODULES_PATH=/opencv_contrib/modules \
+    -DWITH_PROTOBUF=OFF \
+    -DBUILD_LIST=core,imgproc,video,videoio,calib3d,imgcodecs,highgui,cudev \
     -DCMAKE_INSTALL_PREFIX=/opencv \
     ..
 RUN make -j8 install
 WORKDIR /
 RUN rm -rf opencv_src
-RUN rm -rf opencv_contrib
 
 
 

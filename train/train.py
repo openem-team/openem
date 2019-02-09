@@ -21,12 +21,6 @@ __license__ = "GPLv3"
 
 import argparse
 import sys
-from openem_train import preprocess
-from openem_train import find_ruler
-from openem_train import detect
-from openem_train import classify
-from openem_train import count
-from openem_train import test
 from openem_train.util.config_interface import ConfigInterface
 
 def main():
@@ -64,39 +58,51 @@ def main():
     config = ConfigInterface(args.config_file)
 
     if args.task == 'extract_images':
+        from openem_train import preprocess
         preprocess.extract_images(config)
 
     if args.task == 'find_ruler_train':
+        from openem_train import find_ruler
         find_ruler.train(config)
 
     if args.task == 'find_ruler_predict':
+        from openem_train import find_ruler
         find_ruler.predict(config)
 
     if args.task == 'extract_rois':
+        from openem_train import preprocess
         preprocess.extract_rois(config)
 
     if args.task == 'detect_train':
+        from openem_train import detect
         detect.train(config)
 
     if args.task == 'detect_predict':
+        from openem_train import detect
         detect.predict(config)
 
     if args.task == 'extract_dets':
+        from openem_train import preprocess
         preprocess.extract_dets(config)
 
     if args.task == 'classify_train':
+        from openem_train import classify
         classify.train(config)
 
     if args.task == 'classify_predict':
+        from openem_train import classify
         classify.predict(config)
 
     if args.task == 'count_train':
+        from openem_train import count
         count.train(config)
 
     if args.task == 'test_predict':
+        from openem_train import test
         test.predict(config)
 
     if args.task == 'test_eval':
+        from openem_train import test
         test.eval(config)
 
 if __name__ == '__main__':

@@ -19,13 +19,6 @@ __license__ = "GPLv3"
 
 import os
 import glob
-from keras.callbacks import ModelCheckpoint
-from keras.callbacks import TensorBoard
-from keras.callbacks import LearningRateScheduler
-from openem_train.rnn.rnn_dataset import RNNDataset
-from openem_train.rnn.rnn import rnn_model
-from openem_train.util.model_utils import keras_to_tensorflow
-from openem_train.util.utils import find_epoch
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -34,6 +27,7 @@ def _save_model(config, model):
         config: ConfigInterface object.
         model: Keras Model object.
     """
+    from openem_train.util.model_utils import keras_to_tensorflow
     best = glob.glob(os.path.join(config.checkpoints_dir('count'), '*best*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
@@ -46,6 +40,14 @@ def train(config):
     # Arguments
         config: ConfigInterface object.
     """
+    # Import keras.
+    from keras.callbacks import ModelCheckpoint
+    from keras.callbacks import TensorBoard
+    from keras.callbacks import LearningRateScheduler
+    from openem_train.rnn.rnn_dataset import RNNDataset
+    from openem_train.rnn.rnn import rnn_model
+    from openem_train.util.utils import find_epoch
+
     # Create the dataset.
     dataset = RNNDataset(config)
 

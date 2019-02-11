@@ -139,8 +139,9 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:${LD_LIBRARY_PATH}
 RUN cmake \
     -DTensorflow_DIR=/config \
     -DOpenCV_DIR=/opencv/share/OpenCV \
-    -DPYTHON_LIBRARY=/miniconda/lib/libpython3.6m.so \
-    -DPYTHON_INCLUDE_DIR=/miniconda/include/python3.6m \
+    -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
+    -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
+    -DCMAKE_PREFIX_PATH=/opt \
     -DCMAKE_INSTALL_PREFIX=/openem \
     ..
 RUN make -j8 install

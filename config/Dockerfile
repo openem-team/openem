@@ -148,7 +148,7 @@ FROM cvbase as cvopenem_deploy
 COPY --from=cvopenem /tensorflow /tensorflow
 COPY --from=cvopenem /openem /openem
 COPY --from=cvtensorflow /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl
-RUN pip3 --no-cache-dir install tensorflow-gpu==1.12.0 keras==2.2.4
+RUN pip3 --no-cache-dir install /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl keras==2.2.4
 
 # Add libraries to path
 ENV LD_LIBRARY_PATH=/tensorflow/lib:$LD_LIBRARY_PATH

@@ -25,8 +25,8 @@ import pandas as pd
 import numpy as np
 import scipy.misc
 from sklearn.model_selection import train_test_split
-from keras.applications.inception_v3 import preprocess_input
-from keras.utils import to_categorical
+from tensorflow.keras.applications.inception_v3 import preprocess_input
+from tensorflow.keras.utils import to_categorical
 from openem_train.util import img_augmentation
 from openem_train.util import utils
 

@@ -45,9 +45,9 @@ def train(config):
         config: ConfigInterface object.
     """
     # Import keras.
-    from keras.callbacks import ModelCheckpoint
-    from keras.callbacks import TensorBoard
-    from keras.callbacks import LearningRateScheduler
+    from tensorflow.keras.callbacks import ModelCheckpoint
+    from tensorflow.keras.callbacks import TensorBoard
+    from tensorflow.keras.callbacks import LearningRateScheduler
     from openem_train.unet.unet import unet_model
     from openem_train.unet.unet_dataset import UnetDataset
     from openem_train.util.utils import find_epoch

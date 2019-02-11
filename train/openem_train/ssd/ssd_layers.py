@@ -18,8 +18,7 @@ __license__ = "GPLv3"
 """
 
 import tensorflow.keras.backend as K
-from tensorflow.keras.engine.topology import InputSpec
-from tensorflow.keras.engine.topology import Layer
+from tensorflow.python.keras.layers import Layer, InputSpec
 import numpy as np
 import tensorflow as tf
 

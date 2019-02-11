@@ -17,9 +17,9 @@ __license__ = "GPLv3"
 """Some special purpose layers for SSD.
 """
 
-import keras.backend as K
-from keras.engine.topology import InputSpec
-from keras.engine.topology import Layer
+import tensorflow.keras.backend as K
+from tensorflow.keras.engine.topology import InputSpec
+from tensorflow.keras.engine.topology import Layer
 import numpy as np
 import tensorflow as tf
 

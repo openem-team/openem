@@ -22,19 +22,6 @@ import sys
 import glob
 import numpy as np
 import pandas as pd
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint
-from keras.callbacks import TensorBoard
-from keras.applications.inception_v3 import preprocess_input
-from openem_train.ssd import ssd
-from openem_train.ssd.ssd_training import MultiboxLoss
-from openem_train.ssd.ssd_utils import BBoxUtility
-from openem_train.ssd.ssd_dataset import SSDDataset
-from openem_train.util.model_utils import keras_to_tensorflow
-from openem_train.util.utils import find_epoch
-sys.path.append('../python')
-import openem
-
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -43,6 +30,7 @@ def _save_model(config, model):
         config: ConfigInterface object.
         model: Keras Model object.
     """
+    from openem_train.util.model_utils import keras_to_tensorflow
     best = glob.glob(os.path.join(config.checkpoints_dir('detect'), '*best*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
@@ -55,6 +43,16 @@ def train(config):
     # Arguments
         config: ConfigInterface object.
     """
+    # Import keras.
+    from keras.optimizers import Adam
+    from keras.callbacks import ModelCheckpoint
+    from keras.callbacks import TensorBoard
+    from keras.applications.inception_v3 import preprocess_input
+    from openem_train.ssd import ssd
+    from openem_train.ssd.ssd_training import MultiboxLoss
+    from openem_train.ssd.ssd_utils import BBoxUtility
+    from openem_train.ssd.ssd_dataset import SSDDataset
+    from openem_train.util.utils import find_epoch
 
     # Create tensorboard and checkpoints directories.
     tensorboard_dir = config.tensorboard_dir('detect')
@@ -160,6 +158,10 @@ def predict(config):
     # Arguments
         config: ConfigInterface object.
     """
+    # Import deployment library.
+    sys.path.append('../python')
+    import openem
+
     # Make a dict to contain detection results.
     det_data = {
         'video_id' : [],

@@ -23,16 +23,6 @@ import sys
 from collections import defaultdict
 import pandas as pd
 import numpy as np
-from tensorflow import keras
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.callbacks import LearningRateScheduler
-from openem_train.unet.unet import unet_model
-from openem_train.unet.unet_dataset import UnetDataset
-from openem_train.util.model_utils import keras_to_tensorflow
-from openem_train.util.utils import find_epoch
-sys.path.append('../python')
-import openem
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -41,6 +31,7 @@ def _save_model(config, model):
         config: ConfigInterface object.
         model: Keras Model object.
     """
+    from openem_train.util.model_utils import keras_to_tensorflow
     best = glob.glob(os.path.join(config.checkpoints_dir('find_ruler'), '*best*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
@@ -53,6 +44,14 @@ def train(config):
     # Arguments
         config: ConfigInterface object.
     """
+    # Import keras.
+    from keras.callbacks import ModelCheckpoint
+    from keras.callbacks import TensorBoard
+    from keras.callbacks import LearningRateScheduler
+    from openem_train.unet.unet import unet_model
+    from openem_train.unet.unet_dataset import UnetDataset
+    from openem_train.util.utils import find_epoch
+
     # Create tensorboard and checkpoints directories.
     tensorboard_dir = config.tensorboard_dir('find_ruler')
     os.makedirs(config.checkpoints_dir('find_ruler'), exist_ok=True)
@@ -142,6 +141,10 @@ def predict(config):
     # Arguments
         config: ConfigInterface object.
     """
+    # Import deployment library.
+    sys.path.append('../python')
+    import openem
+
     # Make a dict to contain find ruler results.
     find_ruler_data = {
         'video_id' : [],

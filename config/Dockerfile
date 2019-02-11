@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake autoconf automake libtool make mercurial ffmpeg libavcodec-dev \
     libavformat-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev \
     libv4l-dev python3 python3-pip python3-dev python3-setuptools && apt-get clean && rm -fr /var/lib/apt/lists/*
+# Install python packages
+RUN pip3 --no-cache-dir install numpy==1.15.1 scikit-image==0.14.0 scikit-learn==0.20.1 pandas==0.23.4 opencv-python==3.4.2.17 pip six wheel mock && pip3 install keras_applications==1.0.6 keras_preprocessing==1.0.5 --no-deps
 
 # Temporary layer to do utility wrangling
 # Eigen, protobuf
@@ -45,8 +47,6 @@ RUN rm -rf eigen
 FROM cvbase0 AS cvbase 
 copy --from=cvwrangler /opt /opt
 
-# Install python packages
-RUN pip3 --no-cache-dir install numpy==1.16.1 scikit-image==0.14.0 scikit-learn==0.20.1 pandas==0.23.4 opencv-python==3.4.2.17 ##
 
 
 FROM cvbase AS cvtensorflow

@@ -163,6 +163,9 @@ ENV count_model /openem_example_data/deploy/count/count.pb
 ENV video_paths "/openem_example_data/deploy/video/test_video_000.mp4 /openem_example_data/deploy/video/test_video_001.mp4 /openem_example_data/deploy/video/test_video_002.mp4"
 ENV video_out "--no_video"
 
+# Set python3 to be default interpreter.
+RUN rm -f /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
+
 # Define run command
 WORKDIR /openem/examples/deploy/python
 CMD ["sh", "-c", "python video.py ${find_ruler_model} ${detect_model} ${classify_model} ${count_model} ${video_paths} ${video_out}"]

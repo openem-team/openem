@@ -23,9 +23,10 @@ import sys
 from collections import defaultdict
 import pandas as pd
 import numpy as np
-from keras.callbacks import ModelCheckpoint
-from keras.callbacks import TensorBoard
-from keras.callbacks import LearningRateScheduler
+from tensorflow import keras
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import LearningRateScheduler
 from openem_train.unet.unet import unet_model
 from openem_train.unet.unet_dataset import UnetDataset
 from openem_train.util.model_utils import keras_to_tensorflow

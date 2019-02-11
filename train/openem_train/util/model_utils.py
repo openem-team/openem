@@ -17,7 +17,7 @@ __license__ = "GPLv3"
 """Utilities for working with models."""
 
 import os
-from tensorflow.keras import backend as K
+from keras import backend as K
 import tensorflow as tf
 # pylint: disable=no-name-in-module
 from tensorflow.python.framework import graph_util

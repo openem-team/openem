@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import skimage
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.applications.imagenet_utils import preprocess_input
+from keras.applications.imagenet_utils import preprocess_input
 from openem_train.util import utils
 from openem_train.util import img_augmentation
 from openem_train.util.roi_transform import RoiTransform

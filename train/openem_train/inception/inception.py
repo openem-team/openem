@@ -17,11 +17,11 @@ __license__ = "GPLv3"
 """Model definition for inception.
 """
 
-from tensorflow.keras.applications import InceptionV3
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import SGD
+from keras.applications import InceptionV3
+from keras.models import Model
+from keras.layers import Input
+from keras.layers import Dense
+from keras.optimizers import SGD
 
 def inception_model(input_shape, num_classes):
     """Builds inceptionv3 network.

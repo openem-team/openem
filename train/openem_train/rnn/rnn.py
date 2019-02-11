@@ -17,17 +17,17 @@ __license__ = "GPLv3"
 """Definition of RNN model used for counting.
 """
 
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Bidirectional
-from tensorflow.keras.layers import GRU
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Cropping1D
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import backend as K
+from keras.layers import Input
+from keras.layers import Bidirectional
+from keras.layers import GRU
+from keras.layers import Dense
+from keras.layers import Cropping1D
+from keras.layers import Flatten
+from keras.layers import Lambda
+from keras.layers import concatenate
+from keras.models import Model
+from keras.optimizers import Adam
+from keras import backend as K
 
 def rnn_model(input_shape, num_steps_crop, unroll=True):
     """Returns RNN model for counting.

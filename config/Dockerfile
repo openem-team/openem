@@ -73,17 +73,22 @@ RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1
 FROM cvbase AS cvopencv
 # Build OpenCV with contrib modules
 WORKDIR /
-RUN git clone -b 3.4.1 https://github.com/opencv/opencv.git opencv_src
-RUN git clone -b 3.4.1 https://github.com/opencv/opencv_contrib.git
+RUN git clone -b 3.4.2 https://github.com/opencv/opencv.git opencv_src
+RUN git clone -b 3.4.2 https://github.com/opencv/opencv_contrib.git
 WORKDIR opencv_src
 RUN mkdir build
 WORKDIR build
 RUN cmake \
     -DWITH_FFMPEG=ON \
     -DWITH_LIBV4L=ON \
+    -DBUILD_LIST=dnn,imgproc,core,highgui,cudev,videoio,video,calib3d \
     -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_PROTOBUF=OFF \
+    -DPROTOBUF_UPDATE_FILES=ON \
     -DBUILD_opencv_python2=OFF \
     -DBUILD_opencv_python3=OFF \
+    -DCMAKE_PREFIX_PATH=/opt \
+    -DPROTOBUF_UPDATE_FILES=ON \
     -DOPENCV_EXTRA_MODULES_PATH=/opencv_contrib/modules \
     -DCMAKE_INSTALL_PREFIX=/opencv \
     ..

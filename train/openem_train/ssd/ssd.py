@@ -17,21 +17,21 @@ __license__ = "GPLv3"
 """Functions for defining SSD model architecture.
 """
 
-import tensorflow.keras.backend as K
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.models import Model
-from tensorflow.keras.applications.resnet50 import ResNet50
+import keras.backend as K
+from keras.layers import Activation
+from keras.layers import Conv2D
+from keras.layers import Dense
+from keras.layers import Flatten
+from keras.layers import GlobalAveragePooling2D
+from keras.layers import Input
+from keras.layers import MaxPooling2D
+from keras.layers import Dropout
+from keras.layers import concatenate
+from keras.layers import Reshape
+from keras.layers import ZeroPadding2D
+from keras.layers import BatchNormalization
+from keras.models import Model
+from keras.applications.resnet50 import ResNet50
 
 from openem_train.ssd.ssd_layers import Normalize
 from openem_train.ssd.ssd_layers import PriorBox

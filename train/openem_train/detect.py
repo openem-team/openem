@@ -44,10 +44,10 @@ def train(config):
         config: ConfigInterface object.
     """
     # Import keras.
-    from tensorflow.keras.optimizers import Adam
-    from tensorflow.keras.callbacks import ModelCheckpoint
-    from tensorflow.keras.callbacks import TensorBoard
-    from tensorflow.keras.applications.inception_v3 import preprocess_input
+    from keras.optimizers import Adam
+    from keras.callbacks import ModelCheckpoint
+    from keras.callbacks import TensorBoard
+    from keras.applications.inception_v3 import preprocess_input
     from openem_train.ssd import ssd
     from openem_train.ssd.ssd_training import MultiboxLoss
     from openem_train.ssd.ssd_utils import BBoxUtility

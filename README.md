@@ -25,7 +25,7 @@ Get the latest Windows library from our [GitHub releases page][Releases].
 The docker image can be obtained with:
 
 ```shell
-docker pull cvisionai/openem
+docker pull cvisionai/openem:latest
 ```
 
 ### Contents

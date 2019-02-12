@@ -4,19 +4,40 @@ This document describes the data layout for building your own models with OpenEM
 
 ```shell
 your-top-level-directory
+├── test
+│   ├── truth
+│   │   ├── test_video_0.csv
+│   │   ├── test_video_1.csv
+│   │   └── test_video_2.csv
+│   └── videos
+│       ├── test_video_0.mp4
+│       ├── test_video_1.mp4
+│       └── test_video_2.mp4
 └── train
-    ├── cover.csv
     ├── length.csv
-    ├── ruler_position.csv
+    ├── cover.csv
+    ├── masks
+    │   ├── images
+    │   │   ├── 00000.jpg
+    │   │   ├── 00001.jpg
+    │   │   └── 00002.jpg
+    │   └── masks
+    │       ├── 00000.png
+    │       ├── 00001.png
+    │       └── 00002.png
     └── videos
-        ├── 00WK7DR6FyPZ5u3A.mp4
-        ├── 01wO3HNwawJYADQw.mp4
-        ├── 02p3Yn87z0b5grhL.mp4
+        ├── train_video_0.mp4
+        ├── train_video_1.mp4
+        └── train_video_2.mp4
 ```
 
-Many of the annotations require video frame numbers. It is important to point out that most video players do not have frame level accuracy, so attempting to convert timestamps in a typical video player to frame numbers will likely be inaccurate. Therefore we recommend using the frame accurate video annotator [Tator][Tator], which guarantees frame level accuracy when seeking and allows line annotations which are useful for generating frame level fish length.
+Many of the annotations require video frame numbers. It is important to point out that most video players do not have frame level accuracy, so attempting to convert timestamps in a typical video player to frame numbers will likely be inaccurate. Therefore we recommend using a frame accurate video annotator such as [Tator][Tator], or converting your video to a series of images before annotating.
 
-**videos** contains video files in mp4 format. The content of these videos should follow the [data collection guidelines][CollectionGuidelines]. We refer to the basename of each video file as the *video ID*, a unique identifier for each video.  In the directory layout above, the video ID for the videos are 00WK7DR6FyPZ5u3A, 01wO3HNwawJYADQw, and 02p3Yn87z0b5grhL.
+## Train directory
+
+**videos** contains video files in mp4 format. The content of these videos should follow the [data collection guidelines][CollectionGuidelines]. We refer to the basename of each video file as the *video ID*, a unique identifier for each video.  In the directory layout above, the video ID for the videos are train_video_0, train_video_1, and train_video_2.
+
+**masks/images** contains single frames from the videos. Each image in this directory has a corresponding binary mask image in **masks/masks**. The high values (RGB value of [255, 255, 255]) in the mask correspond to the ruler, and it is zeros elsewhere.
 
 **length.csv** contains length annotations of fish in the videos. Each row corresponds to an individual fish, specifically the video frame containing the clearest view of each fish. This file is also used to train the counting algorithm, so exactly one frame should be annotated per individual fish. The columns of this file are:
 
@@ -39,12 +60,49 @@ Many of the annotations require video frame numbers. It is important to point ou
 
 ![Example of image with clear fish.](https://user-images.githubusercontent.com/7937658/49332096-e3b37300-f574-11e8-9e36-64ba90b0e17e.png)
 
-**ruler_position.csv** contains the ruler position in each video.  The columns of this file are:
+## Test directory
+
+**videos** contains videos that are different from the videos in the train directory but collected in a similar way.
+
+**truth** contains a csv corresponding to each video. Each row corresponds to a fish in the video. The columns in this file are:
+
+* *frame*: The keyframe for each fish.
+* *species*: Species of each fish.
+* *length*: Length of each fish in pixels.
+
+## Skipping training steps
+
+It is possible to train only some models in openem. For example, you may wish to only train the detect model or only the classify model. During training, there are steps in which model outputs are predicted for use in the next model in the pipeline. In each of these cases, the outputs are written to one of:
+
+```shell
+<WorkDir>/inference/find_ruler.csv
+<WorkDir>/inference/detect.csv
+<WorkDir>/inference/classify.csv
+```
+
+The name of the file corresponds to the model that generated it. If you would like to skip training one of these models but a model you wish to train depends on one of these files, you will need to generate the missing file manually as if it were part of the training set annotations. Below is a description of each file:
+
+**find_ruler.csv** contains the ruler position in each video.  The columns of this file are:
 
 * *video_id*: The basename of the video.
 * *x1, y1, x2, y2*: xy-coordinates of the ends of the ruler in pixels.
 
 ![Ruler coordinates for a video.](https://user-images.githubusercontent.com/7937658/49332099-f6c64300-f574-11e8-89b2-b95e85d26b6e.png)
+
+**detect.csv** contains the bounding box around fish in the video frames. The columns of this file are:
+
+* *video_id*: The basename of the video.
+* *frame*: The zero-based frame number in the video.
+* *x, y, w, h*: The top, left, width, and height of the bounding box in pixels. The origin is at the top left of the video frame.
+* *det_conf*: Detection confidence, between 0 and 1. This should be 1 for manually annotation.
+* *det_species*: The one-based index of the species as listed in the ini file.
+
+**classify.csv** contains the cover and species for the highest confidence detection in each frame. It has the following columns:
+
+* *video_id*: The basename of the video.
+* *frame*: The zero-based frame number in the video.
+* *no_fish, covered, clear*: Cover category. One of these should be set to 1.0, others should be zero.
+* *speces__, species_\**: Species category. The species__ corresponds to background (not a fish). One of these should be set to 1.0, others should be zero.
 
 [Tator]: https://github.com/cvisionai/Tator/releases
 [CollectionGuidelines]: ./data_collection.md

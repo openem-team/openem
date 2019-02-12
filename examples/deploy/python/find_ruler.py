@@ -74,7 +74,7 @@ if __name__ == "__main__":
         roi = openem.FindRoi(r_mask)
 
         # Rectify, crop, and display the image.
-        r_img = openem.Rectify(img, transform)
+        r_img = openem.Rectify(img, endpoints)
         c_img = openem.Crop(r_img, roi)
         c_img.Show()
 

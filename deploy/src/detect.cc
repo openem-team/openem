@@ -18,7 +18,6 @@
 #include "detect.h"
 
 #include <opencv2/imgproc.hpp>
-#include <opencv2/dnn.hpp>
 #include "detail/model.h"
 #include "detail/util.h"
 
@@ -40,6 +39,21 @@ std::vector<cv::Rect> DecodeBoxes(
     const cv::Mat& variances,
     const cv::Size& img_size);
   
+/// Does non-maximum suppression.
+/// @param ram bboxes a set of bounding boxes to apply NMS.
+/// @param scores a set of corresponding confidences.
+/// @param score_threshold a threshold used to filter boxes by score.
+/// @param nms_threshold a threshold used in non maximum suppression.
+/// @param indices the kept indices of bboxes after NMS.
+/// @param top_k if `>0`, keep at most @p top_k picked indices.
+void NmsBoxes(
+    const std::vector<cv::Rect>& bboxes,
+    const std::vector<float>& scores,
+    const float score_threshold,
+    const float nms_threshold,
+    std::vector<int>& indices,
+    const int top_k = 0);
+
 } // namespace
 
 /// Implementation details for Detector.
@@ -95,6 +109,49 @@ std::vector<cv::Rect> DecodeBoxes(
         decode_y1.at<float>(i) - decode_y0.at<float>(i) + 1);
   }
   return decoded;
+}
+
+void NmsBoxes(
+    const std::vector<cv::Rect>& bboxes,
+    const std::vector<float>& scores,
+    const float score_threshold,
+    const float nms_threshold,
+    std::vector<int>& indices,
+    const int top_k) {
+  CV_Assert(bboxes.size() == scores.size());
+  CV_Assert(score_threshold >= 0);
+  CV_Assert(nms_threshold >= 0);
+  std::vector<std::pair<float, int>> score_index_vec;
+  for (auto i = 0; i < scores.size(); ++i) {
+    if (scores[i] > score_threshold) {
+      score_index_vec.push_back(std::make_pair(scores[i], i));
+    }
+  }
+  std::stable_sort(
+      score_index_vec.begin(),
+      score_index_vec.end(),
+      [](
+          const std::pair<float, int>& pair1,
+          const std::pair<float, int>& pair2) {
+        return pair1.first > pair2.first;
+      }
+  );
+  if (top_k > 0 && top_k < static_cast<int>(score_index_vec.size())) {
+    score_index_vec.resize(top_k);
+  }
+  indices.clear();
+  for (size_t i = 0; i < score_index_vec.size(); ++i) {
+    const int idx = score_index_vec[i].second;
+    bool keep = true;
+    for (int k = 0; k < (int)indices.size() && keep; ++k) {
+      const int kept_idx = indices[k];
+      float overlap = 1.0f - cv::jaccardDistance(bboxes[idx], bboxes[kept_idx]);
+      keep = overlap <= nms_threshold;
+    }
+    if (keep) {
+      indices.push_back(idx);
+    }
+  }
 }
 
 } // namespace
@@ -178,7 +235,7 @@ ErrorCode Detector::Process(std::vector<std::vector<Detection>>* detections) {
       scores[r] = max_score;
       class_index[r] = max_index.x + 1; // +1 for background class
     }
-    cv::dnn::NMSBoxes(boxes, scores, 0.01, 0.45, indices, 1.0, 200);
+    NmsBoxes(boxes, scores, 0.01, 0.45, indices, 200);
     for (int idx : indices) {
       Detection det;
       det.location = {

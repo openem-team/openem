@@ -21,15 +21,6 @@ import os
 import glob
 import sys
 import pandas as pd
-from keras.callbacks import ModelCheckpoint
-from keras.callbacks import TensorBoard
-from keras.callbacks import LearningRateScheduler
-from openem_train.inception.inception import inception_model
-from openem_train.inception.inception_dataset import InceptionDataset
-from openem_train.util.model_utils import keras_to_tensorflow
-from openem_train.util.utils import find_epoch
-sys.path.append('../python')
-import openem
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -38,6 +29,7 @@ def _save_model(config, model):
         config: ConfigInterface object.
         model: Keras Model object.
     """
+    from openem_train.util.model_utils import keras_to_tensorflow
     best = glob.glob(os.path.join(config.checkpoints_dir('classify'), '*best*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
@@ -50,6 +42,14 @@ def train(config):
     # Arguments
         config: ConfigInterface object.
     """
+    # Import keras.
+    from keras.callbacks import ModelCheckpoint
+    from keras.callbacks import TensorBoard
+    from keras.callbacks import LearningRateScheduler
+    from openem_train.inception.inception import inception_model
+    from openem_train.inception.inception_dataset import InceptionDataset
+    from openem_train.util.utils import find_epoch
+
     # Create tensorboard and checkpoints directories.
     tensorboard_dir = config.tensorboard_dir('classify')
     os.makedirs(config.checkpoints_dir('classify'), exist_ok=True)
@@ -141,6 +141,10 @@ def predict(config):
     # Arguments
         config: ConfigInterface object.
     """
+    # Import deployment library.
+    sys.path.append('../python')
+    import openem
+
     # Make a dict to contain detection results.
     class_data = {
         'video_id' : [],

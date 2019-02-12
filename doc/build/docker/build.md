@@ -4,7 +4,7 @@ The docker image has only been built on Ubuntu 18.04 LTS. If you simply want
 to use the docker image you can get the latest release with:
 
 ```shell
-docker pull cvisionai/openem
+docker pull cvisionai/openem:latest
 ```
 
 ### Building the image

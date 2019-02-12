@@ -1,4 +1,6 @@
-# Tutorial
+# Quick Start
+
+This document is a quick start guide in how to use the OpenEM package. 
 
 ## Example data
 
@@ -21,18 +23,23 @@ OpenEM is distributed as a native Windows library or as a Docker image. See belo
 * Pull the docker image from Docker Hub:
 
 ```shell
-docker pull cvisionai/openem
+docker pull cvisionai/openem:latest
 ```
 
-* Start a bash session in the image with the volume containing the example data mounted:
+* Start a bash session in the image with the volume containing the example data mounted. The default train.ini file assumes a directory structure as follows:
+
+working-dir
+|- openem_example_data
+|- openem_work
+|- openem_model
+
+The openem_work and openem_model directories may be empty, and openem_example_data is the example data downloaded at the beginning of this tutorial. The following command will start the bash shell within the container with working-dir mounted to /data. The openem library is located at /openem.
 
 ```shell
-nvidia-docker run --rm -ti -v <Path to example data on host>:/openem_example_data cvisionai/openem bash
+nvidia-docker run --rm -ti -v <Path to working-dir>:/data cvisionai/openem bash
 ```
 
-* The openem library is located at /openem. The above command mounts the example data to /openem_example_data.
-
-## I just want to run it
+## Running the deployment library demo
 
 * Navigate to examples/deploy/python.
 * Type:
@@ -54,7 +61,7 @@ python video.py \
 
 * The output will be a csv file with the same base name and location as each video.
 
-## Running with docker run
+### Running with Docker
 
 * If you do not want to enter a docker bash shell and instead want to process a video directly, you can use the following command:
 

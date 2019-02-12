@@ -1,6 +1,5 @@
-## OpenEM: Open Source Electronic Monitoring Library
-
-### Introduction
+/**
+@mainpage OpenEM: Open Source Electronic Monitoring Library
 
 **OpenEM** is a library that provides advanced video analytics for 
 fisheries electronic monitoring (EM) data.  It currently supports detection,
@@ -16,25 +15,18 @@ as a Docker image.
 
 Click the image below to see a video of OpenEM in action:
 
-[![OpenEM detection example](https://img.youtube.com/vi/EZ1Xyg_mnhM/0.jpg)](https://youtu.be/EZ1Xyg_mnhM)
+<a href="https://img.youtube.com/vi/EZ1Xyg_mnhM/0.jpg)](https://youtu.be/EZ1Xyg_mnhM" target="_new">OpenEM detection example</a>
 
-### Distributions
+## Document Purpose
 
-Get the latest Windows library from our [GitHub releases page][Releases].
+This document serves as class API reference for the OpenEM library. 
 
-The docker image can be obtained with:
-
-```shell
-docker pull cvisionai/openem:latest
-```
-
-### Contents
-
-* [Building](doc/build.md)
-* [Tutorial](doc/tutorial.md)
-* [Data Collection Guidelines](doc/data_collection.md)
-* [Annotation Guidelines](doc/annotation.md)
-* [Library reference](https://jrtcppv.bitbucket.io)
-
-[Releases]: https://github.com/openem-team/openem/releases
-
+<ul>
+  <li>
+     <a href="annotated.html">Class List</a>
+  </li>
+  <li>
+    <a href="files.html">Files</a>
+  </li>
+</ul>
+*/

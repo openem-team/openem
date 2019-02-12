@@ -1,7 +1,7 @@
 /**
 @mainpage OpenEM: Open Source Electronic Monitoring Library
 
-**OpenEM** is a library that provides advanced video analytics for 
+<b>OpenEM</b> is a library that provides advanced video analytics for 
 fisheries electronic monitoring (EM) data.  It currently supports detection,
 classification, counting and measurement of fish during landing or discard.  
 This functionality is available via a deployment library with
@@ -15,7 +15,7 @@ as a Docker image.
 
 Click the image below to see a video of OpenEM in action:
 
-<a href="https://img.youtube.com/vi/EZ1Xyg_mnhM/0.jpg)](https://youtu.be/EZ1Xyg_mnhM" target="_new">OpenEM detection example</a>
+<a href="https://youtu.be/EZ1Xyg_mnhM" target="_new">OpenEM detection example</a>
 
 ## Document Purpose
 

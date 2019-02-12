@@ -1,4 +1,6 @@
-# Tutorial
+# Quick Start
+
+This document is a quick start guide in how to use the OpenEM package. 
 
 ## Example data
 
@@ -37,7 +39,7 @@ The openem_work and openem_model directories may be empty, and openem_example_da
 nvidia-docker run --rm -ti -v <Path to working-dir>:/data cvisionai/openem bash
 ```
 
-## I just want to run it
+## Running the deployment library demo
 
 * Navigate to examples/deploy/python.
 * Type:
@@ -59,7 +61,7 @@ python video.py \
 
 * The output will be a csv file with the same base name and location as each video.
 
-## Running with docker run
+### Running with Docker
 
 * If you do not want to enter a docker bash shell and instead want to process a video directly, you can use the following command:
 

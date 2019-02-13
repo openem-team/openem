@@ -64,8 +64,7 @@ RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/lib
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH
 COPY config/tf_config.txt /config/tf_config.txt
 RUN ./configure < /config/tf_config.txt
-RUN bazel build --config=opt --config=cuda --verbose_failures //tensorflow:libtensorflow_cc.so
-RUN bazel build --config=opt --config=cuda --verbose_failures //tensorflow/tools/pip_package:build_pip_package
+RUN bazel build --config=opt --config=cuda --verbose_failures //tensorflow:libtensorflow_cc.so //tensorflow/tools/pip_package:build_pip_package
 RUN ./bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
 
 #Bazel puts a bunch of version info on the file, easier to copy this way. 

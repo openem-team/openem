@@ -194,8 +194,8 @@ Rect FindRoi(const Image& mask, int h_margin) {
   return {
     std::lround(x0),
     std::lround(y0),
-    std::lround(x1 - x0 + 1),
-    std::lround(y1 - y0 + 1)};
+    std::lround(x1 - x0),
+    std::lround(y1 - y0)};
 }
 
 Image Crop(const Image& image, const Rect& roi) {

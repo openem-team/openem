@@ -144,6 +144,10 @@ RUN rm -rf openem_src
 RUN rm -rf opencv
 
 FROM cvbase as cvopenem_deploy
+
+# Runtime (not build time, deps) can go here
+RUN apt-get update && apt-get install -y --no-install-recommends libsm-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
+    
 COPY --from=cvopenem /tensorflow /tensorflow
 COPY --from=cvopenem /openem /openem
 COPY --from=cvtensorflow /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl

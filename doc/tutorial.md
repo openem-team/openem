@@ -39,6 +39,10 @@ The openem_work and openem_model directories may be empty, and openem_example_da
 nvidia-docker run --rm -ti -v <Path to working-dir>:/data cvisionai/openem bash
 ```
 
+If using any X11 code, it is important to also enable X11 connections within the docker image:
+```shell
+nvidia-docker run --rm -ti -v <Path to working-dir>:/data -v"$HOME/.Xauthority:/root/.Xauthority:rw" --env=DISPLAY --net=host cvisionai/openem bash
+```
 ## Running the deployment library demo
 
 * Navigate to examples/deploy/python.

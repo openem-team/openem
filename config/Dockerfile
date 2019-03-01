@@ -74,6 +74,10 @@ RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1
 FROM cvbase AS cvopencv
 # Build OpenCV with contrib modules
 WORKDIR /
+
+# OpenCV Build Deps can go here
+RUN apt-get update && apt-get install -y --no-install-recommends libgtk-3-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
+
 RUN git clone -b 3.4.2 https://github.com/opencv/opencv.git opencv_src
 
 WORKDIR opencv_src
@@ -115,6 +119,8 @@ COPY --from=cvtensorflow /tensorflow/bazel-tensorflow/external/com_google_absl/a
 
 COPY --from=cvopencv /opencv /opencv
 
+RUN apt-get update && apt-get install -y --no-install-recommends libgtk-3-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
+
 # Build and install openem
 WORKDIR /
 RUN mkdir /openem_src
@@ -146,7 +152,7 @@ RUN rm -rf opencv
 FROM cvbase as cvopenem_deploy
 
 # Runtime (not build time, deps) can go here
-RUN apt-get update && apt-get install -y --no-install-recommends libsm-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libsm-dev libgtk-3-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
     
 COPY --from=cvopenem /tensorflow /tensorflow
 COPY --from=cvopenem /openem /openem

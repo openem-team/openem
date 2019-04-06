@@ -187,6 +187,24 @@ class ConfigInterface:
         """
         return self.config.getint('Detect', 'InitialEpoch')
 
+    def detect_steps_per_epoch(self):
+        """Returns steps per epoch for detection traiing if the key exists,
+           otherwise returns None.
+        """
+        steps_per_epoch = None
+        if self.config.has_option('Detect', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('Detect', 'StepsPerEpoch')
+        return steps_per_epoch
+
+    def detect_do_validation(self):
+        """Returns whether to do validation if the key exists, otherwise
+           returns default value of True.
+        """
+        do_validation = True
+        if self.config.has_option('Detect', 'DoValidation'):
+            do_validation = self.config.getboolean('Detect', 'DoValidation')
+        return do_validation
+
     def classify_width(self):
         """Returns width of detections used for classification training.
         """

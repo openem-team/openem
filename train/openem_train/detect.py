@@ -31,7 +31,10 @@ def _save_model(config, model):
         model: Keras Model object.
     """
     from openem_train.util.model_utils import keras_to_tensorflow
-    best = glob.glob(os.path.join(config.checkpoints_dir('detect'), '*best*'))
+    if config.detect_do_validation():
+        best = glob.glob(os.path.join(config.checkpoints_dir('detect'), '*best*'))
+    else:
+        best = glob.glob(os.path.join(config.checkpoints_dir('detect'), '*periodic*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
     os.makedirs(config.detect_model_dir(), exist_ok=True)
@@ -132,21 +135,34 @@ def train(config):
         write_graph=True,
         write_images=True)
 
-    # Fit the model.
+    # Determine steps per epoch.
     batch_size = config.detect_batch_size()
+    steps_per_epoch = config.detect_steps_per_epoch()
+    if not steps_per_epoch:
+        steps_per_epoch = dataset.nb_train_samples // batch_size
+
+    # Set up validation generator.
     val_batch_size = config.detect_val_batch_size()
+    validation_gen = None
+    validation_steps = None
+    if config.detect_do_validation():
+        validation_gen = dataset.generate_ssd(
+            batch_size=val_batch_size,
+            is_training=False
+        )
+        validation_steps = dataset.nb_test_samples // val_batch_size
+
+    # Fit the model.
     model.fit_generator(
         dataset.generate_ssd(
             batch_size=batch_size,
             is_training=True),
-        steps_per_epoch=dataset.nb_train_samples // batch_size,
+        steps_per_epoch=steps_per_epoch,
         epochs=config.detect_num_epochs(),
         verbose=1,
         callbacks=[checkpoint_best, checkpoint_periodic, tensorboard],
-        validation_data=dataset.generate_ssd(
-            batch_size=val_batch_size,
-            is_training=False),
-        validation_steps=dataset.nb_test_samples // val_batch_size,
+        validation_data=validation_gen,
+        validation_steps=validation_steps,
         initial_epoch=initial_epoch)
 
     # Save the model.

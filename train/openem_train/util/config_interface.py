@@ -389,7 +389,7 @@ class ConfigInterface:
             model: Which model this corresponds to, one of find_ruler,
             detect, classify, count.
         """
-        fname = "checkpoint-best-{epoch:03d}-{val_loss:.4f}.hdf5"
+        fname = "checkpoint-best-{epoch:03d}-{loss:.4f}.hdf5"
         return os.path.join(self.checkpoints_dir(model), fname)
 
     def checkpoint_periodic(self, model):
@@ -401,7 +401,7 @@ class ConfigInterface:
             model: Which model this corresponds to, one of find_ruler,
             detect, classify, count.
         """
-        fname = "checkpoint-{epoch:03d}-{val_loss:.4f}.hdf5"
+        fname = "checkpoint-periodic-{epoch:03d}-{loss:.4f}.hdf5"
         return os.path.join(self.checkpoints_dir(model), fname)
 
     def tensorboard_dir(self, model):

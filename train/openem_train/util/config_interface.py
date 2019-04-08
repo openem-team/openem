@@ -235,6 +235,24 @@ class ConfigInterface:
         """
         return self.config.getint('Classify', 'InitialEpoch')
 
+    def classify_steps_per_epoch(self):
+        """Returns steps per epoch for classication training if the key exists,
+           otherwise returns None.
+        """
+        steps_per_epoch = None
+        if self.config.has_option('Classify', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('Classify', 'StepsPerEpoch')
+        return steps_per_epoch
+
+    def classify_do_validation(self):
+        """Returns whether to do validation if the key exists, otherwise
+           returns default value of True.
+        """
+        do_validation = True
+        if self.config.has_option('Classify', 'DoValidation'):
+            do_validation = self.config.getboolean('Classify', 'DoValidation')
+        return do_validation
+
     def count_num_steps(self):
         """Returns number of timesteps used as input to count model.
         """
@@ -269,6 +287,24 @@ class ConfigInterface:
         """Returns initial epoch for count training.
         """
         return self.config.getint('Count', 'InitialEpoch')
+
+    def count_steps_per_epoch(self):
+        """Returns steps per epoch for count traiing if the key exists,
+           otherwise returns None.
+        """
+        steps_per_epoch = None
+        if self.config.has_option('Count', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('Count', 'StepsPerEpoch')
+        return steps_per_epoch
+
+    def count_do_validation(self):
+        """Returns whether to do validation if the key exists, otherwise
+           returns default value of True.
+        """
+        do_validation = True
+        if self.config.has_option('Count', 'DoValidation'):
+            do_validation = self.config.getboolean('Count', 'DoValidation')
+        return do_validation
 
     def count_num_res_steps(self):
         """Returns number of timesteps after cropping.

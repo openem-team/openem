@@ -30,7 +30,10 @@ def _save_model(config, model):
         model: Keras Model object.
     """
     from openem_train.util.model_utils import keras_to_tensorflow
-    best = glob.glob(os.path.join(config.checkpoints_dir('classify'), '*best*'))
+    if config.classify_do_validation():
+        best = glob.glob(os.path.join(config.checkpoints_dir('classify'), '*best*'))
+    else:
+        best = glob.glob(os.path.join(config.checkpoints_dir('classify'), '*periodic*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
     os.makedirs(config.classify_model_dir(), exist_ok=True)
@@ -110,11 +113,28 @@ def train(config):
 
     lr_sched = LearningRateScheduler(schedule=schedule)
 
+    # Determine steps per epoch.
+    batch_size = config.classify_batch_size()
+    steps_per_epoch = config.classify_steps_per_epoch()
+    if not steps_per_epoch:
+        steps_per_epoch = dataset.train_batches(config.classify_batch_size())
+
+    # Set up validation generator.
+    validation_gen = None
+    validation_steps = None
+    if config.classify_do_validation():
+        validation_gen = dataset.generate_test(
+            batch_size=config.classify_val_batch_size()
+        )
+        validation_steps = dataset.test_batches(
+            config.classify_val_batch_size()
+        )
+
     # Fit the model.
     model.summary()
     model.fit_generator(
         dataset.generate(batch_size=config.classify_batch_size()),
-        steps_per_epoch=dataset.train_batches(config.classify_batch_size()),
+        steps_per_epoch=steps_per_epoch,
         epochs=config.classify_num_epochs(),
         verbose=1,
         callbacks=[
@@ -123,12 +143,8 @@ def train(config):
             tensorboard,
             lr_sched
         ],
-        validation_data=dataset.generate_test(
-            batch_size=config.classify_val_batch_size()
-        ),
-        validation_steps=dataset.test_batches(
-            config.classify_val_batch_size()
-        ),
+        validation_data=validation_gen,
+        validation_steps=validation_steps,
         initial_epoch=initial_epoch
     )
 
@@ -136,7 +152,7 @@ def train(config):
     _save_model(config, model)
 
 def predict(config):
-    """Runs detection model on extracted detections.
+    """Runs classification model on extracted detections.
 
     # Arguments
         config: ConfigInterface object.
@@ -145,7 +161,7 @@ def predict(config):
     sys.path.append('../python')
     import openem
 
-    # Make a dict to contain detection results.
+    # Make a dict to contain classification results.
     class_data = {
         'video_id' : [],
         'frame' : [],
@@ -157,7 +173,7 @@ def predict(config):
     for spc in species_list:
         class_data['species_' + spc] = []
 
-    # Initialize detector from deployment library.
+    # Initialize classifier from deployment library.
     classifier = openem.Classifier()
     status = classifier.Init(config.classify_model_path())
     if not status == openem.kSuccess:

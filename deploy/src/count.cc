@@ -134,7 +134,7 @@ ErrorCode KeyframeFinder::Process(
 
       // Copy based on number of expected inputs.
       int num_models = fea_len / num_fea;
-      for (int m = 0; m < num_models; m++) {
+      for (int model_idx = 0; model_idx < num_models; model_idx++) {
         std::copy_n(c.species.data(), num_species, seq.data() + offset);
         offset += num_species;
         std::copy_n(c.cover.data(), num_cover, seq.data() + offset);

@@ -43,6 +43,9 @@ If using any X11 code, it is important to also enable X11 connections within the
 ```shell
 nvidia-docker run --rm -ti -v <Path to working-dir>:/data -v"$HOME/.Xauthority:/root/.Xauthority:rw" --env=DISPLAY --net=host cvisionai/openem bash
 ```
+
+Note: Instead of `$HOME/.Xauthority` one should use the authority file listed from executing: `xauth info`
+
 ## Running the deployment library demo
 
 * Navigate to examples/deploy/python.

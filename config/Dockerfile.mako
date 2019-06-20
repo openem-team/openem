@@ -1,3 +1,6 @@
+<%!
+import version
+%>
 # Top Layer just gets an updated cuda image
 FROM nvidia/cuda AS cvbase0
 MAINTAINER CVision AI <info@cvisionai.com>
@@ -174,6 +177,8 @@ ENV video_out "--no_video"
 
 # Set python3 to be default interpreter.
 RUN rm -f /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
+
+RUN echo ${version.Git.pretty} > /git_version.txt
 
 # Define run command
 WORKDIR /openem/examples/deploy/python

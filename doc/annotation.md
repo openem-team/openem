@@ -44,9 +44,11 @@ Many of the annotations require video frame numbers. It is important to point ou
 * *video_id*: The basename of the video.
 * *frame*: The zero-based frame number in the video.
 * *x1, y1, x2, y2*: xy-coordinates of the tip and tail of the fish in pixels.
+* *x,y,width,height,theta*: xy-coordinates of box surrounding the fish in pixels.
 * *species_id*: The one-based index of the species as listed in the ini file, as described in the [tutorial][Tutorial]. If this value is zero, it indicates that no fish are present. While length.csv can be used to include no fish example frames, it is encouraged to instead include them in cover.csv. Both are used when training the detection model, but only cover.csv is used when training the classification model.
 
 ![Length coordinates of a clearly visible fish.](https://user-images.githubusercontent.com/7937658/49332082-acdd5d00-f574-11e8-8a7e-23a9f9dd1f1b.png)
+![Box coordinates of a clearly visible fish.](https://user-images.githubusercontent.com/47112112/59931835-dcba5800-9413-11e9-9a77-f3a7edfb090f.png)
 
 **cover.csv** contains examples of frames that contain no fish, fish covered by a hand or other obstruction, and fish that can be clearly viewed.  The columns of this file are:
 

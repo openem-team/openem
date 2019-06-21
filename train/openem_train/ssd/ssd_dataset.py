@@ -5,7 +5,7 @@ __license__ = "GPLv3"
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -31,12 +31,51 @@ from keras.applications.imagenet_utils import preprocess_input
 from openem_train.util import utils
 from openem_train.util import img_augmentation
 from openem_train.util.roi_transform import RoiTransform
+import math
 
 # pylint: disable=too-many-instance-attributes
 FishDetection = namedtuple(
     'FishDetection',
     ['video_id', 'frame', 'x1', 'y1', 'x2', 'y2', 'class_id'])
+FishBoxDetection = namedtuple(
+    'FishBoxDetection',
+    ['video_id', 'frame', 'x', 'y', 'width', 'height', 'theta', 'class_id'])
 
+def appendToDetections(detections_for_video, row):
+    """
+    Append the given csv row to the detections for that video
+    :param detections_for_video: list or list-like object to append to.
+    :param row: Row from the pandas csv reader
+    """
+    keys = row.keys()
+    linekeys=['x1','x2','y1','y2']
+    boxkeys=['x','y','width','height','theta']
+
+    objtype=_rowType(row)
+    if all(x in keys for x in linekeys):
+        detections.append(
+            FishDetection(
+                video_id=video_id,
+                frame=row.frame,
+                x1=row.x1, y1=row.y1,
+                x2=row.x2, y2=row.y2,
+                class_id=row.species_id
+            )
+        )
+    elif all(x in keys for x in boxkeys):
+        detections.append(
+            FishBoxDetection(
+                video_id=video_id,
+                frame=row.frame,
+                x=row.x, y=row.y,
+                width=row.width,
+                height=row.height,
+                theta=row.theta,
+                class_id=row.species_id
+            )
+        )
+    else:
+        raise Exception('Unknown row definiton {}'.format(keys))
 def _horizontal_flip(img, bbox):
     """Flips image and bounding box horizontally.
 
@@ -132,16 +171,8 @@ class SSDDataset:
             video_id = row.video_id
             if video_id not in detections:
                 detections[video_id] = []
+            appendToDetections(detections[video_id],row)
 
-            detections[video_id].append(
-                FishDetection(
-                    video_id=video_id,
-                    frame=row.frame,
-                    x1=row.x1, y1=row.y1,
-                    x2=row.x2, y2=row.y2,
-                    class_id=row.species_id
-                )
-            )
         # load labeled no fish images
         cover = pd.read_csv(self.config.cover_path())
         num_no_fish = 0
@@ -193,15 +224,28 @@ class SSDDataset:
         detection = cfg.detection
 
         if detection.class_id > 0:
-            coords = np.array([
-                [detection.x1, detection.y1],
-                [detection.x2, detection.y2]])
-            coords_in_crop = cfg.transformation.inverse(coords)
-            aspect_ratio = self.config.aspect_ratios()[detection.class_id - 1]
-            coords_box0, coords_box1 = utils.bbox_for_line(
-                coords_in_crop[0, :],
-                coords_in_crop[1, :],
-                aspect_ratio)
+            if type(detection) == FishDetection:
+                coords = np.array([
+                    [detection.x1, detection.y1],
+                    [detection.x2, detection.y2]])
+                coords_in_crop = cfg.transformation.inverse(coords)
+                aspect_ratio = self.config.aspect_ratios()[detection.class_id - 1]
+                coords_box0, coords_box1 = utils.bbox_for_line(
+                    coords_in_crop[0, :],
+                    coords_in_crop[1, :],
+                    aspect_ratio)
+
+            elif type(detection) == FishBoxDetection:
+                endX=detection.x+(detection.width*math.cos(detection.theta))
+                endY=detection.y+detection.height+(detection.width*math.sin (detection.theta))
+                coords=np.array([
+                    [detection.x,detetion.y],
+                    [endX,endY]
+                ])
+                coords_in_crop = cfg.transformation.inverse(coords)
+                coords_box0=coords_in_crop[0,:]
+                coords_box1=coords_in_crop[1,:]
+
             coords_box0 /= np.array([
                 self.config.detect_width(),
                 self.config.detect_height()])

@@ -5,7 +5,7 @@ __license__ = "GPLv3"
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -22,6 +22,34 @@ import math
 import numpy as np
 import skimage
 from skimage.transform import AffineTransform
+import math
+
+def rotate_detection(detection):
+    """ Given a box detection, rotate it around point 0 by theta
+        Points are in NE,SE,SW,NW ordering
+    """
+    Rot=np.array([[math.cos(detection.theta), -1.0*math.sin(detection.theta), 0],
+                  [math.sin(detection.theta), math.cos(detection.theta), 0],
+                  [0,0,1]])
+    Translation=np.array([[1,0,detection.x],
+                          [0,1,detection.y],
+                          [0,0,1]])
+    InverseTranslation=np.array([[1,0,-detection.x],
+                                 [0,1,-detection.y],
+                                 [0,0,1]])
+    #Shift it, rotate it, shift it back
+    RotTranslation=Translation.dot(Rot.dot(InverseTranslation));
+
+    NorthEast=np.array([detection.x,detection.y])
+    SouthEast=RotTranslation.dot(np.array([detection.x,detection.y+detection.height,1]))
+    NorthWest=RotTranslation.dot(np.array([detection.x+detection.width,detection.y,1]))
+    SouthWest=RotTranslation.dot(np.array([detection.x+detection.width,detection.y+detection.height,1]))
+
+    SouthEast=SouthEast[:2]
+    NorthWest=NorthWest[:2]
+    SouthWest=SouthWest[:2]
+    box=np.array([NorthEast,SouthEast,SouthWest,NorthWest])
+    return box
 
 def bbox_for_line(pt0, pt1, aspect_ratio=0.5):
     """Calculate bounding rect around box with line in the center
@@ -146,7 +174,7 @@ def find_epoch(checkpoints_dir, epoch):
         Path to most recent checkpoint file for this epoch.
     """
     patt = os.path.join(
-        checkpoints_dir, 
+        checkpoints_dir,
         "checkpoint-{:03d}*".format(epoch))
     files = glob.glob(patt)
     if not files:

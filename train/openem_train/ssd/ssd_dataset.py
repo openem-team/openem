@@ -228,23 +228,31 @@ class SSDDataset:
                 coords = np.array([
                     [detection.x1, detection.y1],
                     [detection.x2, detection.y2]])
-                coords_in_crop = cfg.transformation.inverse(coords)
                 aspect_ratio = self.config.aspect_ratios()[detection.class_id - 1]
+
+                coords_in_crop = cfg.transformation.inverse(coords)
                 coords_box0, coords_box1 = utils.bbox_for_line(
                     coords_in_crop[0, :],
                     coords_in_crop[1, :],
                     aspect_ratio)
 
             elif type(detection) == FishBoxDetection:
-                endX=detection.x+(detection.width*math.cos(detection.theta))
-                endY=detection.y+detection.height+(detection.width*math.sin (detection.theta))
-                coords=np.array([
-                    [detection.x,detetion.y],
-                    [endX,endY]
-                ])
-                coords_in_crop = cfg.transformation.inverse(coords)
-                coords_box0=coords_in_crop[0,:]
-                coords_box1=coords_in_crop[1,:]
+                # Rotate box to theta
+                rotated_coords=utils.rotate_detection(detection)
+                # Translate to ruler space
+                coords_in_crop = cfg.transformation.inverse(rotated_coords)
+                #This is the left-top most point of the idealized box
+                # if it was at theta 0 relative to ruler
+                perfectLeftTop=np.min(coords_in_crop, axis=0)
+                for idx,point in enumerate(coords_in_crop):
+                    if point[0] == perfectLeftTop[0]:
+                        topLeft=point
+                        # Opposite corner is 2 idx away
+                        bottomRight=coords_in_crop[(idx+2)%4]
+
+                # These are now the diagnol representing the bounding box.
+                coords_box0=topLeft
+                coords_box1=bottomRight
 
             coords_box0 /= np.array([
                 self.config.detect_width(),

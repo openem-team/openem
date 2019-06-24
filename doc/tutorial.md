@@ -159,6 +159,8 @@ This will start training the find ruler model. This will take a while. If you wa
 tensorboard --logdir <path to WorkDir>/tensorboard --port 10000
 ```
 
+![Tensorboard example](https://user-images.githubusercontent.com/47112112/60043826-fca98000-968e-11e9-848f-10347587f832.png)
+
 Then you can open a web browser on the same machine and go to 127.0.0.1:10000. This will display a live view of the training results. You can also use a different machine on the same network and modify the IP address accordingly. All training steps output tensorboard files, so you can monitor training of any of the openem models using this utility.
 
 Once training completes, a new model will be converted to protobuf format and saved at:

@@ -41,7 +41,7 @@ FishBoxDetection = namedtuple(
     'FishBoxDetection',
     ['video_id', 'frame', 'x', 'y', 'width', 'height', 'theta', 'class_id'])
 
-def appendToDetections(detections_for_video, row):
+def appendToDetections(detections, row):
     """
     Append the given csv row to the detections for that video
     :param detections_for_video: list or list-like object to append to.
@@ -54,7 +54,7 @@ def appendToDetections(detections_for_video, row):
     if all(x in keys for x in linekeys):
         detections.append(
             FishDetection(
-                video_id=video_id,
+                video_id=row.video_id,
                 frame=row.frame,
                 x1=row.x1, y1=row.y1,
                 x2=row.x2, y2=row.y2,
@@ -64,7 +64,7 @@ def appendToDetections(detections_for_video, row):
     elif all(x in keys for x in boxkeys):
         detections.append(
             FishBoxDetection(
-                video_id=video_id,
+                video_id=row.video_id,
                 frame=row.frame,
                 x=row.x, y=row.y,
                 width=row.width,

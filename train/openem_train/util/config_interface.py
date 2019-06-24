@@ -343,7 +343,11 @@ class ConfigInterface:
     def length_path(self):
         """Returns path to length annotations.
         """
-        return os.path.join(self.train_dir(), 'length.csv')
+        if self.config.has_option('Data', 'LengthFormat') and \
+           self.config.get('Data', 'LengthFormat') == "box":
+            return os.path.join(self.train_dir(), 'boxLength.csv')
+        else:
+            return os.path.join(self.train_dir(), 'length.csv')
 
     def cover_path(self):
         """Returns path to cover annotations.

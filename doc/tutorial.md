@@ -36,15 +36,27 @@ working-dir
 The openem_work and openem_model directories may be empty, and openem_example_data is the example data downloaded at the beginning of this tutorial. The following command will start the bash shell within the container with working-dir mounted to /data. The openem library is located at /openem.
 
 ```shell
-nvidia-docker run --rm -ti -v <Path to working-dir>:/data cvisionai/openem bash
+nvidia-docker run --name openem --rm -ti -v <Path to working-dir>:/data cvisionai/openem bash
 ```
 
 If using any X11 code, it is important to also enable X11 connections within the docker image:
 ```shell
-nvidia-docker run --rm -ti -v <Path to working-dir>:/data -v"$HOME/.Xauthority:/root/.Xauthority:rw" --env=DISPLAY --net=host cvisionai/openem bash
+nvidia-docker run --name openem --rm -ti -v <Path to working-dir>:/data -v"$HOME/.Xauthority:/root/.Xauthority:rw" --env=DISPLAY --net=host cvisionai/openem bash
 ```
 
 Note: Instead of `$HOME/.Xauthority` one should use the authority file listed from executing: `xauth info`
+
+### Launching additional shell into a running container
+If the container was launched with `--name openem`, then the following command
+launches another bash process in the running container:
+
+`docker exec --env=DISPLAY -it openem bash`
+
+Substitute `openem` for what ever you named your container. If you didn't name
+your container, then you need to find your running container via `docker ps`
+and use:
+
+`docker exec --env=DISPLAY -it <hash_of_container> bash`
 
 ## Running the deployment library demo
 

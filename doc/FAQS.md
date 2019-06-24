@@ -51,5 +51,19 @@ The following command creates a vanilla ubuntu X11-enabled container:
 *Important*: The prompt of the container using the `--net host` will look
 similar the host prompt. Care should be taken to avoid mistakes. 
 
+### I wanted to launch tensorboard, but I can't access the shell in the running
+### container any longer. 
+
+If the container was launched with `--name openem`, then the following command
+launches another bash process in the running container:
+
+`docker exec --env=DISPLAY -it openem bash`
+
+Substitute `openem` for what ever you named your container. If you didn't name
+your container, then you need to find your running container via `docker ps`
+and use:
+
+`docker exec --env=DISPLAY -it <hash_of_container> bash`
+
 
 

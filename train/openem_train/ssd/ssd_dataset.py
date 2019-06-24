@@ -51,7 +51,6 @@ def appendToDetections(detections_for_video, row):
     linekeys=['x1','x2','y1','y2']
     boxkeys=['x','y','width','height','theta']
 
-    objtype=_rowType(row)
     if all(x in keys for x in linekeys):
         detections.append(
             FishDetection(

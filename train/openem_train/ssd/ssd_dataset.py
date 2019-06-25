@@ -240,13 +240,12 @@ class SSDDataset:
                 rotated_coords=utils.rotate_detection(detection)
                 # Translate to ruler space
                 coords_in_crop = cfg.transformation.inverse(rotated_coords)
-                # top-left / bottom right
-                topLeft=coords_in_crop[0]
-                bottomRight=coords_in_crop[2]
 
+                # Use find corners to be safe
+                topLeftIdx,bottomRightIdx=utils.find_corners(coords_in_crop)
                 # These are now the diagnol representing the bounding box.
-                coords_box0=topLeft
-                coords_box1=bottomRight
+                coords_box0=coords_in_crop[topLeftIdx]
+                coords_box1=coords_in_crop[bottomRightIdx]
 
             coords_box0 /= np.array([
                 self.config.detect_width(),

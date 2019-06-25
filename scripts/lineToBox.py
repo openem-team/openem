@@ -18,21 +18,40 @@ def processTransformation(inputFile, outputFile, aspectRatios):
     for _,row in inputFrame.iterrows():
         if row.species_id != 0:
             width=math.hypot(row.x2-row.x1,row.y2-row.y1)
-            # Aspect ratio is width/height
+            # Aspect ratio is height / width despite comment in ini file!
             aspectRatio=float(aspectRatios[row.species_id])
-            height=width * (1.0/aspectRatio)
+            height=width * aspectRatio * 2
 
-            # Calculate theta of the box atan (radians)
+            # Calculate theta of the box atan (in radians)
             theta=math.atan2(row.y2-row.y1,row.x2-row.x1)
-            # phi is the angle of shift to apply to x1,y1 to get x,y
+            # phi is the angle of the perpendicular line
+            # It is also the angle of shift to apply to x1,y1 to get x,y
+
             # Construct and utilize a translation matrix
+            # Start can flip to keep the box right-handed
+            start=[row.x1,row.y1]
+
+            # If we are pitched higher than 90 degrees normalize to make
+            # box logic easier and swap start/finish to invert direction
+            if theta > (math.pi / 2):
+                theta=theta-math.pi
+                start=[row.x2,row.y2]
+            elif theta < -(math.pi/2):
+                theta=theta+math.pi
+                start=[row.x2,row.y2]
+            elif math.isclose(theta, math.pi/2):
+                pass
+            elif math.isclose(theta, -math.pi/2):
+                start=[row.x2,row.y2]
+                theta=math.pi/2
+
             phi=theta-(math.pi/2)
             xShift=math.cos(phi)*(height/2)
             yShift=math.sin(phi)*(height/2)
             Translation=np.array([[1,0,xShift],
                                   [0,1,yShift],
                                   [0,0,1]])
-            xyz=Translation.dot([row.x1,row.y1,1])
+            xyz=Translation.dot([start[0],start[1],1])
 
             frameBuffer.append(FishBoxDetection(video_id=row.video_id,
                                                 frame=row.frame,

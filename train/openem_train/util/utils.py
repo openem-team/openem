@@ -83,7 +83,8 @@ def bbox_for_line(pt0, pt1, aspect_ratio=0.5):
     perp = np.array([diff[1], -diff[0]]) * aspect_ratio * 0.5
 
     points = np.row_stack([pt0 + perp, pt0 - perp, pt1 + perp, pt1 - perp])
-    return np.min(points, axis=0), np.max(points, axis=0)
+    cornerIdx=find_corners(points)
+    return points[cornerIdx[0]], points[cornerIdx[1]]
 
 def lock_layers_until(model, first_trainable_layer, verbose=False):
     """Locks layers until a given layer name.

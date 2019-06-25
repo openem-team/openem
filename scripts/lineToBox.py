@@ -19,8 +19,8 @@ def processTransformation(inputFile, outputFile, aspectRatios):
         if row.species_id != 0:
             width=math.hypot(row.x2-row.x1,row.y2-row.y1)
             # Aspect ratio is height / width despite comment in ini file!
-            aspectRatio=float(aspectRatios[row.species_id])
-            height=width * aspectRatio * 2
+            aspectRatio=float(aspectRatios[row.species_id-1])
+            height=width * aspectRatio
 
             # Calculate theta of the box atan (in radians)
             theta=math.atan2(row.y2-row.y1,row.x2-row.x1)

@@ -240,14 +240,9 @@ class SSDDataset:
                 rotated_coords=utils.rotate_detection(detection)
                 # Translate to ruler space
                 coords_in_crop = cfg.transformation.inverse(rotated_coords)
-                #This is the left-top most point of the idealized box
-                # if it was at theta 0 relative to ruler
-                perfectLeftTop=np.min(coords_in_crop, axis=0)
-                for idx,point in enumerate(coords_in_crop):
-                    if point[0] == perfectLeftTop[0]:
-                        topLeft=point
-                        # Opposite corner is 2 idx away
-                        bottomRight=coords_in_crop[(idx+2)%4]
+                # top-left / bottom right
+                topLeft=coords_in_crop[0]
+                bottomRight=coords_in_crop[2]
 
                 # These are now the diagnol representing the bounding box.
                 coords_box0=topLeft

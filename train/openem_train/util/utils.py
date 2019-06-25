@@ -24,6 +24,22 @@ import skimage
 from skimage.transform import AffineTransform
 import math
 
+def find_corners(coords):
+    """ Find the left and right corner of the given box
+    :param coords: 4-element array-type
+    :returns idx of Left Corner
+    """
+    minimum=np.min(coords, axis=0)
+    maximum=np.max(coords, axis=0)
+    minDistances=np.zeros(4)
+    maxDistances=np.zeros(4)
+    for idx,coord in enumerate(coords):
+        minDistances[idx] = math.hypot(coord[1]-minimum[1],coord[0]-minimum[0])
+        maxDistances[idx] = math.hypot(coord[1]-maximum[1],coord[0]-maximum[0])
+    minIdx=np.argmin(minDistances)
+    maxIdx=np.argmin(maxDistances)
+    return (minIdx,maxIdx)
+
 def rotate_detection(detection):
     """ Given a box detection, rotate it around point 0 by theta
         Points are in NE,SE,SW,NW ordering

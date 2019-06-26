@@ -12,10 +12,10 @@ import numpy as np
 import math
 
 if __name__=="__main__":
-    configPath="/mnt/md0/Projects/NFWF_1/openem_mini_data/hostTrain.ini"
+    configPath="hostTrain.ini"
 
-    #video_id="00WK7DR6FyPZ5u3A"
-    video_id="0QAlqRiUad7xcB9k"
+    video_id="00WK7DR6FyPZ5u3A"
+    #video_id="0QAlqRiUad7xcB9k"
     config=config_interface.ConfigInterface(configPath)
 
     # Aren't using bbox util for this test
@@ -24,7 +24,7 @@ if __name__=="__main__":
     # Grab first sample
     for detection in ssd.detections[video_id]:
         print("Checking detection = {}".format(detection))
-        cfg=ssd.get_config(detection, False)
+        cfg=ssd.get_config(detection, True)
 
         crop, targets = ssd.generate_xy(cfg)
         if len(targets) > 0:

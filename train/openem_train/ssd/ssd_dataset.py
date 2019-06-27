@@ -31,6 +31,7 @@ from keras.applications.imagenet_utils import preprocess_input
 from openem_train.util import utils
 from openem_train.util import img_augmentation
 from openem_train.util.roi_transform import RoiTransform
+from openem_train.util.img_augmentation import resizeAndFill
 import math
 
 # pylint: disable=too-many-instance-attributes
@@ -211,6 +212,12 @@ class SSDDataset:
         if os.stat(get_path(frame)).st_size == 0:
             frame -= 1
         img = scipy.misc.imread(get_path(frame))
+        # because each frame may have different dimensions resize and
+        # fill to match the detection size prior to warping
+        crop,scale = resizeAndFill(img, (self.config.detect_height(),
+                                  self.config.detect_width())
+        )
+
         crop = skimage.transform.warp(
             img,
             cfg.transformation,

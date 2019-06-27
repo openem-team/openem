@@ -133,7 +133,12 @@ if __name__=="__main__":
 
     df=pd.DataFrame(columns=FishBoxDetection._fields,
                  data=data)
-    train=df.sample(frac=0.9, random_state=200)
+    videos_list=df['video_id'].unique()
+    videos_df=pd.DataFrame(columns=['video_id'],
+                            data=videos_list)
+    # Sample 90% of the videos
+    train_vids=videos_df.sample(frac=0.89, random_state=202)
+    train=df.loc[df['video_id'].isin(train_vids["video_id"].tolist())]
     train.to_csv(args.output,index=False)
     test=df.drop(train.index)
     test.to_csv(args.testOutput, index=False)

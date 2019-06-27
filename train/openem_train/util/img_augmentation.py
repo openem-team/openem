@@ -5,7 +5,7 @@ __license__ = "GPLv3"
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -18,6 +18,10 @@ __license__ = "GPLv3"
 
 import numpy as np
 from scipy.misc import imresize
+
+from skimage import io,transform
+import matplotlib.pyplot as plt
+import numpy as np
 
 def grayscale(rgb):
     """Converts image to grayscale.
@@ -137,3 +141,40 @@ def blurred_by_downscaling(img, ratio):
     small = imresize(img, ratio, interp=resampling)
     large = imresize(small, size=(height, width), interp='bilinear').astype(np.float32)/255.0
     return large
+
+def resizeAndFill(image, desired_shape):
+    """
+    Resize an image to a desired shape (height,width) and maintaining
+    the aspect ratio. Fill any extra areas with black.
+    :param image: ndarray of the image
+    :param desired_shape: tuple describing the output shape
+
+    :returns image_resized,scaleFactor:
+    image_resized is ndarray represented the scaled + padded image
+    scaleFactor Given a pixel coordinate in the original this factor should
+    be applied to land on the new image.
+    """
+    image_height=image.shape[0]
+    image_width=image.shape[1]
+    image_channels=image.shape[2]
+
+    desired_width=desired_shape[1]
+    desired_height=desired_shape[0]
+    growth_factor=min(desired_height/image_height,
+                           desired_width/image_width)
+    new_height=int(image_height*growth_factor)
+    new_width=int(image_width*growth_factor)
+    image_resized=transform.resize(image,(new_height,new_width),anti_aliasing=True)
+    added_rows=desired_height-new_height
+    added_cols=desired_width-new_width
+
+    if added_rows:
+        black_bar=np.zeros((added_rows, new_width, image_channels))
+        image_resized = np.append(image_resized,black_bar, axis=0)
+
+    if added_cols:
+        black_bar=np.zeros((new_height, added_cols, image_channels))
+        image_resized = np.append(image_resized,black_bar, axis=1)
+
+    scaleFactor=(float(new_height)/image_height,float(new_width)/image_width)
+    return image_resized, scaleFactor

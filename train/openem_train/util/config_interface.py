@@ -35,16 +35,17 @@ class ConfigInterface:
 
         # Read in species info.
         self._species = self.config.get('Data', 'Species').split(',')
-        self._ratios = self.config.get('Data', 'AspectRatios').split(',')
-        self._ratios = [float(r) for r in self._ratios]
-        if len(self._ratios) != len(self._species):
-            msg = (
-                "Invalid config file!  "
-                "Number of species and aspect ratios must match!  "
-                "Number of species: {}, "
-                "Number of aspect ratios: {}")
-            msg.format(len(self._species), len(self._ratios))
-            raise ValueError(msg)
+        if self.config.has_option('Data', 'LengthFormat') == False:
+            self._ratios = self.config.get('Data', 'AspectRatios').split(',')
+            self._ratios = [float(r) for r in self._ratios]
+            if len(self._ratios) != len(self._species):
+                msg = (
+                    "Invalid config file!  "
+                    "Number of species and aspect ratios must match!  "
+                    "Number of species: {}, "
+                    "Number of aspect ratios: {}")
+                msg.format(len(self._species), len(self._ratios))
+                raise ValueError(msg)
         self._num_classes = len(self._species) + 1
 
     def model_dir(self):

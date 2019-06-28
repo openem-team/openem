@@ -10,13 +10,17 @@ from openem_train.util import config_interface
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import argparse
+
 
 if __name__=="__main__":
-    configPath="hostTrain.ini"
+    parser=argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", default="hostTrain.ini")
+    args=parser.parse_args()
 
     video_id="00WK7DR6FyPZ5u3A"
     #video_id="0QAlqRiUad7xcB9k"
-    config=config_interface.ConfigInterface(configPath)
+    config=config_interface.ConfigInterface(args.config)
 
     # Aren't using bbox util for this test
     ssd=SSDDataset(config, None)

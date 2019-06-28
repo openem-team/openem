@@ -11,20 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 import argparse
+import pandas as pd
 
-
-if __name__=="__main__":
-    parser=argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="hostTrain.ini")
-    args=parser.parse_args()
-
-    video_id="00WK7DR6FyPZ5u3A"
-    #video_id="0QAlqRiUad7xcB9k"
-    config=config_interface.ConfigInterface(args.config)
-
-    # Aren't using bbox util for this test
-    ssd=SSDDataset(config, None)
-
+def checkFile(video_id : str, ssd, config):
     # Grab first sample
     for detection in ssd.detections[video_id]:
         print("Checking detection = {}".format(detection))
@@ -42,3 +31,19 @@ if __name__=="__main__":
             plt.imshow(crop/255.0)
             plt.plot(boxX,boxY,'or')
             plt.show()
+
+if __name__=="__main__":
+    parser=argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", default="hostTrain.ini")
+    args=parser.parse_args()
+
+    video_id="00WK7DR6FyPZ5u3A"
+    #video_id="0QAlqRiUad7xcB9k"
+    config=config_interface.ConfigInterface(args.config)
+    lengths=pd.read_csv(config.length_path())
+
+    # Aren't using bbox util for this test
+    ssd=SSDDataset(config, None)
+
+    for _,annotation in lengths.iterrows():
+        checkFile(annotation['video_id'], ssd, config)

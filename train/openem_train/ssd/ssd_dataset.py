@@ -214,7 +214,7 @@ class SSDDataset:
         img = scipy.misc.imread(get_path(frame))
         # because each frame may have different dimensions resize and
         # fill to match the detection size prior to warping
-        crop,scale = resizeAndFill(img, (self.config.detect_height(),
+        img,scale = resizeAndFill(img, (self.config.detect_height(),
                                   self.config.detect_width())
         )
 
@@ -232,8 +232,8 @@ class SSDDataset:
         if detection.class_id > 0:
             if type(detection) == FishDetection:
                 coords = np.array([
-                    [detection.x1, detection.y1],
-                    [detection.x2, detection.y2]])
+                    [detection.x1*scale[1], detection.y1*scale[0]],
+                    [detection.x2*scale[1], detection.y2*scale[0]]])
                 aspect_ratio = self.config.aspect_ratios()[detection.class_id - 1]
 
                 coords_in_crop = cfg.transformation.inverse(coords)
@@ -245,9 +245,12 @@ class SSDDataset:
             elif type(detection) == FishBoxDetection:
                 # Rotate box to theta
                 rotated_coords=utils.rotate_detection(detection)
+                rotated_coords[0] = rotated_coords[0]*scale[1]
+                rotated_coords[1] = rotated_coords[1]*scale[0]
+                rotated_coords[2] = rotated_coords[2]*scale[1]
+                rotated_coords[3] = rotated_coords[3]*scale[0]
                 # Translate to ruler space
                 coords_in_crop = cfg.transformation.inverse(rotated_coords)
-
                 # Use find corners to be safe
                 topLeftIdx,bottomRightIdx=utils.find_corners(coords_in_crop)
                 # These are now the diagnol representing the bounding box.

@@ -15,6 +15,10 @@ FishBoxDetection = namedtuple(
     'FishBoxDetection',
     ['video_id', 'frame', 'x', 'y', 'width', 'height', 'theta', 'species_id'])
 
+Cover=namedtuple(
+    'Cover',
+    ['video_id', 'frame', 'cover'])
+
 def _getScientificName(jsonSpecies):
     scientificName=jsonSpecies.split('(')[0].strip().capitalize()
     return scientificName
@@ -24,6 +28,7 @@ def _convertLocalizationsFromFile(inputPath, speciesNames):
 
     # List of detections in openem tuple format
     oemDetections=[]
+    oemCovers=[]
     with open(inputPath, 'r') as data:
         obj=json.load(data)
         detections=obj["detections"]
@@ -31,7 +36,7 @@ def _convertLocalizationsFromFile(inputPath, speciesNames):
         ignored=0
         unknown=0
         unknownNames=set()
-        
+
         for detection in detections:
             if detection["type"] == "box":
                 name=_getScientificName(detection["species"])
@@ -39,7 +44,7 @@ def _convertLocalizationsFromFile(inputPath, speciesNames):
                     unknown=unknown+1
                     unknownNames.add(name)
                     continue
-                
+
                 oemDetections.append(
                     FishBoxDetection(
                         video_id=video_id,
@@ -52,18 +57,28 @@ def _convertLocalizationsFromFile(inputPath, speciesNames):
                         theta=0
                     )
                 )
+
+                #For now assume all localizations are non-covered
+                oemCovers.append(
+                    Cover(video_id=video_id,
+                          frame=int(detection["frame"]),
+                          cover=2)
+                )
                 boxes=boxes+1
             else:
                 ignored=ignored+1
-        
-    return (oemDetections, (boxes,ignored, unknown, unknownNames))
+
+    return (oemDetections, (boxes,ignored, unknown, unknownNames), oemCovers)
 
 if __name__=="__main__":
-    parser=argparse.ArgumentParser(description="Converts tator json annotations to csv")  
+    parser=argparse.ArgumentParser(description="Converts tator json annotations to csv")
     parser.add_argument("-i", "--input",
                         help="Path to input file")
-    parser.add_argument("-o", "--output",
-                        help="Path to input file",
+    parser.add_argument("--rulerOutput",
+                        help="Path to output ruler file",
+                        required=True)
+    parser.add_argument("--coverOutput",
+                        help="Path to output ruler file",
                         required=True)
     parser.add_argument("-t", "--testOutput",
                         help="Path to input file",
@@ -93,6 +108,7 @@ if __name__=="__main__":
         speciesNameMap[name] = idx+1
 
     data=[]
+    covers=[]
     if args.input:
         fileData, stats=_convertLocalizationsFromFile(args.input,
                                                       speciesNameMap)
@@ -118,10 +134,12 @@ if __name__=="__main__":
         stats=np.zeros(3)
         unknownNames=set()
         for fname in bar(filesToProcess):
-            fileData, fileStats=_convertLocalizationsFromFile(
+            fileData, fileStats, cover=_convertLocalizationsFromFile(
                 os.path.join(args.directory,fname),
                 speciesNameMap)
             data.extend(fileData)
+            covers.extend(cover)
+
             stats=stats+np.array(fileStats[:3])
             unknownNames=unknownNames.union(fileStats[3])
         print(f"Processed {stats[0]} box localizations")
@@ -139,6 +157,11 @@ if __name__=="__main__":
     # Sample 90% of the videos
     train_vids=videos_df.sample(frac=0.89, random_state=202)
     train=df.loc[df['video_id'].isin(train_vids["video_id"].tolist())]
-    train.to_csv(args.output,index=False)
+    train.to_csv(args.rulerOutput,index=False)
     test=df.drop(train.index)
     test.to_csv(args.testOutput, index=False)
+
+
+    coverDf=pd.DataFrame(columns=Cover._fields,
+                         data=covers)
+    coverDf.to_csv(args.coverOutput,index=False)

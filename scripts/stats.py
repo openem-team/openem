@@ -7,10 +7,13 @@ import matplotlib.pyplot as plt
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Output stats on distributions")
     parser.add_argument("--train",
-                        help="Path to train.csv file",
+                        help="Path to ruler.csv file",
                         required=True)
     parser.add_argument("--test",
                         help="Path to test.csv file",
+                        required=True)
+    parser.add_argument("--cover",
+                        help="Path to cover.csv file",
                         required=True)
     args=parser.parse_args()
 
@@ -32,4 +35,14 @@ if __name__=="__main__":
     ax2.set_title("Test Data ({} %)".format(percTest))
     ax2.set_xlabel("Species ID")
     ax2.set_ylabel("Count")
+
+
+    cover=pd.read_csv(args.cover)
+    coverFig = plt.figure()
+    covAx=plt.axes()
+    coverFig.suptitle("Quality Distribution")
+    cover.hist(column="cover", ax=covAx)
+    covAx.set_title('')
+    covAx.set_xticks([0,1,2])
+    covAx.set_xticklabels(['No Fish','Hand Covering', 'Clear'])
     plt.show()

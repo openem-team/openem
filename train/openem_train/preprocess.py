@@ -22,6 +22,7 @@ import sys
 from collections import defaultdict
 from multiprocessing import Pool
 from multiprocessing.sharedctypes import Value
+from multiprocessing.context import TimeoutError
 from ctypes import c_longlong
 from multiprocessing.pool import ThreadPool
 from multiprocessing import cpu_count
@@ -31,7 +32,7 @@ import scipy.misc
 import skimage
 from cv2 import VideoCapture
 from cv2 import imwrite
-from progressbar import ProgressBar
+import progressbar
 
 # Current value for multi-processed loops
 current=Value(c_longlong, 0)
@@ -56,12 +57,9 @@ def _extract_images(vid, train_imgs_dir):
         if not ret:
             break
         img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
-        if (frame % 100) == 0:
-            print("Saving image to: {}...".format(img_path))
         imwrite(img_path, img)
         frame += 1
     current.value += 1
-    print("Finished converting {}".format(vid))
     return (vid_id, frame)
 
 def extract_images(config):
@@ -145,7 +143,8 @@ def extract_rois(config):
             lookup[vid_id] = []
         lookup[vid_id].append((img_path, roi_path))
 
-    bar = progressbar.ProgressBar(max_value=len(vid_list),
+
+    bar = progressbar.ProgressBar(max_value=len(endpoints),
                                   redirect_stdout=True,
                                   redirect_stderr=True)
     # Extract ROIs.
@@ -174,7 +173,7 @@ def extract_dets(config):
     # Open the detection results csv.
     det_results = pd.read_csv(config.detect_inference_path())
 
-    bar = progressbar.ProgressBar(max_value=len(vid_list),
+    bar = progressbar.ProgressBar(max_value=len(det_results),
                                   redirect_stdout=True,
                                   redirect_stderr=True)
     # Create the detection images.

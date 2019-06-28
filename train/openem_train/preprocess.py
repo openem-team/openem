@@ -5,7 +5,7 @@ __license__ = "GPLv3"
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -21,6 +21,8 @@ import os
 import sys
 from collections import defaultdict
 from multiprocessing import Pool
+from multiprocessing.sharedctypes import Value
+from ctypes import c_longlong
 from multiprocessing.pool import ThreadPool
 from multiprocessing import cpu_count
 from functools import partial
@@ -29,6 +31,10 @@ import scipy.misc
 import skimage
 from cv2 import VideoCapture
 from cv2 import imwrite
+from progressbar import ProgressBar
+
+# Current value for multi-processed loops
+current=Value(c_longlong, 0)
 
 def _extract_images(vid, train_imgs_dir):
     """Extracts images from a single video.
@@ -54,6 +60,7 @@ def _extract_images(vid, train_imgs_dir):
             print("Saving image to: {}...".format(img_path))
         imwrite(img_path, img)
         frame += 1
+    current.value += 1
     print("Finished converting {}".format(vid))
     return (vid_id, frame)
 
@@ -69,10 +76,24 @@ def extract_images(config):
 
     # Make a pool to convert videos.
     pool = Pool(24)
+    current.value = 0
 
     # Start converting images.
     func = partial(_extract_images, train_imgs_dir = config.train_imgs_dir())
-    vid_frames = pool.map(func, config.train_vids())
+    vid_list=config.train_vids()
+    bar = progressbar.ProgressBar(max_value=len(vid_list),
+                                  redirect_stdout=True,
+                                  redirect_stderr=True)
+    ar = pool.map_async(func, vid_list)
+    vid_frames = None
+    while vid_frames == None:
+        try:
+            vid_frames = ar.get(2)
+        except TimeoutError as te:
+            pass
+        finally:
+            bar.update(current.value)
+
 
     # Record total number of frames in each video.
     vid_id, frames = list(map(list, zip(*vid_frames)))
@@ -84,7 +105,7 @@ def extract_images(config):
     # Write number of frames to csv.
     df = pd.DataFrame(num_frames)
     df.to_csv(config.num_frames_path(), index=False)
-    
+
 def extract_rois(config):
     """Extracts region of interest.
 
@@ -124,15 +145,19 @@ def extract_rois(config):
             lookup[vid_id] = []
         lookup[vid_id].append((img_path, roi_path))
 
+    bar = progressbar.ProgressBar(max_value=len(vid_list),
+                                  redirect_stdout=True,
+                                  redirect_stderr=True)
     # Extract ROIs.
     pool = ThreadPool(24) # Can't pickle _extract_roi so have to use ThreadPool
-    for _, row in endpoints.iterrows():
+    for _, row in bar(endpoints.iterrows()):
         vid_id = row['video_id']
         x1 = row['x1']
         y1 = row['y1']
         x2 = row['x2']
         y2 = row['y2']
-        pool.map(_extract_roi, lookup[vid_id])
+        pool.map_async(_extract_roi, lookup[vid_id])
+
 
 def extract_dets(config):
     """Extracts detection images.
@@ -149,8 +174,11 @@ def extract_dets(config):
     # Open the detection results csv.
     det_results = pd.read_csv(config.detect_inference_path())
 
+    bar = progressbar.ProgressBar(max_value=len(vid_list),
+                                  redirect_stdout=True,
+                                  redirect_stderr=True)
     # Create the detection images.
-    for _, row in det_results.iterrows():
+    for _, row in bar(det_results.iterrows()):
 
         # Get the new path.
         vid_id = row['video_id']

@@ -160,7 +160,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libsm-dev libgt
 COPY --from=cvopenem /tensorflow /tensorflow
 COPY --from=cvopenem /openem /openem
 COPY --from=cvtensorflow /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl
-RUN pip3 --no-cache-dir install /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl keras==2.2.4
+RUN pip3 --no-cache-dir install /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl keras==2.2.4 progressbar2==3.42.0
 
 # Add libraries to path
 ENV LD_LIBRARY_PATH=/tensorflow/lib:$LD_LIBRARY_PATH

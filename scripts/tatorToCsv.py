@@ -22,6 +22,30 @@ Cover=namedtuple(
 def _getScientificName(jsonSpecies):
     scientificName=jsonSpecies.split('(')[0].strip().capitalize()
     return scientificName
+
+def _getTrackQuality(tracks, frame : int):
+    """
+    ignore=hand covering
+    entering=clear (or not found)
+    exiting=no view
+    """
+    trackAtFrame=None
+    quality=2
+    for track in tracks:
+       if int(track["frame_added"]) == frame:
+           trackAtFrame=track
+           break
+    if trackAtFrame:
+        if trackAtFrame["count_label"] == "entering":
+            quality=2
+        elif trackAtFrame["count_label"] == "ignore":
+            quality=1
+        else:
+            quality=0
+
+    return quality
+
+
 def _convertLocalizationsFromFile(inputPath, speciesNames):
     base=os.path.basename(inputPath)
     video_id=os.path.splitext(base)[0]
@@ -32,6 +56,7 @@ def _convertLocalizationsFromFile(inputPath, speciesNames):
     with open(inputPath, 'r') as data:
         obj=json.load(data)
         detections=obj["detections"]
+        tracks=obj["tracks"]
         boxes=0
         ignored=0
         unknown=0
@@ -45,10 +70,11 @@ def _convertLocalizationsFromFile(inputPath, speciesNames):
                     unknownNames.add(name)
                     continue
 
+                frame=int(detection["frame"])
                 oemDetections.append(
                     FishBoxDetection(
                         video_id=video_id,
-                        frame=int(detection["frame"]),
+                        frame=frame,
                         x=float(detection["x"]),
                         y=float(detection["y"]),
                         width=float(detection["w"]),
@@ -61,8 +87,9 @@ def _convertLocalizationsFromFile(inputPath, speciesNames):
                 #For now assume all localizations are non-covered
                 oemCovers.append(
                     Cover(video_id=video_id,
-                          frame=int(detection["frame"]),
-                          cover=2)
+                          frame=frame,
+                          cover=_getTrackQuality(tracks,frame)
+                    )
                 )
                 boxes=boxes+1
             else:

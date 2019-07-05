@@ -155,7 +155,7 @@ def extract_rois(config):
         y1 = row['y1']
         x2 = row['x2']
         y2 = row['y2']
-        pool.map_async(_extract_roi, lookup[vid_id])
+        pool.map(_extract_roi, lookup[vid_id])
 
 
 def extract_dets(config):

@@ -196,8 +196,17 @@ def predict(config):
     if not status == openem.kSuccess:
         raise IOError("Failed to initialize detector!")
 
+    limit = None
+    count = 0
+    if config.config.has_option('Data', 'Limit'):
+        limit = config.config.getint('Data','Limit')
     for img_path in config.train_rois():
-
+        if limit:
+            print(f"Limiting process to {limit} files.")
+            if count >= limit:
+                break
+            else:
+                count = count + 1
         # Load in image.
         img = openem.Image()
         status = img.FromFile(img_path)

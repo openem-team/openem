@@ -2,7 +2,7 @@
 import version
 %>
 # Top Layer just gets an updated cuda image
-FROM nvidia/cuda AS cvbase0
+FROM nvidia/cuda:10.0-devel AS cvbase0
 MAINTAINER CVision AI <info@cvisionai.com>
 
 # Configure cuDNN

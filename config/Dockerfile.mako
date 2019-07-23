@@ -155,7 +155,7 @@ RUN rm -rf opencv
 FROM cvbase as cvopenem_deploy
 
 # Runtime (not build time, deps) can go here
-RUN apt-get update && apt-get install -y --no-install-recommends libsm-dev libgtk-3-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends vim libsm-dev libgtk-3-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
     
 COPY --from=cvopenem /tensorflow /tensorflow
 COPY --from=cvopenem /openem /openem

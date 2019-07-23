@@ -176,12 +176,20 @@ def extract_dets(config):
     bar = progressbar.ProgressBar(max_value=len(det_results),
                                   redirect_stdout=True,
                                   redirect_stderr=True)
+
+    threshold=0
+    if config.config.has_option('Detect', 'ExtractThreshold'):
+        threshold= config.config.getfloat('Detect', 'ExtractThreshold')
+
     # Create the detection images.
     for _, row in bar(det_results.iterrows()):
 
+        if row['det_conf'] < threshold:
+            continue
+
         # Get the new path.
         vid_id = row['video_id']
-        f = "{:04d}.jpg".format(row['frame'])
+        f = "{:04d}-conf{:04d}.jpg".format(row['frame'], row['det_conf'])
         roi_path = os.path.join(config.train_rois_dir(), vid_id, f)
         det_dir = os.path.join(config.train_dets_dir(), vid_id)
         os.makedirs(det_dir, exist_ok=True)

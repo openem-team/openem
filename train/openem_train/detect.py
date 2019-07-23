@@ -198,12 +198,18 @@ def predict(config):
 
     limit = None
     count = 0
-    if config.config.has_option('Data', 'Limit'):
-        limit = config.config.getint('Data','Limit')
+    threshold=0
+    if config.config.has_option('Detect', 'Limit'):
+        limit = config.config.getint('Detect','Limit')
+    if config.config.has_option('Detect', 'Threshold'):
+        threshold= config.config.getfloat('Detect', 'Threshold')
+
+    images=set()
     for img_path in config.train_rois():
+        images.add(os.path.basename(os.path.dirname(img_path)))
         if limit:
             print(f"Limiting process to {limit} files.")
-            if count >= limit:
+            if len(images) >= limit:
                 break
             else:
                 count = count + 1
@@ -231,14 +237,15 @@ def predict(config):
                 frame, _ = os.path.splitext(f)
                 video_id = os.path.basename(os.path.normpath(path))
                 x, y, w, h = det.location
-                det_data['video_id'].append(video_id)
-                det_data['frame'].append(frame)
-                det_data['x'].append(x)
-                det_data['y'].append(y)
-                det_data['w'].append(w)
-                det_data['h'].append(h)
-                det_data['det_conf'].append(det.confidence)
-                det_data['det_species'].append(det.species)
+                if det.confidence >= threshold:
+                    det_data['video_id'].append(video_id)
+                    det_data['frame'].append(frame)
+                    det_data['x'].append(x)
+                    det_data['y'].append(y)
+                    det_data['w'].append(w)
+                    det_data['h'].append(h)
+                    det_data['det_conf'].append(det.confidence)
+                    det_data['det_species'].append(det.species)
         print("Finished detection on {}".format(img_path))
 
     # Write detections to csv.

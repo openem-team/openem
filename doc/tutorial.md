@@ -28,10 +28,12 @@ docker pull cvisionai/openem:latest
 
 * Start a bash session in the image with the volume containing the example data mounted. The default train.ini file assumes a directory structure as follows:
 
+```
 working-dir
 |- openem_example_data
 |- openem_work
 |- openem_model
+```
 
 The openem_work and openem_model directories may be empty, and openem_example_data is the example data downloaded at the beginning of this tutorial. The following command will start the bash shell within the container with working-dir mounted to /data. The openem library is located at /openem.
 
@@ -251,7 +253,7 @@ This will run the algorithm models end to end on all videos in the TestDir as sp
 <WorkDir>/test
 ```
 
-One csv will be output for each test video, and will contain the keyframe and species of each fish found. We can compare these outputs to the truth datacontained in the example data with the following command:
+One csv will be output for each test video, and will contain the keyframe and species of each fish found. We can compare these outputs to the truth data contained in the example data with the following command:
 
 ```shell
 python train.py train.ini test_eval

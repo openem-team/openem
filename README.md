@@ -10,7 +10,7 @@ pretrained models available in our example data (see tutorial).  The base
 library is written in C++, with bindings available for both Python and C#.
 Examples are included for all three languages.
 
-The current release also includes a training library for the all OpenEM
+The current release also includes a training library for all OpenEM
 functionality. The library is distributed as a native Windows library and
 as a Docker image.
 

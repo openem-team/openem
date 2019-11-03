@@ -1,2 +1,5 @@
 /build/
 *__pycache__*
+config/Dockerfile.gen
+*~
+\#*\#

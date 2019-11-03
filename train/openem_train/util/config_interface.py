@@ -35,16 +35,17 @@ class ConfigInterface:
 
         # Read in species info.
         self._species = self.config.get('Data', 'Species').split(',')
-        self._ratios = self.config.get('Data', 'AspectRatios').split(',')
-        self._ratios = [float(r) for r in self._ratios]
-        if len(self._ratios) != len(self._species):
-            msg = (
-                "Invalid config file!  "
-                "Number of species and aspect ratios must match!  "
-                "Number of species: {}, "
-                "Number of aspect ratios: {}")
-            msg.format(len(self._species), len(self._ratios))
-            raise ValueError(msg)
+        if self.config.has_option('Data', 'LengthFormat') == False:
+            self._ratios = self.config.get('Data', 'AspectRatios').split(',')
+            self._ratios = [float(r) for r in self._ratios]
+            if len(self._ratios) != len(self._species):
+                msg = (
+                    "Invalid config file!  "
+                    "Number of species and aspect ratios must match!  "
+                    "Number of species: {}, "
+                    "Number of aspect ratios: {}")
+                msg.format(len(self._species), len(self._ratios))
+                raise ValueError(msg)
         self._num_classes = len(self._species) + 1
 
     def model_dir(self):
@@ -187,6 +188,24 @@ class ConfigInterface:
         """
         return self.config.getint('Detect', 'InitialEpoch')
 
+    def detect_steps_per_epoch(self):
+        """Returns steps per epoch for detection traiing if the key exists,
+           otherwise returns None.
+        """
+        steps_per_epoch = None
+        if self.config.has_option('Detect', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('Detect', 'StepsPerEpoch')
+        return steps_per_epoch
+
+    def detect_do_validation(self):
+        """Returns whether to do validation if the key exists, otherwise
+           returns default value of True.
+        """
+        do_validation = True
+        if self.config.has_option('Detect', 'DoValidation'):
+            do_validation = self.config.getboolean('Detect', 'DoValidation')
+        return do_validation
+
     def classify_width(self):
         """Returns width of detections used for classification training.
         """
@@ -216,6 +235,24 @@ class ConfigInterface:
         """Returns initial epoch for classify training.
         """
         return self.config.getint('Classify', 'InitialEpoch')
+
+    def classify_steps_per_epoch(self):
+        """Returns steps per epoch for classication training if the key exists,
+           otherwise returns None.
+        """
+        steps_per_epoch = None
+        if self.config.has_option('Classify', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('Classify', 'StepsPerEpoch')
+        return steps_per_epoch
+
+    def classify_do_validation(self):
+        """Returns whether to do validation if the key exists, otherwise
+           returns default value of True.
+        """
+        do_validation = True
+        if self.config.has_option('Classify', 'DoValidation'):
+            do_validation = self.config.getboolean('Classify', 'DoValidation')
+        return do_validation
 
     def count_num_steps(self):
         """Returns number of timesteps used as input to count model.
@@ -251,6 +288,24 @@ class ConfigInterface:
         """Returns initial epoch for count training.
         """
         return self.config.getint('Count', 'InitialEpoch')
+
+    def count_steps_per_epoch(self):
+        """Returns steps per epoch for count traiing if the key exists,
+           otherwise returns None.
+        """
+        steps_per_epoch = None
+        if self.config.has_option('Count', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('Count', 'StepsPerEpoch')
+        return steps_per_epoch
+
+    def count_do_validation(self):
+        """Returns whether to do validation if the key exists, otherwise
+           returns default value of True.
+        """
+        do_validation = True
+        if self.config.has_option('Count', 'DoValidation'):
+            do_validation = self.config.getboolean('Count', 'DoValidation')
+        return do_validation
 
     def count_num_res_steps(self):
         """Returns number of timesteps after cropping.
@@ -289,7 +344,11 @@ class ConfigInterface:
     def length_path(self):
         """Returns path to length annotations.
         """
-        return os.path.join(self.train_dir(), 'length.csv')
+        if self.config.has_option('Data', 'LengthFormat') and \
+           self.config.get('Data', 'LengthFormat') == "box":
+            return os.path.join(self.train_dir(), 'boxLength.csv')
+        else:
+            return os.path.join(self.train_dir(), 'length.csv')
 
     def cover_path(self):
         """Returns path to cover annotations.
@@ -371,7 +430,7 @@ class ConfigInterface:
             model: Which model this corresponds to, one of find_ruler,
             detect, classify, count.
         """
-        fname = "checkpoint-best-{epoch:03d}-{val_loss:.4f}.hdf5"
+        fname = "checkpoint-best-{epoch:03d}-{loss:.4f}.hdf5"
         return os.path.join(self.checkpoints_dir(model), fname)
 
     def checkpoint_periodic(self, model):
@@ -383,7 +442,7 @@ class ConfigInterface:
             model: Which model this corresponds to, one of find_ruler,
             detect, classify, count.
         """
-        fname = "checkpoint-{epoch:03d}-{val_loss:.4f}.hdf5"
+        fname = "checkpoint-periodic-{epoch:03d}-{loss:.4f}.hdf5"
         return os.path.join(self.checkpoints_dir(model), fname)
 
     def tensorboard_dir(self, model):

@@ -28,7 +28,10 @@ def _save_model(config, model):
         model: Keras Model object.
     """
     from openem_train.util.model_utils import keras_to_tensorflow
-    best = glob.glob(os.path.join(config.checkpoints_dir('count'), '*best*'))
+    if config.count_do_validation():
+        best = glob.glob(os.path.join(config.checkpoints_dir('count'), '*best*'))
+    else:
+        best = glob.glob(os.path.join(config.checkpoints_dir('count'), '*periodic*'))
     latest = max(best, key=os.path.getctime)
     model.load_weights(latest)
     os.makedirs(config.count_model_dir(), exist_ok=True)
@@ -110,6 +113,23 @@ def train(config):
 
     lr_sched = LearningRateScheduler(schedule=schedule)
 
+    # Determine steps per epoch.
+    batch_size = config.count_batch_size()
+    steps_per_epoch = config.count_steps_per_epoch()
+    if not steps_per_epoch:
+        steps_per_epoch = dataset.train_batches(config.count_batch_size())
+
+    # Set up validation generator.
+    validation_gen = None
+    validation_steps = None
+    if config.count_do_validation():
+        validation_gen = dataset.generate_test(
+            batch_size=config.count_val_batch_size()
+        )
+        validation_steps = dataset.test_batches(
+            config.count_val_batch_size()
+        )
+
     # Fit the model.
     model.summary()
     model.fit_generator(
@@ -123,12 +143,8 @@ def train(config):
             tensorboard,
             lr_sched
         ],
-        validation_data=dataset.generate_test(
-            batch_size=config.count_val_batch_size()
-        ),
-        validation_steps=dataset.test_batches(
-            config.count_val_batch_size()
-        ),
+        validation_data=validation_gen,
+        validation_steps=validation_steps,
         initial_epoch=initial_epoch
     )
 

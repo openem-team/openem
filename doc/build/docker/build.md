@@ -10,11 +10,14 @@ docker pull cvisionai/openem:latest
 ### Building the image
 
 * Follow instructions [here][NvidiaDocker] to install nvidia-docker.
-* From the openem root directory run the following command:
+* From the openem config directory run the following command:
 
 ```shell
-nvidia-docker build -t cvisionai/openem -f config/Dockerfile .
+make openem-image
 ```
+
+This will generate the dockerfile from the template and execute the build. If
+not initialized, it will setup any submodules required for the project.
 
 The resulting image will have the OpenEM binary distribution in /openem.
 

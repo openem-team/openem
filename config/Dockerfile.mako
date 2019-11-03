@@ -1,10 +1,13 @@
+<%!
+import version
+%>
 # Top Layer just gets an updated cuda image
-FROM nvidia/cuda AS cvbase0
+FROM nvidia/cuda:10.0-devel AS cvbase0
 MAINTAINER CVision AI <info@cvisionai.com>
 
 # Configure cuDNN
 ENV CUDNN_VERSION 7.4.1.5
-LABEL com.nvidia.cudnn.version="${CUDNN_VERSION}"
+LABEL com.nvidia.cudnn.version="<%text>${CUDNN_VERSION}</%text>"
 
 # System packages
 # Combine apt-get update and apt-get install to fix cache bug.
@@ -54,14 +57,14 @@ FROM cvbase AS cvtensorflow
 RUN curl -LO https://github.com/bazelbuild/bazel/releases/download/0.18.0/bazel-0.18.0-installer-linux-x86_64.sh 
 RUN bash bazel-0.18.0-installer-linux-x86_64.sh --prefix=/bazel
 RUN rm bazel-0.18.0-installer-linux-x86_64.sh #
-ENV PATH=/bazel/bin:${PATH}
+ENV PATH=/bazel/bin:<%text>${PATH}</%text>
 
 # Build TensorFlow C++ API
 RUN mkdir config
 RUN git clone -b v1.12.0 https://github.com/tensorflow/tensorflow.git
 WORKDIR tensorflow
 RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:<%text>$LD_LIBRARY_PATH</%text>
 COPY config/tf_config.txt /config/tf_config.txt
 RUN ./configure < /config/tf_config.txt
 RUN bazel build --config=opt --config=cuda --verbose_failures //tensorflow:libtensorflow_cc.so //tensorflow/tools/pip_package:build_pip_package
@@ -135,7 +138,7 @@ RUN mkdir build
 WORKDIR build
 COPY config/tensorflow-config.cmake /config/tensorflow-config.cmake
 RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:<%text>${LD_LIBRARY_PATH}</%text>
 RUN cmake \
     -DTensorflow_DIR=/config \
     -DOpenCV_DIR=/opencv/share/OpenCV \
@@ -152,12 +155,12 @@ RUN rm -rf opencv
 FROM cvbase as cvopenem_deploy
 
 # Runtime (not build time, deps) can go here
-RUN apt-get update && apt-get install -y --no-install-recommends libsm-dev libgtk-3-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends vim libsm-dev libgtk-3-dev && apt-get clean && rm -fr /var/lib/apt/lists/*
     
 COPY --from=cvopenem /tensorflow /tensorflow
 COPY --from=cvopenem /openem /openem
 COPY --from=cvtensorflow /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl
-RUN pip3 --no-cache-dir install /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl keras==2.2.4
+RUN pip3 --no-cache-dir install /tensorflow/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl keras==2.2.4 progressbar2==3.42.0
 
 # Add libraries to path
 ENV LD_LIBRARY_PATH=/tensorflow/lib:$LD_LIBRARY_PATH
@@ -175,6 +178,8 @@ ENV video_out "--no_video"
 # Set python3 to be default interpreter.
 RUN rm -f /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 
+RUN echo ${version.Git.pretty} > /git_version.txt
+
 # Define run command
 WORKDIR /openem/examples/deploy/python
-CMD ["sh", "-c", "python video.py ${find_ruler_model} ${detect_model} ${classify_model} ${count_model} ${video_paths} ${video_out}"]
+CMD ["sh", "-c", "python video.py <%text>${find_ruler_model} ${detect_model} ${classify_model} ${count_model} ${video_paths} ${video_out}</%text>"]

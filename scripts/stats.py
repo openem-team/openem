@@ -26,9 +26,10 @@ if __name__=="__main__":
     percTrain=round(percTrain,1)
     percTest=round(percTest,1)
     fig, (ax1,ax2) = plt.subplots(1,2)
+    species_count = train['species_id'].max() + 1
     fig.suptitle("Population Distribution (by localization)")
-    train.hist(column="species_id", ax=ax1)
-    test.hist(column="species_id", ax=ax2)
+    train.hist(column="species_id", ax=ax1, bins=species_count)
+    test.hist(column="species_id", ax=ax2, bins=species_count)
     ax1.set_title("Training Data ({} %)".format(percTrain))
     ax1.set_xlabel("Species ID")
     ax1.set_ylabel("Count")

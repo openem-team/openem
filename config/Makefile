@@ -23,3 +23,6 @@ Dockerfile.gen: Dockerfile.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.
 
 inference.gen: inference.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
 	./../externals/build_tools/makocc.py -o $@ $<
+
+inference_bash:
+	nvidia-docker run --rm -ti cvisionai/openem_inference:latest

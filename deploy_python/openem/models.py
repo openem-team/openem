@@ -1,15 +1,16 @@
 """ Define base classes for openem models """
 import tensorflow as tf
 import numpy as np
+import cv2
 
 class Preprocessor:
     def __init__(scale=None, bias=None, rgb=None):
-        """ Create a preprocessing object to handle image transformations 
+        """ Create a preprocessing object to handle image transformations
             required for network to run
 
-        scale : float 
+        scale : float
                 Scale factor applied to image after conversion to float
-        bias : 3-element np.array 
+        bias : 3-element np.array
                Bias applied to image after scaling
         rgb : bool
               Set to true to convert 3 channel data to RGB (from BGR)
@@ -19,27 +20,39 @@ class Preprocessor:
         self.rgb = rgb
 
     def run(image, requiredWidth, requiredHeight):
-        """ Run the required preprocessing steps on an input image 
+        """ Run the required preprocessing steps on an input image
         image : np.ndarray containing the image data
         """
-        # Extract only 3 channels of data
+        # Resize the image first
+        if image.shape[0] != requiredHeight or image.shape[1] != requiredWidth:
+            image = cv2.resize(image, (requiredWidth, requiredHeight))
+
+        if self.rgb:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Convert the image to a floating point value
         image = image.astype(np.float32)
-        
-        
-        
+
+        if self.scale:
+            image /= self.scale
+        if self.bias:
+            image += bias
+
 class ImageModel:
     """ Base class for serving image-related models from tensorflow """
     tf_session = None
     images = None
+    input_tensor = None
+    output_tensor = None
     def __init__(self, model_path, gpu_fraction=1.0,
                  input_name = 'input_1',
                  output_name = 'output_node0:0'):
-        """ Initialize an image model object 
+        """ Initialize an image model object
         model_path : str or path-like object
                      Path to the frozen protobuf of the tensorflow graph
         gpu_fraction : float
                        Fraction of GPU allowed to be used by this object.
-        input_name : str 
+        input_name : str
                      Name of the tensor that serves as the image input
         output_name : str
                       Name of the the tensor that serves as the output of
@@ -64,8 +77,33 @@ class ImageModel:
                 return_elements=[input_name, output_name]
             )
 
-    def addImage(self, image, preprocessor):
+    def inputShape(self):
+        """ Returns the shape of the input image for this network """
+        return self.input_tensor.shape
+
+    def _addImage(self, image, preprocessor):
+        """ Adds an image into the next to process batch
+            image: np.ndarray
+                   Image data to add into the batch
+            preprocessor: models.Preprocessor
+                   Preprocessing logic to apply to image prior to insertion
+        """
         if self.images == None:
             self.images = []
-        
-            
+
+        self.images.append(preprocessor(image))
+
+
+    def process(self):
+        """ Process the current batch of image(s).
+
+        Returns None if there are no images.
+        """
+        if self.images == None:
+            return None
+
+        result = self.tf_session.run(
+            self.output_tensor,
+            feed_dict={self.input_tensor: np.array(self.images)})
+        self.images = None
+        return result

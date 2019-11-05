@@ -25,4 +25,4 @@ inference.gen: inference.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
 	./../externals/build_tools/makocc.py -o $@ $<
 
 inference_bash:
-	nvidia-docker run --rm -ti cvisionai/openem_inference:latest
+	nvidia-docker run --rm -ti -v `pwd`/../deploy_python:/deploy_python cvisionai/openem_inference:latest

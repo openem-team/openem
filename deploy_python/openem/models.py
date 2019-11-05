@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 
 class Preprocessor:
-    def __init__(scale=None, bias=None, rgb=None):
+    def __init__(self, scale=None, bias=None, rgb=None):
         """ Create a preprocessing object to handle image transformations
             required for network to run
 
@@ -19,7 +19,7 @@ class Preprocessor:
         self.bias = bias
         self.rgb = rgb
 
-    def run(image, requiredWidth, requiredHeight):
+    def __call__(self, image, requiredWidth, requiredHeight):
         """ Run the required preprocessing steps on an input image
         image : np.ndarray containing the image data
         """
@@ -33,19 +33,22 @@ class Preprocessor:
         # Convert the image to a floating point value
         image = image.astype(np.float32)
 
-        if self.scale:
+        if self.scale is not None:
             image /= self.scale
-        if self.bias:
-            image += bias
+        if self.bias is not None:
+            image += self.bias
+
+        return image
 
 class ImageModel:
     """ Base class for serving image-related models from tensorflow """
     tf_session = None
     images = None
     input_tensor = None
+    input_shape = None
     output_tensor = None
     def __init__(self, model_path, gpu_fraction=1.0,
-                 input_name = 'input_1',
+                 input_name = 'input_1:0',
                  output_name = 'output_node0:0'):
         """ Initialize an image model object
         model_path : str or path-like object
@@ -77,9 +80,11 @@ class ImageModel:
                 return_elements=[input_name, output_name]
             )
 
+            self.input_shape = self.input_tensor.get_shape().as_list()
+
     def inputShape(self):
         """ Returns the shape of the input image for this network """
-        return self.input_tensor.shape
+        return self.input_shape
 
     def _addImage(self, image, preprocessor):
         """ Adds an image into the next to process batch
@@ -91,8 +96,11 @@ class ImageModel:
         if self.images == None:
             self.images = []
 
-        self.images.append(preprocessor(image))
+        processed_image = preprocessor(image,
+                                       self.inputShape()[2],
+                                       self.inputShape()[1])
 
+        self.images.append(processed_image)
 
     def process(self):
         """ Process the current batch of image(s).

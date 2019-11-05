@@ -24,5 +24,11 @@ Dockerfile.gen: Dockerfile.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.
 inference.gen: inference.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
 	./../externals/build_tools/makocc.py -o $@ $<
 
+ifeq ($(deploy_dir), )
+extra_mounts=
+else
+extra_mounts=-v $(deploy_dir):/deploy_dir
+endif
+
 inference_bash:
-	nvidia-docker run --rm -ti -v `pwd`/../deploy_python:/deploy_python cvisionai/openem_inference:latest
+	nvidia-docker run --rm -ti -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_inference:latest

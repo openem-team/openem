@@ -31,7 +31,6 @@ class FindRulerTest(unittest.TestCase):
             print(f"Shape = {image_result[0].shape}")
 
             # Make debug image real quick
-            image_result[0] *= 255;
             cv2.imwrite(f"test_{idx}.jpg", image_result[0])
             
                                   

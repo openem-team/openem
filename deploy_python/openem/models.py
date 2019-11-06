@@ -34,7 +34,7 @@ class Preprocessor:
         image = image.astype(np.float32)
 
         if self.scale is not None:
-            image /= self.scale
+            image *= self.scale
         if self.bias is not None:
             image += self.bias
 

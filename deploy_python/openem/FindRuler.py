@@ -42,3 +42,49 @@ class RulerMaskFinder(ImageModel):
             mask_images.append(blurred_image)
 
         return np.array(mask_images)
+
+    @staticmethod
+    def rulerPresent(image_mask):
+        """ Returns true if a ruler is present in the frame """
+        return cv2.sumElems(image_mask)[0] > 1000.0
+
+    @staticmethod
+    def rulerEndpoints(image_mask):
+        # Find center of rotation of the mask
+        moments = cv2.moments(image_mask)
+        centroid_x = moments['m10'] / moments['m00']
+        centroid_y = moments['m01'] / moments['m00']
+        centroid = np.array([centroid_x, centroid_y])
+
+        # Find the transofrm to translate the image to the
+        # center of the of the ruler
+        center_y = image_mask.shape[0] / 2.0
+        center_x = image_mask.shape[1] / 2.0
+        center = np.array([center_x, center_y])
+
+        diff_x = center_x - centroid_x
+        diff_y = center_y - centroid_y
+
+        translation=np.array([[1,0,diff_x],
+                             [0,1,diff_y],
+                             [0,0,1]])
+
+        min_moment = float('+inf')
+        best = None
+        for angle in range(-90, 90):
+            rotation = cv2.getRotationMatrix2D(centroid,
+                                               float(angle),
+                                               1.0)
+            # Matrix needs bottom row added
+            rotation = np.vstack(rotation, [0,0,1])
+            rt_matrix = translation * rotation
+            rotated = cv2.warpAffine(image_mask,
+                                     rt_matrix[0:2],
+                                     image_mask.shape[0:2])
+
+            rotated_moments = cv2.moments(rotated)
+            if moments['mu02'] < min_moment:
+                min_moment = moments['mu02']
+                best = np.copy(rt_matrix)
+
+        #Now that we have the best rotation, find the endpoints

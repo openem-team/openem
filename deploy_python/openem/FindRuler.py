@@ -28,6 +28,8 @@ class RulerMaskFinder(ImageModel):
         the user must resize to input image if different.
         """
         model_masks = super(RulerMaskFinder,self).process()
+        if model_masks is None:
+            return None
 
         mask_images = []
         num_masks = model_masks.shape[0]

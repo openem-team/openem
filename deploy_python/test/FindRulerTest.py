@@ -80,3 +80,7 @@ class FindRulerTest(tf.test.TestCase):
             self.assertAlmostEqual(hits, self.expected_hits[idx],
                                    msg=f"Failed image {idx}: {histogram}",
                                    delta=hits*.01)
+
+    def test_errorHandling(self):
+        finder=RulerMaskFinder(self.pb_file)
+        self.assertIsNone(finder.process())

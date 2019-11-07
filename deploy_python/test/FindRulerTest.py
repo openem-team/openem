@@ -1,6 +1,7 @@
 import unittest
 import os
 from openem.FindRuler import RulerMaskFinder
+import openem.FindRuler
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -18,6 +19,14 @@ class FindRulerTest(tf.test.TestCase):
         self.images=['test_image_000.jpg',
                      'test_image_001.jpg',
                      'test_image_002.jpg']
+        # C++ code came up with:
+        # [282, 140], [460,368]
+        # [415, 214], [516,217]
+        # [38, 306], [338, 311]
+        self.rulerCoordinates=[[[283,142],[458,366]],
+                               [[415,214],[515,217]],
+                               [[38,306],[336,311]]]
+
         self.expected_hits = [5663, 2243, 5137]
 
     def test_stability(self):
@@ -39,7 +48,19 @@ class FindRulerTest(tf.test.TestCase):
                                    msg=f"Failed image {idx}: {histogram}",
                                    delta=hits*.01)
             # Code here is how to write mask image
-            # cv2.imwrite(f'test_{idx}.jpg', image_result[0])
+            cv2.imwrite(f'test_{idx}.jpg', image_result[0])
+
+            # Verify ruler is present
+            self.assertTrue(openem.FindRuler.rulerPresent(image_result[0]))
+            ruler=openem.FindRuler.rulerEndpoints(image_result[0])
+            expected=self.rulerCoordinates[idx]
+            for x in [0,1]:
+                for y in [0,1]:
+                    self.assertAlmostEqual(expected[x][y],
+                                           ruler[x][y],
+                                           msg=f"{x},{y}, {idx} Fail {ruler}",
+                                           delta=5)
+
 
     def test_batch(self):
         finder=RulerMaskFinder(self.pb_file)

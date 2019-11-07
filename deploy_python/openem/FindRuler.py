@@ -43,48 +43,92 @@ class RulerMaskFinder(ImageModel):
 
         return np.array(mask_images)
 
-    @staticmethod
-    def rulerPresent(image_mask):
-        """ Returns true if a ruler is present in the frame """
-        return cv2.sumElems(image_mask)[0] > 1000.0
+def rulerPresent(image_mask):
+    """ Returns true if a ruler is present in the frame """
+    return cv2.sumElems(image_mask)[0] > 1000.0
 
-    @staticmethod
-    def rulerEndpoints(image_mask):
-        # Find center of rotation of the mask
-        moments = cv2.moments(image_mask)
-        centroid_x = moments['m10'] / moments['m00']
-        centroid_y = moments['m01'] / moments['m00']
-        centroid = np.array([centroid_x, centroid_y])
+def rulerEndpoints(image_mask):
+    """
+    Find the ruler end points given an image mask
+    image_mask: 8-bit single channel image_mask
+    """
+    image_height = image_mask.shape[0]
 
-        # Find the transofrm to translate the image to the
-        # center of the of the ruler
-        center_y = image_mask.shape[0] / 2.0
-        center_x = image_mask.shape[1] / 2.0
-        center = np.array([center_x, center_y])
+    image_mask = image_mask.astype(np.float64)
+    image_mask /= 255.0
 
-        diff_x = center_x - centroid_x
-        diff_y = center_y - centroid_y
+    # Find center of rotation of the mask
+    moments = cv2.moments(image_mask)
+    centroid_x = moments['m10'] / moments['m00']
+    centroid_y = moments['m01'] / moments['m00']
+    centroid = (centroid_x, centroid_y)
 
-        translation=np.array([[1,0,diff_x],
-                             [0,1,diff_y],
-                             [0,0,1]])
+    # Find the transofrm to translate the image to the
+    # center of the of the ruler
+    center_y = image_mask.shape[0] / 2.0
+    center_x = image_mask.shape[1] / 2.0
+    center = (center_x, center_y)
 
-        min_moment = float('+inf')
-        best = None
-        for angle in range(-90, 90):
-            rotation = cv2.getRotationMatrix2D(centroid,
-                                               float(angle),
-                                               1.0)
-            # Matrix needs bottom row added
-            rotation = np.vstack(rotation, [0,0,1])
-            rt_matrix = translation * rotation
-            rotated = cv2.warpAffine(image_mask,
-                                     rt_matrix[0:2],
-                                     image_mask.shape[0:2])
+    diff_x = center_x - centroid_x
+    diff_y = center_y - centroid_y
 
-            rotated_moments = cv2.moments(rotated)
-            if moments['mu02'] < min_moment:
-                min_moment = moments['mu02']
-                best = np.copy(rt_matrix)
+    translation=np.array([[1,0,diff_x],
+                         [0,1,diff_y],
+                         [0,0,1]])
 
-        #Now that we have the best rotation, find the endpoints
+    min_moment = float('+inf')
+    best = None
+    best_angle = None
+    for angle in np.linspace(-90,90,181):
+        rotation = cv2.getRotationMatrix2D(centroid,
+                                           float(angle),
+                                           1.0)
+        # Matrix needs bottom row added
+        # Warning: cv2 dimensions are width, height not height, width!
+        rotation = np.vstack([rotation, [0,0,1]])
+        rt_matrix = np.matmul(translation,rotation)
+        rotated = cv2.warpAffine(image_mask,
+                                 rt_matrix[0:2],
+                                 (image_mask.shape[1],
+                                  image_mask.shape[0]))
+
+        rotated_moments = cv2.moments(rotated)
+        if rotated_moments['mu02'] < min_moment:
+            best_angle = angle
+            min_moment = rotated_moments['mu02']
+            best = np.copy(rt_matrix)
+
+    #Now that we have the best rotation, find the endpoints
+    warped = cv2.warpAffine(image_mask,
+                            best[0:2],
+                            (image_mask.shape[1],
+                             image_mask.shape[0]))
+
+    # Reduce the image down to a 1d line and up convert to 64-bit
+    # float between 0 and 1
+    col_sum = cv2.reduce(warped,0, cv2.REDUCE_SUM).astype(np.float64)
+
+    # Find the left/right of masked region in the line vector
+    # Then, knowing its the center of the transformed image
+    # back out the y coordinates in the actual image inversing
+    # the transform above
+    cumulative_sum = np.cumsum(col_sum[0])
+    # Normalize the cumulative sum from 0 to 1
+    max_sum=np.max(cumulative_sum)
+    cumulative_sum /= max_sum
+
+    # Find the left,right indices based on thresholds
+    left_idx = np.searchsorted(cumulative_sum, 0.06, side='left')
+    right_idx = np.searchsorted(cumulative_sum, 0.94, side='right')
+    width = right_idx - left_idx
+
+    # Add 10% of the ruler width
+    left_idx = left_idx-(width*0.10)
+    right_idx = right_idx+(width*0.10)
+
+    endpoints=np.array([[[left_idx, image_height / 2],
+                         [right_idx, image_height / 2]]])
+    # Finally inverse the transform to get the actual y coordinates
+    inverse = cv2.invertAffineTransform(best[0:2])
+    inverse = np.vstack([inverse, [0,0,1]])
+    return cv2.perspectiveTransform(endpoints, inverse)[0]

@@ -134,3 +134,16 @@ def rulerEndpoints(image_mask):
     inverse = cv2.invertAffineTransform(best[0:2])
     inverse = np.vstack([inverse, [0,0,1]])
     return cv2.perspectiveTransform(endpoints, inverse)[0]
+
+def crop(image, roi):
+    """ Returns a *copy* of the region of interest from the image
+    image: ndarray
+           Represents image data
+    roi: tuple
+         (x,y,w,h) tuple -- presumably from openem.FindRuler.findRoi
+    """
+    x0=roi[0]
+    y0=roi[1]
+    x1=roi[0]+roi[2]
+    x2=roi[1]+roi[3]
+    cropped=np.copy(image[y0:y1,x0:x1])

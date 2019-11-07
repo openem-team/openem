@@ -135,6 +135,41 @@ def rulerEndpoints(image_mask):
     inverse = np.vstack([inverse, [0,0,1]])
     return cv2.perspectiveTransform(endpoints, inverse)[0]
 
+def rectify(image, pointPair):
+    pass
+
+def findRoi(image_mask, h_margin):
+    """ Returns the roi of a given mask; with additional padding added
+        both horizontally and vertically based off of h_margin and the
+        underlying aspect ratio.
+        image_mask: ndarray
+               Represents image mask
+        h_margin: int
+               Number of pixels to use
+    """
+    non_zero=cv2.findNonZero(image_mask)
+    x,y,w,h = cv2.boundingRect(non_zero)
+    aspect = image_mask.shape[0] / image_mask.shape[1]
+    v_margin = h_margin * aspect
+
+    # Add margin
+    margined_roi=np.zeros(4)
+    margined_roi[0] = x - h_margin
+    margined_roi[1] = y - v_margin
+    margined_roi[2] = w + (h_margin*2)
+    margined_roi[3] = h + (v_margin*2)
+
+    # constrain to image dims
+    margined_roi[0] = max(margined_roi[0], 0)
+    margined_roi[1] = max(margined_roi[1], 0)
+    if margined_roi[0] + margined_roi[2] > image_mask.shape[1]:
+        margined_roi[2] = image_mask.shape[1] - margined_roi[0]
+    if margined_roi[1] + margined_roi[3] > image_mask.shape[0]:
+        margined_roi[3] = image_mask.shape[0] - margined_roi[1]
+
+    return (margined_roi[0], margined_roi[1], margined_roi[2],margined_roi[3])
+
+
 def crop(image, roi):
     """ Returns a *copy* of the region of interest from the image
     image: ndarray
@@ -142,8 +177,9 @@ def crop(image, roi):
     roi: tuple
          (x,y,w,h) tuple -- presumably from openem.FindRuler.findRoi
     """
-    x0=roi[0]
-    y0=roi[1]
-    x1=roi[0]+roi[2]
-    x2=roi[1]+roi[3]
+    x0=int(roi[0])
+    y0=int(roi[1])
+    x1=int(roi[0]+roi[2])
+    y1=int(roi[1]+roi[3])
     cropped=np.copy(image[y0:y1,x0:x1])
+    return cropped

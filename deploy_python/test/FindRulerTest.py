@@ -54,12 +54,10 @@ class FindRulerTest(tf.test.TestCase):
             self.assertTrue(openem.FindRuler.rulerPresent(image_result[0]))
             ruler=openem.FindRuler.rulerEndpoints(image_result[0])
             expected=self.rulerCoordinates[idx]
-            for x in [0,1]:
-                for y in [0,1]:
-                    self.assertAlmostEqual(expected[x][y],
-                                           ruler[x][y],
-                                           msg=f"{x},{y}, {idx} Fail {ruler}",
-                                           delta=5)
+            self.assertAllClose(expected,
+                                ruler,
+                                msg=f"{idx} Fail: {ruler}",
+                                atol=5)
 
 
     def test_batch(self):

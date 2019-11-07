@@ -82,3 +82,39 @@ class FindRulerTest(tf.test.TestCase):
     def test_errorHandling(self):
         finder=RulerMaskFinder(self.pb_file)
         self.assertIsNone(finder.process())
+
+class RoiTests(tf.test.TestCase):
+    """ Tests that don't actually use the tensorflow model
+        but their nice *All* functions are convenient for any
+        vector-based assertion
+    """
+    def test_RoiLogic(self):
+        # Define an 8x8 bitmap with a 2x2 box in the middle
+        img=np.zeros((8,8))
+        img[2:6,2:6]=np.ones((4,4))
+
+        expected=[2,2,4,4]
+        bb_roi = openem.FindRuler.findRoi(img,0)
+        self.assertAllEqual(expected, bb_roi)
+
+        expected=[1,1,6,6]
+        bb_roi = openem.FindRuler.findRoi(img,1)
+        self.assertAllEqual(expected, bb_roi)
+
+        expected=[0,0,8,8]
+        bb_roi = openem.FindRuler.findRoi(img,2)
+        self.assertAllEqual(expected, bb_roi)
+
+        # Error case here; if margin exceeds image
+        expected=[0,0,8,8]
+        bb_roi = openem.FindRuler.findRoi(img,3)
+        self.assertAllEqual(expected, bb_roi, msg="Margin = 3")
+
+    def test_crop(self):
+        # Define an 8x8 bitmap with a 2x2 box in the middle
+        img=np.zeros((8,8))
+        img[2:6,2:6]=np.ones((4,4))
+
+        bb_roi = openem.FindRuler.findRoi(img,0)
+        crop=openem.FindRuler.crop(img, bb_roi)
+        self.assertAllEqual(crop, np.ones((4,4)))

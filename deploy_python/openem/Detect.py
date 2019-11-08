@@ -4,6 +4,10 @@ import cv2
 from openem.models import ImageModel
 from openem.models import Preprocessor
 
+from collections import namedtuple
+Detection=namedtuple('Detection', ['location',
+                                   'confidence',
+                                   'species'])
 class SSDDetector(ImageModel):
     preprocessor=Preprocessor(1.0,
                               np.array([-103.939,-116.779,-123.68]),
@@ -16,20 +20,90 @@ class SSDDetector(ImageModel):
                    add to the model's current batch.
 
         """
+        if self._imageSizes is None:
+            self._imageSizes = []
+        self._imageSizes.append(image.shape)
         return self._addImage(image, self.preprocessor)
 
     def process(self):
         """ Runs network to find fish in batched images by performing object
             detection with a Single Shot Detector (SSD).
 
-        Returns a list of detections (or None if batch is empty)
+        Returns a list of Detection (or None if batch is empty)
         """
-        result = super(SSDDetector, self).process()
+        batch_result = super(SSDDetector, self).process()
         if result is None:
             return result
 
+        # Split out the tensor into bounding bboxes per image
+        for image_idx,image_result in enumerate(batch_result):
+            image_dims=self._imageSizes[image_idx]
+            pred_stop = 4
+            conf_stop = image_result.shape[1] - 8
+            anc_stop = conf_stop + 4
+            var_stop = anc_stop + 4
+            loc = image_result[:,:pred_stop]
+            conf = image_result[:,pred_stop:conf_stop]
+            anchors = image_result[:,conf_stop:anc_stop]
+            variances = image_result[:,anc_stop:var_stop]
+            boxes = decodeBoxes(loc, anchors, variances, network_image_shape)
+            scores=np.zeros(loc.shape[0])
+            class_index=np.zeros(loc.shape[0])
+            for idx,r in enumerate(conf):
+                _,maxScore,__,maxIdx = cv2.minMaxLoc(r[1:])
+                scores[idx] = maxScore
+                class_index[idx] = max_index[1] + 1 # +1 for background class
+            indices = nmsBoxes(boxes, scores, 0.01, 0.45, 200)
+            detections = []
+            for idx in indices:
+                detection = Detection(
+                    location = boxes[idx],
+                    score = scores[idx],
+                    species = class_index[idx])
+                detections.append(detection)
 
-def nms_boxes(bboxes, scores, score_threshold, nms_threshold, top_k = 0):
+            # Clean up scale factors and return the list
+            self._imageSizes = None
+            return detections
+def decodeBoxes(loc, anchors, variances, img_size):
+    """ Decodes bounding box from network output
+
+    loc: Bounding box parameters one box per element
+    anchors: Anchors box parameters, one box per element
+    variances: Variances per box
+
+    Returns a Nx4 matrix of bounding boxes
+    """
+    decoded=[]
+    image_height = img_size[0]
+    image_width = img_size[1]
+
+    anchor_width = anchors[:,2] - anchors[:,0]
+    anchor_height = anchors[:,3] - anchors[:,1]
+
+    anchor_center_x = 0.5 * (anchors[:,2] + anchors[:,0])
+    anchor_center_y = 0.5 * (anchors[:,3] + anchors[:,1])
+    decode_center_x = loc[:,0]*anchor_width*variances[:,0]
+    decode_center_x += anchor_center_x
+    decode_center_y = loc[:,1]*anchor_height*variances[:,1]
+    decode_center_y += anchor_center_y
+
+    decode_width = np.exp(loc[:,2]*variances[:,2])*anchor_width
+    decode_height = np.exp(loc[:,3]*variances[:,3])*anchor_height
+
+    decode_x0 = max((decode_center_x - 0.5 * decode_width) * image_width,0)
+    decode_y0 = max((decode_center_y - 0.5 * decode_height) * image_height,0)
+    decode_x1 = max((decode_center_x + 0.5 * decode_width) * image_width,0)
+    decode_y1 = max((decode_center_y + 0.5 * decode_height) * image_height,0)
+    decoded=np.zeros((len(decode_x0),4))
+    decoded[:,1] = decode_x0
+    decoded[:,2] = decode_y0
+    decoded[:,3] = decode_x1 - decode_x0 + 1
+    decoded[:,4] = decode_y1 - decode_y0 + 1
+    return decoded
+
+
+def nmsBoxes(bboxes, scores, score_threshold, nms_threshold, top_k = 0):
     """ Performs non-maximum supression on a series of overlapping
         bounding boxes
 
@@ -46,6 +120,7 @@ def nms_boxes(bboxes, scores, score_threshold, nms_threshold, top_k = 0):
     for idx,score in enumerate(scores):
         score_sort_list.append((idx,score))
 
+    # inline-function to get second element of tuple
     def second_element(val):
         return val[1]
 

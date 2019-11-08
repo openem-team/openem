@@ -60,8 +60,8 @@ class SSDDetector(ImageModel):
             indices = tf.image.non_max_suppression(boxes,
                                                    scores,
                                                    200,
-                                                   0.45,
-                                                   0.01)
+                                                   0.01,
+                                                   0.45)
             detections = []
             for idx in indices.eval(session=self.tf_session):
                 detection = Detection(

@@ -74,10 +74,10 @@ class SSDDetector(ImageModel):
                 return detection.confidence
 
             detections.sort(key=get_confidence, reverse=True)
-                
+
             batch_detections.append(detections)
         # Clean up scale factors and return the list
-        self._imageSizes = None   
+        self._imageSizes = None
         return batch_detections
 def decodeBoxes(loc, anchors, variances, img_size):
     """ Decodes bounding box from network output
@@ -117,9 +117,9 @@ def decodeBoxes(loc, anchors, variances, img_size):
     return decoded
 
 """
-#Using tensorflow nms instead --- this one required a function that did 
-#not work in opencv so well. 
- 
+#Using tensorflow nms instead --- this one required a function that did
+#not work in opencv so well.
+
 def nmsBoxes(bboxes, scores, score_threshold, nms_threshold, top_k = 0):
     \""" Performs non-maximum supression on a series of overlapping
         bounding boxes

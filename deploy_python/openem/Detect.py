@@ -5,6 +5,7 @@ from openem.models import ImageModel
 from openem.models import Preprocessor
 
 from collections import namedtuple
+
 Detection=namedtuple('Detection', ['location',
                                    'confidence',
                                    'species'])
@@ -12,6 +13,7 @@ class SSDDetector(ImageModel):
     preprocessor=Preprocessor(1.0,
                               np.array([-103.939,-116.779,-123.68]),
                               False)
+    _imageSizes = None
     def addImage(self, image):
         """ Add an image to process in the underlying ImageModel after
             running preprocessing on it specific to this model.

@@ -1,8 +1,9 @@
-import numpy as np
-import cv2
-
 from openem.models import ImageModel
 from openem.models import Preprocessor
+
+import cv2
+import numpy as np
+import tensorflow as tf
 
 from collections import namedtuple
 
@@ -34,9 +35,10 @@ class SSDDetector(ImageModel):
         Returns a list of Detection (or None if batch is empty)
         """
         batch_result = super(SSDDetector, self).process()
-        if result is None:
-            return result
+        if batch_result is None:
+            return batch_result
 
+        batch_detections=[]
         # Split out the tensor into bounding bboxes per image
         for image_idx,image_result in enumerate(batch_result):
             image_dims=self._imageSizes[image_idx]
@@ -48,25 +50,35 @@ class SSDDetector(ImageModel):
             conf = image_result[:,pred_stop:conf_stop]
             anchors = image_result[:,conf_stop:anc_stop]
             variances = image_result[:,anc_stop:var_stop]
-            boxes = decodeBoxes(loc, anchors, variances, network_image_shape)
+            boxes = decodeBoxes(loc, anchors, variances, image_dims)
             scores=np.zeros(loc.shape[0])
             class_index=np.zeros(loc.shape[0])
             for idx,r in enumerate(conf):
                 _,maxScore,__,maxIdx = cv2.minMaxLoc(r[1:])
                 scores[idx] = maxScore
-                class_index[idx] = max_index[1] + 1 # +1 for background class
-            indices = nmsBoxes(boxes, scores, 0.01, 0.45, 200)
+                class_index[idx] = maxIdx[1] + 1 # +1 for background class
+            indices = tf.image.non_max_suppression(boxes,
+                                                   scores,
+                                                   200,
+                                                   0.45,
+                                                   0.01)
             detections = []
-            for idx in indices:
+            for idx in indices.eval(session=self.tf_session):
                 detection = Detection(
                     location = boxes[idx],
-                    score = scores[idx],
+                    confidence = scores[idx],
                     species = class_index[idx])
                 detections.append(detection)
 
-            # Clean up scale factors and return the list
-            self._imageSizes = None
-            return detections
+            def get_confidence(detection):
+                return detection.confidence
+
+            detections.sort(key=get_confidence, reverse=True)
+                
+            batch_detections.append(detections)
+        # Clean up scale factors and return the list
+        self._imageSizes = None   
+        return batch_detections
 def decodeBoxes(loc, anchors, variances, img_size):
     """ Decodes bounding box from network output
 
@@ -93,20 +105,23 @@ def decodeBoxes(loc, anchors, variances, img_size):
     decode_width = np.exp(loc[:,2]*variances[:,2])*anchor_width
     decode_height = np.exp(loc[:,3]*variances[:,3])*anchor_height
 
-    decode_x0 = max((decode_center_x - 0.5 * decode_width) * image_width,0)
-    decode_y0 = max((decode_center_y - 0.5 * decode_height) * image_height,0)
-    decode_x1 = max((decode_center_x + 0.5 * decode_width) * image_width,0)
-    decode_y1 = max((decode_center_y + 0.5 * decode_height) * image_height,0)
+    decode_x0 = np.maximum((decode_center_x - 0.5 * decode_width) * image_width,0)
+    decode_y0 = np.maximum((decode_center_y - 0.5 * decode_height) * image_height,0)
+    decode_x1 = np.maximum((decode_center_x + 0.5 * decode_width) * image_width,0)
+    decode_y1 = np.maximum((decode_center_y + 0.5 * decode_height) * image_height,0)
     decoded=np.zeros((len(decode_x0),4))
-    decoded[:,1] = decode_x0
-    decoded[:,2] = decode_y0
-    decoded[:,3] = decode_x1 - decode_x0 + 1
-    decoded[:,4] = decode_y1 - decode_y0 + 1
+    decoded[:,0] = decode_x0
+    decoded[:,1] = decode_y0
+    decoded[:,2] = decode_x1 - decode_x0 + 1
+    decoded[:,3] = decode_y1 - decode_y0 + 1
     return decoded
 
-
+"""
+#Using tensorflow nms instead --- this one required a function that did 
+#not work in opencv so well. 
+ 
 def nmsBoxes(bboxes, scores, score_threshold, nms_threshold, top_k = 0):
-    """ Performs non-maximum supression on a series of overlapping
+    \""" Performs non-maximum supression on a series of overlapping
         bounding boxes
 
         bboxes: list of bounding boxes
@@ -114,7 +129,7 @@ def nmsBoxes(bboxes, scores, score_threshold, nms_threshold, top_k = 0):
         nms_threshold a threshold used in non maximum suppression.
         indices the kept indices of bboxes after NMS.
         top_k if `>0`, keep at most @p top_k picked indices.
-    """
+    \"""
 
     # Sort the scores in descending order, create a new list keeping
     # indices and value in a tuple value
@@ -146,3 +161,4 @@ def nmsBoxes(bboxes, scores, score_threshold, nms_threshold, top_k = 0):
             winning_indices.append(idx_score[0])
 
     return winning_indices
+"""

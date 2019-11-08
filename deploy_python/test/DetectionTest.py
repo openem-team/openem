@@ -19,9 +19,9 @@ class DetectionTest(tf.test.TestCase):
                      'test_image_001.jpg',
                      'test_image_002.jpg']
         self.fishLocations=[
-            [144.15286255, 102.43278503, 163.65844727, 104.77685547],
-            [],
-            []
+            [144, 102, 163, 104],
+            [320,138,156,91],
+            [88,98,317,177]
         ]
 
     def test_correctness(self):
@@ -34,9 +34,13 @@ class DetectionTest(tf.test.TestCase):
         # Verify the same thing but in batch mode
         batch_result = finder.process()
         self.assertIsNotNone(batch_result)
-        self.assertEqual(batch_result.shape[0],len(self.images))
+        self.assertEqual(len(batch_result),len(self.images))
         for idx in range(len(self.images)):
             with self.subTest(idx=idx):
-                location=batch_result[idx]
-                self.assertAlmostEqual(location, self.fishLocations[idx],
-                                       msg=f"Failed image: {location}")
+                self.assertEqual(len(batch_result[idx]), 1)
+                location=batch_result[idx][0].location
+                print(location)
+                self.assertAllClose(location,
+                                    np.array(self.fishLocations[idx]),
+                                    msg=f"Failed image: {location}",
+                                    atol=1)

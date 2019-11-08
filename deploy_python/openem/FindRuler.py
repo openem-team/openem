@@ -135,14 +135,27 @@ def rulerEndpoints(image_mask):
     inverse = np.vstack([inverse, [0,0,1]])
     return cv2.perspectiveTransform(endpoints, inverse)[0]
 
-def rectify(image, pointPair):
-    pass
+def rectify(image, endpoints):
+    """ Rectifies an image such that the ruler(in endpoints) is flat
+        image: array
+               Represents an image or image mask
+        endpoints: array
+                   Represents 2 pair of endpoints for a ruler
+    """
+    dst = np.array([[image.shape[1]*.1, image.shape[0]/2],
+                    [image.shape[1]*.9, image.shape[0]/2]])
+    rt_matrix,_ = cv2.estimateAffinePartial2D(endpoints,
+                                            dst)
+    return cv2.warpAffine(image,
+                          rt_matrix,
+                          (image.shape[1],image.shape[0]))
+
 
 def findRoi(image_mask, h_margin):
     """ Returns the roi of a given mask; with additional padding added
         both horizontally and vertically based off of h_margin and the
         underlying aspect ratio.
-        image_mask: ndarray
+        image_mask: array
                Represents image mask
         h_margin: int
                Number of pixels to use

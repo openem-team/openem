@@ -20,11 +20,6 @@ class Classifier(ImageModel):
                      Path to the frozen protobuf of the tensorflow graph
         gpu_fraction : float
                        Fraction of GPU allowed to be used by this object.
-        input_name : str
-                     Name of the tensor that serves as the image input
-        output_name : str
-                      Name of the the tensor that serves as the output of
-                      the network
         """
         super(Classifier, self).__init__(model_path, gpu_fraction,
                                        'data:0',

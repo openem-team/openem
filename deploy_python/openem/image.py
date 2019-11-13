@@ -1,3 +1,7 @@
+""" Utility module for dealing with image operations """
+
+import numpy as np
+
 def crop(image, roi):
     """ Returns a *copy* of the region of interest from the image
     image: ndarray

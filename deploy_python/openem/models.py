@@ -57,9 +57,12 @@ class ImageModel:
                        Fraction of GPU allowed to be used by this object.
         input_name : str
                      Name of the tensor that serves as the image input
-        output_name : str
-                      Name of the the tensor that serves as the output of
-                      the network
+        output_name : str or list of str
+                      Name(s) of the the tensor that serves as the output of
+                      the network. If a singular tensor is given; then the
+                      process function will return that singular tensor. Else
+                      the process function returns each tensor output in the
+                      order specified in this function as a list.
         """
 
         # Create session first with requested gpu_fraction parameter
@@ -75,10 +78,20 @@ class ImageModel:
 
             # TODO: place trt optomization, if elected, here
 
-            self.input_tensor, self.output_tensor = tf.import_graph_def(
-                graph_def,
-                return_elements=[input_name, output_name]
-            )
+            if type(output_name) == list:
+                return_elements = [input_name, *output_name]
+                tensors = tf.import_graph_def(
+                    graph_def,
+                    return_elements=return_elements)
+                # The first is an input
+                self.input_tensor = tensors[0]
+                # The rest are outputs
+                self.output_tensor = tensors[1:]
+            else:
+                return_elements = [input_name, output_name]
+                self.input_tensor, self.output_tensor = tf.import_graph_def(
+                    graph_def,
+                    return_elements=return_elements)
 
             self.input_shape = self.input_tensor.get_shape().as_list()
 

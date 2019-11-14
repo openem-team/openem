@@ -21,11 +21,14 @@ class IO:
         with open(filepath_like, 'r') as csv_file:
             reader = csv.DictReader(csv_file)
             for row in reader:
-                location=np.array([row['x'], row['y'], row['w'], row['h']])
+                location=np.array([float(row['x']),
+                                   float(row['y']),
+                                   float(row['w']),
+                                   float(row['h'])])
                 detections.append(Detection(location=location,
-                                            confidence=row['detection_conf'],
-                                            species=['detection_species'],
-                                            frame=row['frame'],
+                                            confidence=float(row['detection_conf']),
+                                            species=int(float(row['detection_species'])),
+                                            frame=int(row['frame']),
                                             video_id=row['video_id']))
         return detections
 

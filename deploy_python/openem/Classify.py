@@ -22,6 +22,10 @@ class IO:
                 species_end=col_cnt-3
                 species=row[species_start:species_end]
                 cover=row[species_end:]
+                for idx,el in enumerate(species):
+                    species[idx] = float(el)
+                for idx,el in enumerate(cover):
+                    cover[idx] = float(el)
                 classifications.append(Classification(frame=row[0],
                                                  video_id=row[1],
                                                  species=species,

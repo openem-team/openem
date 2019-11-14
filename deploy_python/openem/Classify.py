@@ -1,14 +1,32 @@
 """ Module for performing classification of a detection """
 import numpy as np
 import cv2
+import csv
 
 from openem.models import ImageModel
 from openem.models import Preprocessor
 from openem.image import crop
 
 from collections import namedtuple
-Classification=namedtuple('Classification', ['species', 'cover'])
+Classification=namedtuple('Classification', ['species', 'cover', 'frame', 'video_id'], defaults=[None,None])
 
+class IO:
+    def from_csv(filepath_like):
+        classifications=[]
+        with open(filepath_like, 'r') as csv_file:
+            reader = csv.reader(csv_file)
+            next(reader) # Skip header
+            for row in reader:
+                col_cnt=len(row)
+                species_start=2
+                species_end=col_cnt-3
+                species=row[species_start:species_end]
+                cover=row[species_end:]
+                classifications.append(Classification(frame=row[0],
+                                                 video_id=row[1],
+                                                 species=species,
+                                                 cover=cover))
+        return classifications
 class Classifier(ImageModel):
     preprocessor=Preprocessor(1.0/127.5,
                               np.array([-1,-1,-1]),

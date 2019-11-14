@@ -6,10 +6,29 @@ import numpy as np
 import tensorflow as tf
 
 from collections import namedtuple
+import csv
 
 Detection=namedtuple('Detection', ['location',
                                    'confidence',
-                                   'species'])
+                                   'species',
+                                   'frame',
+                                   'video_id'],
+                                  defaults=[None,None])
+
+class IO:
+    def from_csv(filepath_like):
+        detections=[]
+        with open(filepath_like, 'r') as csv_file:
+            reader = csv.DictReader(csv_file)
+            for row in reader:
+                location=np.array([row['x'], row['y'], row['w'], row['h']])
+                detections.append(Detection(location=location,
+                                            confidence=row['detection_conf'],
+                                            species=['detection_species'],
+                                            frame=row['frame'],
+                                            video_id=row['video_id']))
+        return detections
+
 class SSDDetector(ImageModel):
     preprocessor=Preprocessor(1.0,
                               np.array([-103.939,-116.779,-123.68]),

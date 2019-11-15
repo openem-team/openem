@@ -2,6 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import cv2
+import math
 
 from openem.models import ImageModel
 from openem.models import Preprocessor
@@ -65,10 +66,49 @@ class KeyframeFinder:
         if len(classifications) != len(detections):
             raise Exception("Classifications / Detections difer in length!")
 
+        sequence_length = self.sequenceSize()
+        sequence_count = math.ceil(det_len / sequence_length)
+        overall_keyframes = []
+
+        sequences=[] # The sequence of features to run the network on
+        seq_class=[] # the underlying classifictions for each sequence
+        # Iterate over each sequence to generate a batch request
+        for sequence_idx in range(sequence_count):
+            start_idx = sequence_idx*sequence_length
+            end_idx = max((sequence_idx+1)*sequence_length,len(detections))
+            classification_sublist=classifications[start_idx:end_idx]
+            detections_sublist=detections[start_idx:end_idx]
+            sequences.append(self._generateSequence(classification_sublist,
+                                                    detections_sublist))
+            seq_class.append(classification_sublist)
+
+        # Now that each sequence is setup, run the network on all of them
+        # TODO: May have practical limitations here if we have a huge
+        # video
+        return self._processSequences(sequences, seq_class)
+
+
+    def sequenceSize(self):
+        """ Returns the effective number of frames one can process in an
+            individual sequence """
+        return int(self.input_tensor.shape[1]-(KEYFRAME_OFFSET*2))
+
+    def _normalizeDetection(self, detection):
+        """ Normalize a detection coordinates to be relative coordinates """
+        return np.array([detection[0] / self.img_width,
+                         detection[1] / self.img_height,
+                         detection[2] / self.img_width,
+                         detection[3] / self.img_height])
+
+    def _generateSequence(self, classifications, detections):
+        """ Handle an individual sequence, returns frame offsets
+            unique to that sequence based on the output length.
+        """
+        det_len = len(detections)
+
         # Convert classifications and detections to input required for network
         seq_len = int(self.input_tensor.shape[1])
         fea_len = int(self.input_tensor.shape[2])
-        print(f"shape = {self.input_tensor.shape}")
         input_data = np.zeros((seq_len,fea_len))
 
         # Add padding before and after sequence based on KEYFRAME_OFFSET
@@ -119,20 +159,12 @@ class KeyframeFinder:
                     self._normalizeDetection(detection.location)
                 input_data[seq_idx, ssd_conf] = detection.confidence
                 input_data[seq_idx, ssd_species] = detection.species
+        return input_data
 
-        result = self.tf_session.run(self.output_tensor,
-                                     feed_dict={self.input_tensor:
-                                                np.array([input_data])})
-
+    def _findKeyframeSegments(self,array, classifications):
+        """ Based on a sequence result and the underlying classifications,
+            find the best keyframes """
         keyframes=[]
-        output_length = seq_len - (2*KEYFRAME_OFFSET)
-        assert output_length == result.shape[1]
-
-        # Iterate over the output and if we found a match, add it to the
-        # keyframe lists
-
-        array = result[0]
-
         while True:
             max_idx = np.argmax(array)
             max_value = array[max_idx]
@@ -146,7 +178,12 @@ class KeyframeFinder:
                 max_clear = 0.0
                 clear_idx = None
                 for area_idx in range(low_idx,limit):
+                    # The actual frame is KEYFRAME_OFFSET away from the
+                    # result vector due to padding
                     class_idx = area_idx - KEYFRAME_OFFSET
+
+                    # If there are no detections don't attemt to extract
+                    # then don't attempt to extract cover info
                     if len(classifications[class_idx]) == 0:
                         continue
                     element_cover = classifications[class_idx][0].cover[2]
@@ -161,3 +198,28 @@ class KeyframeFinder:
             # Zero out the area identified
             for clear_idx in range(low_idx, limit):
                 array[clear_idx] = 0.0
+
+    def _processSequences(self, sequences, seq_classes):
+        """ Process a result of sequences and returns the list of keyframes """
+
+        result = self.tf_session.run(self.output_tensor,
+                                     feed_dict={self.input_tensor:
+                                                np.array(sequences)})
+
+        keyframes=[]
+        assert self.sequenceSize() == result.shape[1]
+
+        # Iterate over the output and if we found a match, add it to the
+        # keyframe lists
+
+
+        # Process each sequence result adding its actual frame number
+        # to the overall list
+        for seq_idx,array in enumerate(result):
+            sequence_keyframes = self._findKeyframeSegments(
+                array,
+                seq_classes[seq_idx])
+            for keyframe in sequence_keyframes:
+                keyframes.append(keyframe + (seq_idx*self.sequenceSize()))
+
+        return keyframes

@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-class ClassifyTest(tf.test.TestCase):
+class CountTest(tf.test.TestCase):
     def setUp(self):
         self.deploy_dir = os.getenv('deploy_dir')
         if self.deploy_dir == None:

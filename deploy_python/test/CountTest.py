@@ -28,9 +28,17 @@ class ClassifyTest(tf.test.TestCase):
         self.assertIsNotNone(finder)
         detections = openem.Detect.IO.from_csv(self.detections_csv)
         classifications = openem.Classify.IO.from_csv(self.classification_csv)
-        self.assertEqual(len(detections), 104)
+        last_frame = detections[-1][0].frame
+
+        # Assert we have a 2d array of frame to detections and
+        # frame to classification
+        self.assertEqual(len(detections), last_frame+1)
         self.assertEqual(len(detections), len(classifications))
+
         keyframes = finder.process(classifications,detections)
+
+        # There should be 5 unique fish in this video
+        self.assertEqual(len(keyframes), 5)
 
     def test_errorChecks(self):
         finder=KeyframeFinder(self.pb_file, 720, 360)

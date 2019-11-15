@@ -50,12 +50,6 @@ class KeyframeFinder:
 
         self.img_width = img_width
         self.img_height = img_height
-    def normalizeDetection(self, detection):
-        """ Normalize a detection coordinates to be relative coordinates """
-        return np.array([detection[0] / self.img_width,
-                         detection[1] / self.img_height,
-                         detection[2] / self.img_width,
-                         detection[3] / self.img_height])
 
     def process(self, classifications, detections):
         """ Process the list of classifications and detections, which
@@ -122,7 +116,7 @@ class KeyframeFinder:
                 input_data[seq_idx,species_stop:cover_stop] = \
                     classification.cover
                 input_data[seq_idx,cover_stop:loc_stop] = \
-                    self.normalizeDetection(detection.location)
+                    self._normalizeDetection(detection.location)
                 input_data[seq_idx, ssd_conf] = detection.confidence
                 input_data[seq_idx, ssd_species] = detection.species
 

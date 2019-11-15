@@ -12,8 +12,7 @@ Detection=namedtuple('Detection', ['location',
                                    'confidence',
                                    'species',
                                    'frame',
-                                   'video_id'],
-                                  defaults=[None,None])
+                                   'video_id'])
 
 class IO:
     def from_csv(filepath_like):
@@ -101,7 +100,9 @@ class SSDDetector(ImageModel):
                 detection = Detection(
                     location = boxes[idx],
                     confidence = scores[idx],
-                    species = class_index[idx])
+                    species = class_index[idx],
+                    frame = None,
+                    video_id = None)
                 detections.append(detection)
 
             def get_confidence(detection):

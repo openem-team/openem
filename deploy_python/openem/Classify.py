@@ -8,7 +8,7 @@ from openem.models import Preprocessor
 from openem.image import crop
 
 from collections import namedtuple
-Classification=namedtuple('Classification', ['species', 'cover', 'frame', 'video_id'], defaults=[None,None])
+Classification=namedtuple('Classification', ['species', 'cover', 'frame', 'video_id'])
 
 class IO:
     def from_csv(filepath_like):
@@ -81,7 +81,9 @@ class Classifier(ImageModel):
         for image_idx, image_species in enumerate(species):
             image_cover = cover[image_idx]
             classification = Classification(species=image_species,
-                                            cover=image_cover)
+                                            cover=image_cover,
+                                            frame=None,
+                                            video_id=None)
             results_by_image.append(classification)
         return results_by_image
         

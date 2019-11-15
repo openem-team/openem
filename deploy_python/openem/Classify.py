@@ -16,6 +16,7 @@ class IO:
         with open(filepath_like, 'r') as csv_file:
             reader = csv.reader(csv_file)
             next(reader) # Skip header
+            last_idx = -1
             for row in reader:
                 col_cnt=len(row)
                 species_start=2
@@ -26,10 +27,21 @@ class IO:
                     species[idx] = float(el)
                 for idx,el in enumerate(cover):
                     cover[idx] = float(el)
-                classifications.append(Classification(frame=row[0],
-                                                 video_id=row[1],
-                                                 species=species,
-                                                 cover=cover))
+
+                item=Classification(frame=row[0],
+                                    video_id=row[1],
+                                    species=species,
+                                    cover=cover)
+                frame_num = int(float(row[0]))
+                if last_idx == frame_num:
+                    classifications[last_idx].append(item)
+                else:
+                    # Add Empties
+                    for _ in range(frame_num-1-last_idx):
+                        classifications.append([])
+                    classifications.append([item])
+                    last_idx = frame_num
+
         return classifications
 class Classifier(ImageModel):
     preprocessor=Preprocessor(1.0/127.5,

@@ -1,5 +1,6 @@
 /build/
 *__pycache__*
 config/Dockerfile.gen
+config/inference.gen
 *~
 \#*\#

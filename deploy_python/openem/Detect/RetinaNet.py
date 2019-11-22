@@ -1,7 +1,6 @@
-from keras_retinanet.models.resnet import custom_objects
 
 import tensorflow as tf
-
+import numpy as np
 from openem.models import ImageModel
 
 import cv2
@@ -16,6 +15,9 @@ class SubtractMeanImage:
         self.mean_image = meanImage
 
     def __call__(self, image, requiredWidth, requiredHeight):
+        #Reverse color channels
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = image.astype(np.float32)
         resized_image = cv2.resize(image, (requiredWidth, requiredHeight))
         for dim in [0,1,2]:
             resized_image[:,:,dim] -= self.mean_image[:,:,dim]
@@ -53,14 +55,14 @@ class RetinaNetDetector(ImageModel):
         # clip to image shape
         detections[:, :, 0] = np.maximum(0, detections[:, :, 0])
         detections[:, :, 1] = np.maximum(0, detections[:, :, 1])
-        detections[:, :, 2] = np.minimum(image_dims[1], detections[:, :, 2])
-        detections[:, :, 3] = np.minimum(image_dims[0], detections[:, :, 3])
+        detections[:, :, 2] = np.minimum(NETWORK_IMAGE_SHAPE[1], detections[:, :, 2])
+        detections[:, :, 3] = np.minimum(NETWORK_IMAGE_SHAPE[0], detections[:, :, 3])
 
         num_images = detections.shape[0]
         for idx in range(num_images):
             # correct boxes for image scale
-            h_scale = NETWORK_IMAGE_SHAPE[0] / self.imageSizes[idx][0]
-            w_scale = NETWORK_IMAGE_SHAPE[1] / self.imageSizes[idx][1]
+            h_scale = NETWORK_IMAGE_SHAPE[0] / self._imageSizes[idx][0]
+            w_scale = NETWORK_IMAGE_SHAPE[1] / self._imageSizes[idx][1]
             
             detections[idx, :, 0] /= w_scale
             detections[idx, :, 1] /= h_scale
@@ -78,9 +80,9 @@ class RetinaNetDetector(ImageModel):
             label = np.argmax(detection[4:])
             confidence = float(detection[4 + label])
             if confidence > threshold:
-                detection = Detection(location=detection[:4],
+                detection = Detection(location=detection[:4].tolist(),
                                       confidence=confidence,
-                                      species=label,
+                                      species=float(label),
                                       frame=None,
                                       video_id=None)
                 results.append(detection)

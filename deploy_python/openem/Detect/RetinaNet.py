@@ -49,7 +49,7 @@ class RetinaNetDetector(ImageModel):
         return super(RetinaNetDetector, self)._addImage(image,
                                                         self.preprocessor)
 
-    def process(self, threshold=0.0):
+    def process(self, threshold=0.0, **kwargs):
         detections = super(RetinaNetDetector,self).process()
 
         # clip to image shape
@@ -75,6 +75,8 @@ class RetinaNetDetector(ImageModel):
         detections[:, :, 3] -= detections[:, :, 1]
 
         results=[]
+        frame = kwargs.get('frame', None)
+        video_id = kwargs.get('video_id', None)
         # compute predicted labels and scores
         for detection in detections[0, ...]:
             label = np.argmax(detection[4:])
@@ -83,8 +85,8 @@ class RetinaNetDetector(ImageModel):
                 detection = Detection(location=detection[:4].tolist(),
                                       confidence=confidence,
                                       species=float(label),
-                                      frame=None,
-                                      video_id=None)
+                                      frame=frame,
+                                      video_id=video_id)
                 results.append(detection)
             
         self._imageSizes = None

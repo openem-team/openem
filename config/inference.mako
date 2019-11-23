@@ -13,6 +13,10 @@ RUN pip3 install --no-cache-dir opencv-python==4.1.1.26
 
 ENV deploy_dir /deploy_dir
 
+COPY deploy_python /openem
+WORKDIR /openem
+RUN pip3 install .
+
 # Add repo version to image as last step
 RUN echo ${version.Git.pretty} > /git_version.txt
 

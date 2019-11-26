@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import cv2
-from .optimizer import optomizeGraph
+from .optomizer import optomizeGraph
 
 class Preprocessor:
     def __init__(self, scale=None, bias=None, rgb=None):

@@ -32,7 +32,7 @@ class RetinaNetDetector(ImageModel):
         super(RetinaNetDetector,self).__init__(modelPath,
                                                gpuFraction,
                                                'input_1:0',
-                                               'nms/ExpandDims:0')
+                                               'nms/map/TensorArrayStack/TensorArrayGatherV3:0')
         self.input_shape[1:3] = NETWORK_IMAGE_SHAPE
         
         resized_mean = cv2.resize(meanImage,(NETWORK_IMAGE_SHAPE[1],

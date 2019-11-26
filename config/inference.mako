@@ -17,6 +17,14 @@ COPY deploy_python /openem
 WORKDIR /openem
 RUN pip3 install .
 
+COPY externals/keras_retinanet /keras_retinanet
+WORKDIR /keras_retinanet
+RUN pip3 install .
+
+COPY scripts /scripts
+
+WORKDIR /
+
 # Add repo version to image as last step
 RUN echo ${version.Git.pretty} > /git_version.txt
 

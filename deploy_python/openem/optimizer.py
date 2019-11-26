@@ -5,7 +5,7 @@ Defaults to using TensorRT, if not available, will revert to passing through
 the original graph. This allows for code to run on platforms without tensorrt.
 """
 
-def optomizeGraph(graph_def, output_nodes, user_trt_args=None):
+def optimizeGraph(graph_def, output_nodes, user_trt_args=None):
     try:
         from tensorflow.python.compiler.tensorrt import trt_convert as trt
         tensor_rt_args={'input_graph_def':graph_def,

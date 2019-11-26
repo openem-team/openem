@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import cv2
-from .optomizer import optomizeGraph
+from .optimizer import optimizeGraph
 
 class Preprocessor:
     def __init__(self, scale=None, bias=None, rgb=None):
@@ -51,8 +51,8 @@ class ImageModel:
     def __init__(self, model_path, gpu_fraction=1.0,
                  input_name = 'input_1:0',
                  output_name = 'output_node0:0',
-                 optomize = True,
-                 optomizer_args = None):
+                 optimize = True,
+                 optimizer_args = None):
         """ Initialize an image model object
         model_path : str or path-like object
                      Path to the frozen protobuf of the tensorflow graph
@@ -79,14 +79,14 @@ class ImageModel:
             graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(graph_file.read())
 
-            if optomize:
+            if optimize:
                 if type(output_name) == list:
                     sensitive_nodes = output_name
                 else:
                     sensitive_nodes = [output_name]
-                graph_def = optomizeGraph(graph_def,
+                graph_def = optimizeGraph(graph_def,
                                           sensitive_nodes,
-                                          optomizer_args)
+                                          optimizer_args)
             if type(output_name) == list:
                 return_elements = [input_name, *output_name]
                 tensors = tf.import_graph_def(

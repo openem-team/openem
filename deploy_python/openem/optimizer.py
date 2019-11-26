@@ -13,6 +13,7 @@ def optimizeGraph(graph_def, output_nodes, user_trt_args=None):
                         'precision_mode':trt.TrtPrecisionMode.FP16,
                         'is_dynamic_op':True,
                         'maximum_cached_engines':10,
+                        'minimum_segment_size': 6,
                         'max_batch_size':4}
         if user_trt_args:
             tensor_rt_args.update(user_trt_args)

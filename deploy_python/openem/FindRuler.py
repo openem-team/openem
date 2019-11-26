@@ -12,6 +12,8 @@ class RulerMaskFinder(ImageModel):
                               np.array([-1,-1,-1]),
                               True)
 
+    def __init__(self, model_path):
+        super(RulerMaskFinder,self).__init__(model_path, optimize=False)
     def addImage(self, image):
         """ Add an image to process in the underlying ImageModel after
             running preprocessing on it specific to this model.

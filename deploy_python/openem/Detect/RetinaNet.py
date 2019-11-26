@@ -23,7 +23,7 @@ class SubtractMeanImage:
             resized_image[:,:,dim] -= self.mean_image[:,:,dim]
         return resized_image
 
-NETWORK_IMAGE_SHAPE=(720,1280)  
+NETWORK_IMAGE_SHAPE=(720,1280)
 class RetinaNetDetector(ImageModel):
     def __init__(self, modelPath, meanImage, gpuFraction=1.0):
 
@@ -34,7 +34,7 @@ class RetinaNetDetector(ImageModel):
                                                'input_1:0',
                                                'nms/map/TensorArrayStack/TensorArrayGatherV3:0')
         self.input_shape[1:3] = NETWORK_IMAGE_SHAPE
-        
+
         resized_mean = cv2.resize(meanImage,(NETWORK_IMAGE_SHAPE[1],
                                              NETWORK_IMAGE_SHAPE[0]))
         self.preprocessor=SubtractMeanImage(resized_mean)
@@ -43,8 +43,6 @@ class RetinaNetDetector(ImageModel):
     def addImage(self, image):
         if self._imageSizes is None:
             self._imageSizes = []
-        if len(self._imageSizes) >= 1:
-            raise Exception('RetinaNet does not support batching (yet)')
         self._imageSizes.append(image.shape)
         return super(RetinaNetDetector, self)._addImage(image,
                                                         self.preprocessor)
@@ -63,12 +61,12 @@ class RetinaNetDetector(ImageModel):
             # correct boxes for image scale
             h_scale = NETWORK_IMAGE_SHAPE[0] / self._imageSizes[idx][0]
             w_scale = NETWORK_IMAGE_SHAPE[1] / self._imageSizes[idx][1]
-            
+
             detections[idx, :, 0] /= w_scale
             detections[idx, :, 1] /= h_scale
             detections[idx, :, 2] /= w_scale
             detections[idx, :, 3] /= h_scale
-            
+
 
         # change to (x, y, w, h) (MS COCO standard)
         detections[:, :, 2] -= detections[:, :, 0]
@@ -78,18 +76,23 @@ class RetinaNetDetector(ImageModel):
         frame = kwargs.get('frame', None)
         video_id = kwargs.get('video_id', None)
         # compute predicted labels and scores
-        for detection in detections[0, ...]:
-            label = np.argmax(detection[4:])
-            confidence = float(detection[4 + label])
-            if confidence > threshold:
-                detection = Detection(location=detection[:4].tolist(),
-                                      confidence=confidence,
-                                      species=float(label),
-                                      frame=frame,
-                                      video_id=video_id)
-                results.append(detection)
-            
+        num_imgs = detections.shape[0]
+        for img_idx in range(num_imgs):
+            if frame:
+                this_frame = frame + img_idx
+            else:
+                this_frame = None
+
+            for detection in detections[img_idx, ...]:
+                label = np.argmax(detection[4:])
+                confidence = float(detection[4 + label])
+                if confidence > threshold:
+                    detection = Detection(location=detection[:4].tolist(),
+                                          confidence=confidence,
+                                          species=float(label),
+                                          frame=this_frame,
+                                          video_id=video_id)
+                    results.append(detection)
+
         self._imageSizes = None
         return results
-
-            

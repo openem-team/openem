@@ -24,10 +24,10 @@ Dockerfile.gen: Dockerfile.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.
 inference.gen: inference.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
 	./../externals/build_tools/makocc.py -o $@ $<
 
-ifeq ($(deploy_dir), )
+ifeq ($(work_dir), )
 extra_mounts=
 else
-extra_mounts=-v $(deploy_dir):/deploy_dir
+extra_mounts=-v $(work_dir):/working --env deploy_dir=/working
 endif
 
 inference_bash:

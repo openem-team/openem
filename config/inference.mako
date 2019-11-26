@@ -11,8 +11,6 @@ RUN apt-get update && \
 
 RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 
 
-ENV deploy_dir /deploy_dir
-
 COPY deploy_python /openem
 WORKDIR /openem
 RUN pip3 install .
@@ -22,6 +20,7 @@ WORKDIR /keras_retinanet
 RUN pip3 install .
 
 COPY scripts /scripts
+COPY train /train
 
 WORKDIR /
 

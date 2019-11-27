@@ -34,9 +34,6 @@ class RetinaNetDetector(ImageModel):
                    Mean image subtracted from image prior to network
                    insertion. Can be None.
         """
-
-        # TODO: Get network output prior to NMS to support
-        # batch operations
         super(RetinaNetDetector,self).__init__(modelPath,
                                                gpuFraction,
                                                'input_1:0',

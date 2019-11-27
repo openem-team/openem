@@ -13,11 +13,11 @@ RUN pip3 install --no-cache-dir opencv-python==4.1.1.26
 
 COPY deploy_python /openem
 WORKDIR /openem
-RUN pip3 install .
+RUN pip3 install --no-cache-dir .
 
 COPY externals/keras_retinanet /keras_retinanet
 WORKDIR /keras_retinanet
-RUN pip3 install .
+RUN pip3 install --no-cache-dir .
 
 COPY scripts /scripts
 COPY train /train

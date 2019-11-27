@@ -19,13 +19,21 @@ class SubtractMeanImage:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = image.astype(np.float32)
         resized_image = cv2.resize(image, (requiredWidth, requiredHeight))
-        for dim in [0,1,2]:
-            resized_image[:,:,dim] -= self.mean_image[:,:,dim]
+        if self.mean_image:
+            for dim in [0,1,2]:
+                resized_image[:,:,dim] -= self.mean_image[:,:,dim]
         return resized_image
 
 NETWORK_IMAGE_SHAPE=(720,1280)
 class RetinaNetDetector(ImageModel):
     def __init__(self, modelPath, meanImage, gpuFraction=1.0):
+        """ Initialize the RetinaNet Detector model
+        modelPath: str
+                   path-like object to frozen pb graph
+        meanImage: np.array
+                   Mean image subtracted from image prior to network
+                   insertion. Can be None.
+        """
 
         # TODO: Get network output prior to NMS to support
         # batch operations
@@ -35,9 +43,13 @@ class RetinaNetDetector(ImageModel):
                                                'nms/map/TensorArrayStack/TensorArrayGatherV3:0')
         self.input_shape[1:3] = NETWORK_IMAGE_SHAPE
 
-        resized_mean = cv2.resize(meanImage,(NETWORK_IMAGE_SHAPE[1],
-                                             NETWORK_IMAGE_SHAPE[0]))
-        self.preprocessor=SubtractMeanImage(resized_mean)
+        if meanImage:
+            resized_mean = cv2.resize(meanImage,(NETWORK_IMAGE_SHAPE[1],
+                                                 NETWORK_IMAGE_SHAPE[0]))
+            self.preprocessor=SubtractMeanImage(resized_mean)
+        else:
+            self.preprocessor=SubtractMeanImage(None)
+
         self._imageSizes = None
 
     def addImage(self, image):

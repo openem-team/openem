@@ -30,5 +30,14 @@ else
 extra_mounts=-v $(work_dir):/working --env deploy_dir=/working
 endif
 
+ifeq ($(data_dir), )
+
+else
+extra_mounts+=-v $(data_dir):/data
+endif
+
+
+
+
 inference_bash:
 	nvidia-docker run --rm -ti -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_inference:latest

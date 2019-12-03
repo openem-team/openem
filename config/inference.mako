@@ -9,7 +9,8 @@ RUN apt-get update && \
     libxrender-dev && \
     rm -fr /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 
+RUN pip3 install --no-cache-dir --upgrade pip
+RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.0
 
 COPY deploy_python /openem
 WORKDIR /openem

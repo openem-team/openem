@@ -17,10 +17,9 @@ __license__ = "GPLv3"
 """Utilities for image augmentation."""
 
 import numpy as np
-from scipy.misc import imresize
-
+import cv2
+# TODO: Nice to settle on cv2 over skimage, if possible
 from skimage import io,transform
-import matplotlib.pyplot as plt
 import numpy as np
 
 def grayscale(rgb):
@@ -131,15 +130,19 @@ def blurred_by_downscaling(img, ratio):
     # Returns
         Blurred image.
     """
-    resampling = np.random.choice(['nearest', 'lanczos', 'bilinear', 'bicubic'])
+    resampling = np.random.choice([cv2.INTER_NEAREST,
+                                   cv2.INTER_LANCZOS4,
+                                   cv2.INTER_LINEAR, # Bilinear
+                                   cv2.INTER_CUBIC, #Bicubic
+    ])
 
     if ratio == 1:
         return img
 
     width = img.shape[1]
     height = img.shape[0]
-    small = imresize(img, ratio, interp=resampling)
-    large = imresize(small, size=(height, width), interp='bilinear').astype(np.float32)/255.0
+    small = cv2.resize(img, ratio, interpolation=resampling)
+    large = cv2.resize(small, size=(height, width)).astype(np.float32)/255.0
     return large
 
 def resizeAndFill(image, desired_shape):

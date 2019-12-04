@@ -67,7 +67,7 @@ def prep(config):
     retinanet_cols=['img_file', 'x1', 'y1', 'x2', 'y2', 'class_name']
     retinanet_df = pd.DataFrame(columns=retinanet_cols)
 
-    bar = progressbar.ProgressBar(max_value=len(length))
+    bar = progressbar.ProgressBar(max_value=len(length), redirect_stdout=True)
     # Iterate over each row in the length.csv and make a retinanet.csv
     for sample, row in bar(length.iterrows()):
         # Ignore no detections for retinanet csv

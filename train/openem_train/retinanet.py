@@ -69,9 +69,6 @@ def prep(config):
         if row.species_id == 0:
             continue
 
-        if sample > 10:
-            break
-
         # Each video id / image id has a unique RoI transform
         # TODO: This seems like it could be frame dependent
         # depending on the scenario

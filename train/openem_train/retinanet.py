@@ -127,8 +127,8 @@ def prep(config):
 
 
         # Coords are ints for retinanet
-        coords_box0=np.floor(coords_box0)
-        coords_box1=np.floor(coords_box1)
+        coords_box0=np.round(coords_box0).astype(np.int)
+        coords_box1=np.round(coords_box1).astype(np.int)
 
         # Make the datum and append it to the big dataframe
         datum={'img_file' : image_file,

@@ -7,7 +7,7 @@ __license__ = "GPLv3"
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -45,6 +45,7 @@ def main():
         "extract_rois: Use predicted ruler locations to extract ROIs.\n"
         "detect_train: Train algorithm to detect fish. (SSD)\n"
         "detect_predict: Predict fish locations for extracted ROIs. (SSD)\n"
+        "retinanet_prep: Construct files for Retinanet training. (Retinanet)\n"
         "retinanet_train: Train algorithm to detect fish. (Retinanet)\n"
         "retinanet_predict: Predict fish locations for extracted ROIs. (R)\n"
         "extract_dets: Use predicted fish locations to extract detections.\n"
@@ -82,6 +83,10 @@ def main():
     if args.task == 'detect_predict':
         from openem_train import detect
         detect.predict(config)
+
+    if args.task == 'retinanet_prep':
+        from openem_train import retinanet
+        retinanet.prep(config)
 
     if args.task == 'retinanet_train':
         from openem_train import retinanet

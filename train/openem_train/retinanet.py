@@ -125,6 +125,12 @@ def prep(config):
             coords_box0=rotated_detection_image[topLeftIdx]
             coords_box1=rotated_detection_image[bottomRightIdx]
 
+
+        # Coords are ints for retinanet
+        coords_box0=np.floor(coords_box0)
+        coords_box1=np.floor(coords_box1)
+
+        # Make the datum and append it to the big dataframe
         datum={'img_file' : image_file,
                'class_name' : species_name,
                'x1': coords_box0[0],

@@ -46,6 +46,7 @@ def main():
         "detect_train: Train algorithm to detect fish. (SSD)\n"
         "detect_predict: Predict fish locations for extracted ROIs. (SSD)\n"
         "retinanet_prep: Construct files for Retinanet training. (Retinanet)\n"
+        "retinanet_split: Split file into train/validation. (Retinanet)\n"
         "retinanet_train: Train algorithm to detect fish. (Retinanet)\n"
         "retinanet_predict: Predict fish locations for extracted ROIs. (R)\n"
         "extract_dets: Use predicted fish locations to extract detections.\n"
@@ -87,6 +88,10 @@ def main():
     if args.task == 'retinanet_prep':
         from openem_train import retinanet
         retinanet.prep(config)
+
+    if args.task == 'retinanet_split':
+        from openem_train import retinanet
+        retinanet.split(config)
 
     if args.task == 'retinanet_train':
         from openem_train import retinanet

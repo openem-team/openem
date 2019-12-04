@@ -28,8 +28,7 @@ def prep(config):
     work_dir = config.work_dir()
     retinanet_dir = os.path.join(work_dir, "retinanet")
     species_csv = os.path.join(retinanet_dir, "species.csv")
-    retinanet_csv = os.path.join(retinanet_dir, "annotations.csv")
-    validation_csv = os.path.join(retinanet_dir, "validation.csv")
+    retinanet_csv = os.path.join(retinanet_dir, "totalPopulation.csv")
 
     os.makedirs(retinanet_dir, exist_ok=True)
 
@@ -136,31 +135,48 @@ def prep(config):
         retinanet_df = retinanet_df.append(pd.DataFrame(columns=retinanet_cols,
                                                         data=[datum]))
 
+    retinanet_df.to_csv(retinanet_csv, index=False, header=False)
+
+def getPopulationStats(config, df):
+    stats={}
+    total=len(df)
+    for name in config.species():
+        count = len(df[df.class_name==name])
+        stats[name] = (count, count/total)
+    return stats
+
+def split(config):
+    work_dir = config.work_dir()
+    retinanet_dir = os.path.join(work_dir, "retinanet")
+    totalPopulation_csv = os.path.join(retinanet_dir, "totalPopulation.csv")
+    annotations_csv = os.path.join(retinanet_dir, "annotations.csv")
+    validation_csv = os.path.join(retinanet_dir, "validation.csv")
+    retinanet_cols=['img_file', 'x1', 'y1', 'x2', 'y2', 'class_name']
+    total_df = pd.read_csv(totalPopulation_csv,
+                           header=None,
+                           names=retinanet_cols)
     if config.detect_do_validation():
         random_seed = config.detect_val_random_seed()
         val_population = config.detect_val_population()
         print(f"Generating validation data set {val_population*100}% @ RS:{random_seed}")
         train_pop = 1.0 - val_population
-        train_df=retinanet_df.sample(frac=train_pop, random_state=random_seed)
-        validation_df=retinanet_df.drop(train_df.index)
+        train_df=total_df.sample(frac=train_pop, random_state=random_seed)
+        validation_df=total_df.drop(train_df.index)
 
+        print("Total Population:")
+        pprint(getPopulationStats(config, total_df))
         print("Train Population:")
         pprint(getPopulationStats(config, train_df))
         print("Validation Population:")
         pprint(getPopulationStats(config, validation_df))
-        train_df.to_csv(retinanet_csv, index=False, header=False)
+        train_df.to_csv(annotations_csv, index=False, header=False)
         validation_df.to_csv(validation_csv, index=False, header=False)
     else:
-        print("NOTICE: Not generating validation data set")
-        # After all the iterations, generate the file
-        retinanet_df.to_csv(retinanet_csv, index=False, header=False)
+        print("NOITICE: Not configured to do validation")
+        print("Total Population:")
+        pprint(getPopulationStats(config, total_df))
+        total_df.to_csv(annotations_csv, index=False, header=False)
 
-def getPopulationStats(config, df):
-    stats={}
-    for name in config.species():
-        count = len(df[df.class_name==name])
-        stats[name] = count
-    return stats
 def train(config):
     work_dir = config.work_dir()
     species_csv = os.path.join(work_dir, "retinanet", "species.csv")

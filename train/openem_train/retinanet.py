@@ -179,8 +179,10 @@ def split(config):
 
 def train(config):
     work_dir = config.work_dir()
-    species_csv = os.path.join(work_dir, "retinanet", "species.csv")
-    retinanet_csv = os.path.join(work_dir, "retinanet", "annotations.csv")
+    retinanet_dir = os.path.join(work_dir, "retinanet")
+    annotations_csv = os.path.join(retinanet_dir, "annotations.csv")
+    validation_csv = os.path.join(retinanet_dir, "validation.csv")
+    species_csv = os.path.join(retinanet_dir, "species.csv")
     if not os.path.exists(species_csv):
         print(f"Need to make species.csv in {work_dir}")
         print("Attempting to generate it for you from config.ini")
@@ -197,9 +199,19 @@ def train(config):
             '/keras_retinanet/scripts/train.py',
             '--train_img_dir',
             config.train_imgs_dir(),
-            'openem',
-            boxes_csv,
-            species_csv]
+            '--batch-size',
+            str(config.detect_batch_size())]
+    args.extend(['csv',
+                 annotations_csv,
+                 species_csv])
+    if config.detect_do_validation():
+        args.extend(['--val-annotations',
+                     validation_csv])
+    args.extend(['--image_min_side',
+                 str(config.detect_height()),
+                 '--image_max_side',
+                 str(config.detect_width())])
+
     p=subprocess.Popen(args)
     p.wait()
     return p.returncode

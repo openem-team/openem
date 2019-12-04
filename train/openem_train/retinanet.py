@@ -5,6 +5,7 @@ import os
 import csv
 import pandas as pd
 import cv2
+import numpy as np
 
 from collections import namedtuple
 
@@ -24,13 +25,16 @@ def prep(config):
     """
 
     work_dir = config.work_dir()
-    species_csv = os.path.join(work_dir, "retinanet", "species.csv")
-    retinanet_csv = os.path.join(work_dir, "retinanet", "annotations.csv")
+    retinanet_dir = os.path.join(work_dir, "retinanet")
+    species_csv = os.path.join(retinanet_dir, "species.csv")
+    retinanet_csv = os.path.join(retinanet_dir, "annotations.csv")
+
+    os.makedirs(retinanet_dir, exist_ok=True)
 
     # Generate the species csv file first
     # This is a csv file with each species on a new line, with no
     # header
-    species_df = pd.DataFrame(columns=['species'], data=config.species)
+    species_df = pd.DataFrame(columns=['species'], data=config.species())
     species_df.to_csv(species_csv, header=False, index=False)
 
     # Generate the annotations csv for retinanet; this is in the format
@@ -45,7 +49,7 @@ def prep(config):
     # Before we start converting/transforming we setup the roi transform
     # object and figure out if we are in line or box mode
     roi_transform = RoiTransform(config)
-    length = pd.read_csv(self.config.length_path())
+    length = pd.read_csv(config.length_path())
 
     keys = length.keys()
     linekeys=['x1','x2','y1','y2']
@@ -56,22 +60,25 @@ def prep(config):
         lineMode = False
 
     retinanet_cols=['img_file', 'x1', 'y1', 'x2', 'y2', 'class_name']
-    retinanet_df = pd.Dataframe(columns=retinanet_cols)
+    retinanet_df = pd.DataFrame(columns=retinanet_cols)
 
     bar = progressbar.ProgressBar(max_value=len(length))
     # Iterate over each row in the length.csv and make a retinanet.csv
-    for _, row in bar(length.iterrows()):
+    for sample, row in bar(length.iterrows()):
         # Ignore no detections for retinanet csv
         if row.species_id == 0:
             continue
 
+        if sample > 10:
+            break
+
         # Each video id / image id has a unique RoI transform
         # TODO: This seems like it could be frame dependent
         # depending on the scenario
-        tform = self.roi_transform.transform_for_clip(
-            detection.video_id,
-            dst_w=self.config.detect_width(),
-            dst_h=self.config.detect_height())
+        tform = roi_transform.transform_for_clip(
+            row.video_id,
+            dst_w=config.detect_width(),
+            dst_h=config.detect_height())
 
         # Construct image path
         image_file = os.path.join(config.train_rois_dir(),
@@ -80,29 +87,21 @@ def prep(config):
 
         # Species id in openem is 1-based index
         species_id_0 = row.species_id - 1
-        species_name = config.species[species_id_0]
-
-        # If the roi image is not the same dims as the detect input we
-        # have a scale factor to apply
-        img = cv2.imread(image_file)
-
-        # Don't care about actual image contents
-        _, scale = resizeAndFill(img, (self.config.detect_height(),
-                                       self.config.detect_width()))
+        species_name = config.species()[species_id_0]
 
         # OpenEM detection csv is in image coordinates, need to convert
         # that to roi coordinates because that is what we train on.
         # Logic is pretty similar for line+aspect ratio and box style
         # annotations
         if lineMode:
-            aspect_ratio = self.config.aspect_ratios()[species_id_0]
-            coords_image = np.array([[detection.x1*scale[1],
-                                      detection.y1*scale[0]],
-                                     [detection.x2*scale[1],
-                                      detection.y2*scale[0]]])
+            aspect_ratio = config.aspect_ratios()[species_id_0]
+            coords_image = np.array([[row.x1,
+                                      row.y1],
+                                     [row.x2,
+                                      row.y2]])
             coords_roi = tform.inverse(coords_image)
-            coords_box0, coords_box1 = utils.bbox_for_line(coords_in_crop[0,:],
-                                                           coords_in_crop[1,:],
+            coords_box0, coords_box1 = utils.bbox_for_line(coords_roi[0,:],
+                                                           coords_roi[1,:],
                                                            aspect_ratio)
         else:
             # Make the row a detection object (in image coords)
@@ -118,23 +117,20 @@ def prep(config):
             rotated_detection_image = utils.rotate_detection(detection_image)
             # Box is now converted from x,y,w,h to 4 points representing each
             # corner
-            # Need to apply the scale
-            rotated_detection_image[:,0] *= scale[1]
-            rotated_detection_image[:,1] *= scale[0]
             # We translate all 4 points
-            topLeftIdx,bottomRightIdx=utils.find_corners(coords_in_crop)
+            topLeftIdx,bottomRightIdx=utils.find_corners(rotated_detection_image)
             # These are now the diagnol representing the bounding box.
-            coords_box0=coords_in_crop[topLeftIdx]
-            coords_box1=coords_in_crop[bottomRightIdx]
+            coords_box0=rotated_detection_image[topLeftIdx]
+            coords_box1=rotated_detection_image[bottomRightIdx]
 
         datum={'img_file' : image_file,
                'class_name' : species_name,
                'x1': coords_box0[0],
                'y1': coords_box0[1],
-               'x2': coords_box[0],
-               'y2': coords_box[1]}
+               'x2': coords_box1[0],
+               'y2': coords_box1[1]}
 
-        retinanet_df = retinanet_df.append(pd.Dataframe(columns=retinanet_cols,
+        retinanet_df = retinanet_df.append(pd.DataFrame(columns=retinanet_cols,
                                                         data=[datum]))
 
     # After all the iterations, generate the file

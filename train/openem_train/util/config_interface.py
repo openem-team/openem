@@ -173,6 +173,14 @@ class ConfigInterface:
         """
         return self.config.getint('Detect', 'ValBatchSize')
 
+    def detect_val_random_seed(self):
+        """ Returns the value to use for the random seed
+            to generate the validation population size.
+        """
+        return self.config.getint('Detect', 'ValRandomSeed')
+    def detect_val_population(self):
+        """ Returns the population percentage for the validation set """
+        return self.config.getfloat('Detect', 'ValPopulation')
     def detect_num_epochs(self):
         """Returns number of epochs used for detection training.
         """

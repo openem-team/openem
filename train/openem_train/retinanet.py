@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from collections import namedtuple
+from pprint import pprint
 
 from openem_train.util import utils
 from openem_train.util.roi_transform import RoiTransform
@@ -28,6 +29,7 @@ def prep(config):
     retinanet_dir = os.path.join(work_dir, "retinanet")
     species_csv = os.path.join(retinanet_dir, "species.csv")
     retinanet_csv = os.path.join(retinanet_dir, "annotations.csv")
+    validation_csv = os.path.join(retinanet_dir, "validation.csv")
 
     os.makedirs(retinanet_dir, exist_ok=True)
 
@@ -134,10 +136,31 @@ def prep(config):
         retinanet_df = retinanet_df.append(pd.DataFrame(columns=retinanet_cols,
                                                         data=[datum]))
 
-    # After all the iterations, generate the file
-    retinanet_df.to_csv(retinanet_csv, index=False, header=False)
+    if config.detect_do_validation():
+        random_seed = config.detect_val_random_seed()
+        val_population = config.detect_val_population()
+        print(f"Generating validation data set {val_population*100}% @ RS:{random_seed}")
+        train_pop = 1.0 - val_population
+        train_df=retinanet_df.sample(frac=train_pop, random_state=random_seed)
+        validation_df=retinanet_df.drop(train_df.index)
 
+        print("Train Population:")
+        pprint(getPopulationStats(config, train_df))
+        print("Validation Population:")
+        pprint(getPopulationStats(config, validation_df))
+        train_df.to_csv(retinanet_csv, index=False, header=False)
+        validation_df.to_csv(validation_csv, index=False, header=False)
+    else:
+        print("NOTICE: Not generating validation data set")
+        # After all the iterations, generate the file
+        retinanet_df.to_csv(retinanet_csv, index=False, header=False)
 
+def getPopulationStats(config, df):
+    stats={}
+    for name in config.species():
+        count = len(df[df.class_name==name])
+        stats[name] = count
+    return stats
 def train(config):
     work_dir = config.work_dir()
     species_csv = os.path.join(work_dir, "retinanet", "species.csv")

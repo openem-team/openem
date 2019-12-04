@@ -181,6 +181,9 @@ class ConfigInterface:
     def detect_val_population(self):
         """ Returns the population percentage for the validation set """
         return self.config.getfloat('Detect', 'ValPopulation')
+    def detect_backbone(self):
+        """ Returns the backbone for retinanet to use """
+        return self.config.get('Detect', 'Backbone')
     def detect_num_epochs(self):
         """Returns number of epochs used for detection training.
         """

@@ -130,6 +130,14 @@ def prep(config):
         coords_box0=np.round(coords_box0).astype(np.int)
         coords_box1=np.round(coords_box1).astype(np.int)
 
+        zero=np.array([0,0])
+        negative=np.max([coords_box0 < zero, coords_box1 < zero])
+
+        if negative == True:
+            print(f"WARNING:\tLocalization went off ROI, line {sample}")
+            print(f"\t\t {row.video_id}, frame={row.frame}")
+            continue
+
         # Make the datum and append it to the big dataframe
         datum={'img_file' : image_file,
                'class_name' : species_name,

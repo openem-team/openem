@@ -34,7 +34,11 @@ def prep(config):
     # Generate the species csv file first
     # This is a csv file with each species on a new line, with no
     # header
-    species_df = pd.DataFrame(columns=['species'], data=config.species())
+    species=[]
+    for idx,name in enumerate(config.species()):
+        species.append({'species': name,
+                        'id': idx})
+    species_df = pd.DataFrame(columns=['species', 'id'], data=species)
     species_df.to_csv(species_csv, header=False, index=False)
 
     # Generate the annotations csv for retinanet; this is in the format

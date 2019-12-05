@@ -220,7 +220,7 @@ def train(config):
     print("Calculated steps per epoch = {steps_per_epoch}")
     args = ['python',
             '/keras_retinanet/scripts/train.py',
-            '--train_img_dir',
+            '--train-img-dir',
             config.train_rois_dir(),
             '--batch-size',
             str(config.detect_batch_size()),

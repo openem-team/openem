@@ -85,10 +85,18 @@ def prep(config):
             dst_w=config.detect_width(),
             dst_h=config.detect_height())
 
-        # Construct image path
-        image_file = os.path.join(config.train_rois_dir(),
-                                  row.video_id,
-                                  f"{row.frame:04d}.jpg")
+        # Construct image path (either png or jpg)
+        jpg_image_file = os.path.join(config.train_rois_dir(),
+                                      row.video_id,
+                                      f"{row.frame:04d}.jpg")
+        png_image_file = os.path.join(config.train_rois_dir(),
+                                      row.video_id,
+                                      f"{row.frame:04d}.png")
+
+        if os.path.exists(jpg_image_file):
+            image_file = jpg_image_file
+        elif os.path.exists(png_image_file):
+            image_file = png_image_file
 
         # Species id in openem is 1-based index
         species_id_0 = row.species_id - 1

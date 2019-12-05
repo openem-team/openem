@@ -112,7 +112,11 @@ def prep(config):
                                       row.y1],
                                      [row.x2,
                                       row.y2]])
-            coords_roi = tform.inverse(coords_image)
+            if tform:
+                coords_roi = tform.inverse(coords_image)
+            else:
+                # There is no transform
+                coords_roi = coords_image
             coords_box0, coords_box1 = utils.bbox_for_line(coords_roi[0,:],
                                                            coords_roi[1,:],
                                                            aspect_ratio)
@@ -131,10 +135,16 @@ def prep(config):
             # Box is now converted from x,y,w,h to 4 points representing each
             # corner
             # We translate all 4 points
-            topLeftIdx,bottomRightIdx=utils.find_corners(rotated_detection_image)
+            if tform:
+                coords_roi = tform.inverse(rotated_detecion_image)
+            else:
+                # There is no transform
+                coords_roi = rotated_detection_image
+
+            topLeftIdx,bottomRightIdx=utils.find_corners(coords_roi)
             # These are now the diagnol representing the bounding box.
-            coords_box0=rotated_detection_image[topLeftIdx]
-            coords_box1=rotated_detection_image[bottomRightIdx]
+            coords_box0=coords_roi[topLeftIdx]
+            coords_box1=coords_roi[bottomRightIdx]
 
 
         # Coords are ints for retinanet

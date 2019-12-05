@@ -244,7 +244,7 @@ def train(config):
                  '--image_max_side',
                  str(config.detect_width())])
 
-    cmd = "".join(args))
+    cmd = " ".join(args)
     print(f"Command = {cmd}")
     p=subprocess.Popen(args)
     p.wait()

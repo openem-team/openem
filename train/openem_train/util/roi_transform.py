@@ -51,6 +51,9 @@ class RoiTransform:
             points_random_shift: How many points to randomly shift image.
         """
         img_points = np.array([[dst_w * 0.1, dst_h / 2], [dst_w * 0.9, dst_h / 2]])
+        if video_id not in self.ruler_points:
+            return None
+
         points = self.ruler_points[video_id]
 
         ruler_points = np.array([[points.x1, points.y1], [points.x2, points.y2]])

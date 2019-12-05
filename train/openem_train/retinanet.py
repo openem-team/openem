@@ -214,6 +214,10 @@ def train(config):
     else:
         print("Detected Species.csv in training dir")
 
+    train_annotations=pd.read_csv(annotations_csv)
+    steps_per_epoch = len(train_annotations) / config.detect_batch_size()
+    steps_per_epoch = int(np.floor(steps_per_epoch))
+    print("Calculated steps per epoch = {steps_per_epoch}")
     args = ['python',
             '/keras_retinanet/scripts/train.py',
             '--train_img_dir',
@@ -223,7 +227,11 @@ def train(config):
             '--snapshot-path',
             snapshot_dir,
             '--log-dir',
-            log_dir
+            log_dir,
+            '--epochs',
+            str(config.detect_num_epochs()),
+            '--steps-per-epoch',
+            str(steps_per_epoch)
     ]
     args.extend(['csv',
                  annotations_csv,

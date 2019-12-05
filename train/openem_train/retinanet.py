@@ -77,6 +77,9 @@ def prep(config):
         # Each video id / image id has a unique RoI transform
         # TODO: This seems like it could be frame dependent
         # depending on the scenario
+        assert False
+        # TODO: Don't use detection width/height here, needs to be in
+        # image coordinates...
         tform = roi_transform.transform_for_clip(
             row.video_id,
             dst_w=config.detect_width(),

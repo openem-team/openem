@@ -200,6 +200,8 @@ def train(config):
     annotations_csv = os.path.join(retinanet_dir, "annotations.csv")
     validation_csv = os.path.join(retinanet_dir, "validation.csv")
     species_csv = os.path.join(retinanet_dir, "species.csv")
+    snapshot_dir = os.path.join(retinanet_dir, "train_snapshots")
+    log_dir = os.path.join(retinanet_dir, "train_log")
     if not os.path.exists(species_csv):
         print(f"Need to make species.csv in {work_dir}")
         print("Attempting to generate it for you from config.ini")
@@ -215,9 +217,14 @@ def train(config):
     args = ['python',
             '/keras_retinanet/scripts/train.py',
             '--train_img_dir',
-            config.train_imgs_dir(),
+            config.train_rois_dir(),
             '--batch-size',
-            str(config.detect_batch_size())]
+            str(config.detect_batch_size()),
+            '--snapshot-path',
+            snapshot_dir,
+            '--log-dir',
+            log_dir
+    ]
     args.extend(['csv',
                  annotations_csv,
                  species_csv])
@@ -229,6 +236,8 @@ def train(config):
                  '--image_max_side',
                  str(config.detect_width())])
 
+    cmd = "".join(args))
+    print(f"Command = {cmd}")
     p=subprocess.Popen(args)
     p.wait()
     return p.returncode

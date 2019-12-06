@@ -26,7 +26,7 @@ class SubtractMeanImage:
 
 NETWORK_IMAGE_SHAPE=(720,1280)
 class RetinaNetDetector(ImageModel):
-    def __init__(self, modelPath, meanImage, gpuFraction=1.0):
+    def __init__(self, modelPath, meanImage=None, gpuFraction=1.0):
         """ Initialize the RetinaNet Detector model
         modelPath: str
                    path-like object to frozen pb graph

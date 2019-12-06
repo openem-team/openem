@@ -259,3 +259,50 @@ def train(config):
     p=subprocess.Popen(args)
     p.wait()
     return p.returncode
+
+def predict(config):
+    import openem
+    from openem.Detect import Detection,RetinaNet
+    import pandas as pd
+    import cv2
+
+    retinanet = RetinaNet.RetinaNetDetector(config.detect_retinanet_path())
+    limit = None
+    count = 0
+    threshold=0
+    if config.config.has_option('Detect', 'Limit'):
+        limit = config.config.getint('Detect','Limit')
+    if config.config.has_option('Detect', 'Threshold'):
+        threshold= config.config.getfloat('Detect', 'Threshold')
+
+    print(f"Using threshold {threshold} for up to {limit} files")
+
+    result_csv = config.detect_inference_path()
+    result_cols=['video_id',
+                  'frame',
+                  'x','y','w','h',
+                  'det_conf','det_species']
+    result_df = pd.DataFrames(columns=result_cols)
+    result_df.to_csv(result_csv, header=True, index=False)
+    bar = progressbar.ProgressBar(redirect_stdout=True)
+    # TODO: Use test images here?
+    for img_path in bar(config.train_rois()):
+        path, f = os.path.split(img_path)
+        frame, _ = os.path.splitext(f)
+        video_id = os.path.basename(os.path.normpath(path))
+        img = cv2.imread(img_path)
+        retinanet.addImage(img)
+        results = retinanet.process(threshold, frame=frame, video_id=video_id)
+        image_results=results[0]
+        for result in image_results:
+            datum = {'video_id': result.video_id,
+                     'frame': result.frame,
+                     'x': result.location[0],
+                     'y': result.location[1],
+                     'w': result.location[2],
+                     'h': result.location[3],
+                     'det_species': result.species,
+                     'det_conf': result.confidence}
+            record = pd.DataFrame(columns=result_cols,
+                                  data=[datum])
+            record.to_csv(result_csv, header=False, index=False, append=True)

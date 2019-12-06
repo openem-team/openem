@@ -73,6 +73,11 @@ class ConfigInterface:
         """
         return os.path.join(self.detect_model_dir(), 'detect.pb')
 
+    def detect_retinanet_path(self):
+        """Gets detection file path.
+        """
+        return os.path.join(self.detect_model_dir(), 'detect_retinanet.pb')
+
     def classify_model_dir(self):
         """Gets classification model directory.
         """

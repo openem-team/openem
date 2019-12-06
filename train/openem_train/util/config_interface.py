@@ -183,7 +183,16 @@ class ConfigInterface:
         return self.config.getfloat('Detect', 'ValPopulation')
     def detect_backbone(self):
         """ Returns the backbone for retinanet to use """
-        return self.config.get('Detect', 'Backbone')
+        if self.config.has_option('Detect', 'Backbone'):
+            return self.config.get('Detect', 'Backbone')
+        else:
+            return None
+    def detect_force_aspect(self):
+        """ Returns the backbone for retinanet to use """
+        if self.config.has_option('Detect', 'ForceAspect'):
+            return self.config.getfloat('Detect', 'ForceAspect')
+        else:
+            return None
     def detect_num_epochs(self):
         """Returns number of epochs used for detection training.
         """

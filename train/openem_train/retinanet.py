@@ -233,6 +233,12 @@ def train(config):
             '--steps-per-epoch',
             str(steps_per_epoch)
     ]
+
+    backbone = config.detect_backbone()
+    if backbone:
+        args.extend(['--backbone',
+                     backbone])
+
     args.extend(['csv',
                  annotations_csv,
                  species_csv])
@@ -243,6 +249,10 @@ def train(config):
                  str(config.detect_height()),
                  '--image_max_side',
                  str(config.detect_width())])
+    force_aspect = config.detect_force_aspect()
+    if force_aspect:
+        args.extend(['--force-aspect-ratio',
+                     str(force_aspect)])
 
     cmd = " ".join(args)
     print(f"Command = {cmd}")

@@ -282,13 +282,14 @@ def predict(config):
                   'frame',
                   'x','y','w','h',
                   'det_conf','det_species']
-    result_df = pd.DataFrames(columns=result_cols)
+    result_df = pd.DataFrame(columns=result_cols)
     result_df.to_csv(result_csv, header=True, index=False)
     bar = progressbar.ProgressBar(redirect_stdout=True)
     # TODO: Use test images here?
     for img_path in bar(config.train_rois()):
         path, f = os.path.split(img_path)
         frame, _ = os.path.splitext(f)
+        frame=int(frame)
         video_id = os.path.basename(os.path.normpath(path))
         img = cv2.imread(img_path)
         retinanet.addImage(img)

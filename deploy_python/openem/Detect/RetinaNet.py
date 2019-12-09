@@ -92,6 +92,7 @@ class RetinaNetDetector(ImageModel):
             else:
                 this_frame = None
 
+            image_detections=[]
             for detection in detections[img_idx, ...]:
                 label = np.argmax(detection[4:])
                 confidence = float(detection[4 + label])
@@ -101,7 +102,8 @@ class RetinaNetDetector(ImageModel):
                                           species=float(label),
                                           frame=this_frame,
                                           video_id=video_id)
-                    results.append(detection)
+                    image_detections.append(detection)
+            results.append(image_detections)
 
         self._imageSizes = None
         return results

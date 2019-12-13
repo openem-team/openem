@@ -74,16 +74,6 @@ def prep(config):
         if row.species_id == 0:
             continue
 
-        # Each video id / image id has a unique RoI transform
-        # TODO: This seems like it could be frame dependent
-        # depending on the scenario
-        assert False
-        # TODO: Don't use detection width/height here, needs to be in
-        # image coordinates...
-        tform = roi_transform.transform_for_clip(
-            row.video_id,
-            dst_w=config.detect_width(),
-            dst_h=config.detect_height())
 
         # Construct image path (either png or jpg)
         jpg_image_file = os.path.join(config.train_rois_dir(),
@@ -97,6 +87,15 @@ def prep(config):
             image_file = jpg_image_file
         elif os.path.exists(png_image_file):
             image_file = png_image_file
+
+        img_data = cv2.imread(image_file)
+
+        # TODO: Don't use detection width/height here, needs to be in
+        # image coordinates...
+        tform = roi_transform.transform_for_clip(
+            row.video_id,
+            dst_w=img_data.shape[1],
+            dst_h=img_data.shape[0])
 
         # Species id in openem is 1-based index
         species_id_0 = row.species_id - 1
@@ -284,7 +283,8 @@ def predict(config):
     import pandas as pd
     import cv2
 
-    retinanet = RetinaNet.RetinaNetDetector(config.detect_retinanet_path())
+    image_dims = (config.detect_height(), config.detect_width())
+    retinanet = RetinaNet.RetinaNetDetector(config.detect_retinanet_path(), None, image_dims)
     limit = None
     count = 0
     threshold=0
@@ -324,4 +324,4 @@ def predict(config):
                      'det_conf': result.confidence}
             record = pd.DataFrame(columns=result_cols,
                                   data=[datum])
-            record.to_csv(result_csv, header=False, index=False, append=True)
+            record.to_csv(result_csv, header=False, index=False, mode='a')

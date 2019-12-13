@@ -4,6 +4,7 @@ import numpy as np
 from openem.models import ImageModel
 
 import cv2
+import math
 
 from openem.Detect import Detection
 from openem.image import force_aspect
@@ -50,6 +51,7 @@ class RetinaNetDetector(ImageModel):
         self.input_shape[1:3] = imageShape
 
         self.image_shape = imageShape
+        self.network_aspect = imageShape[1] / imageShape[0]
 
         if meanImage:
             resized_mean = cv2.resize(meanImage,(imageShape[1],
@@ -63,7 +65,21 @@ class RetinaNetDetector(ImageModel):
     def addImage(self, image):
         if self._imageSizes is None:
             self._imageSizes = []
-        self._imageSizes.append(image.shape)
+
+        # Determine the actual shape of the image as it goes into the network
+        # To account for padding to aspect ratio
+        img_height = image.shape[0]
+        img_width = image.shape[1]
+        img_aspect = img_width / img_height
+        if math.isclose(img_aspect, self.network_aspect):
+            self._imageSizes.append(image.shape)
+        elif img_aspect < self.network_aspect:
+            #Image is boxer than we want
+            new_width = round(img_height * self.network_aspect)
+            self._imageSizes.append((img_height, new_width))
+        else:
+            new_height = round(img_width / self.network_aspect)
+            self._imageSizes.append((new_height,img_width))
         return super(RetinaNetDetector, self)._addImage(image,
                                                         self.preprocessor)
 
@@ -79,6 +95,8 @@ class RetinaNetDetector(ImageModel):
         num_images = detections.shape[0]
         for idx in range(num_images):
             # correct boxes for image scale
+            # Keep in mind there is a shift here potentially to force
+            # an aspect ratio.
             h_scale = self.image_shape[0] / self._imageSizes[idx][0]
             w_scale = self.image_shape[1] / self._imageSizes[idx][1]
 

@@ -2,6 +2,7 @@
 
 import numpy as np
 import math
+import cv2
 
 def crop(image, roi):
     """ Returns a *copy* of the region of interest from the image
@@ -43,7 +44,8 @@ def resize_and_fill(image, desired_shape):
                            desired_width/image_width)
     new_height=int(image_height*growth_factor)
     new_width=int(image_width*growth_factor)
-    image_resized,_=resize_image(image,new_height,new_width)
+    # cv2 arguments are backwards from other libraries here, width is first (col,rows)
+    image_resized=cv2.resize(image,(new_width, new_height))
     added_rows=desired_height-new_height
     added_cols=desired_width-new_width
 

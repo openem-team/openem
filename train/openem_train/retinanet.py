@@ -284,7 +284,7 @@ def predict(config):
     import cv2
 
     image_dims = (config.detect_height(), config.detect_width())
-    retinanet = RetinaNet.RetinaNetDetector(config.detect_retinanet_path(), None, image_dims)
+    retinanet = RetinaNet.RetinaNetDetector(config.detect_retinanet_path(), imageShape=image_dims)
     limit = None
     count = 0
     threshold=0

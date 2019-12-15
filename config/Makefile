@@ -40,4 +40,4 @@ endif
 
 
 inference_bash:
-	docker run --gpus 0 --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_inference:latest
+	docker run --gpus device=0 --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) -p 10001:10001 cvisionai/openem_inference:latest

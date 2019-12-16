@@ -128,7 +128,7 @@ class RetinaNetDetector(ImageModel):
                 if confidence > threshold:
                     detection = Detection(location=detection[:4].tolist(),
                                           confidence=confidence,
-                                          species=float(label),
+                                          species=label,
                                           frame=this_frame,
                                           video_id=video_id)
                     image_detections.append(detection)

@@ -8,6 +8,7 @@ import sys
 import signal
 import os
 import configparser
+import pandas as pd
 
 from multiprocessing import Pool, Value
 from functools import partial
@@ -24,18 +25,36 @@ def process_box(args, tator, species_names, row):
         pass
     with progress.get_lock():
         progress.value += 1
-        
+
 def process_line(args, tator, species_names, row):
     print("ERROR: Line mode --- Not supported")
 
-def process_detect(args, tator, species_names, row):
+def process_detect(args, tator, species_names, truth_data, row):
+    if type(truth_data) != type(None):
+        if row['frame'] == '':
+            return
+        match=truth_data.loc[(truth_data.video_id == row['video_id']) & (truth_data.frame == int(row['frame']))]
+        if len(match) == 0:
+            return
+        else:
+            pass
     media_element = uploadMedia(args, tator, row)
+    if media_element == None:
+        print("ERROR: Could not find media element!")
+
     if media_element and args.localization_type_id:
         existing_locals = tator.Localization.filter({"media_id": media_element['id'],
                                                      "type": args.localization_type_id})
         species_id_0 = int(float(row['det_species'])-1)
+
         confidence = float(row['det_conf'])
-        add_localization(tator,
+        add=True
+        if args.threshold:
+            if confidence < args.threshold:
+                add=False
+                print(f"Skipping detection {row}")
+        if add:
+            add_localization(tator,
                          args.localization_type_id,
                          media_element,
                          x=float(row['x']),
@@ -46,7 +65,7 @@ def process_detect(args, tator, species_names, row):
                          species=species_names[species_id_0])
     with progress.get_lock():
         progress.value += 1
-    
+
 def add_localization(tator,
                      box_type,
                      media_el,
@@ -61,7 +80,8 @@ def add_localization(tator,
          "height": height / media_el['height'],
          "Species": species,
          "Confidence": confidence}
-    tator.Localization.new(obj)
+    result = tator.Localization.new(obj)
+    print(result)
 def uploadMedia(args, tator, row):
     """ Attempts to upload the media in the row to tator
         if already there, skips, but either way returns the
@@ -78,20 +98,23 @@ def uploadMedia(args, tator, row):
         return None
     md5 = pytator.md5sum.md5_sum(img_path)
     desired_name=f"{row['video_id']}_{row['frame']}.{args.img_ext}"
-    tator.Media.uploadFile(args.media_type_id,
-                           img_path,
-                           md5=md5,
-                           progressBars=False,
-                           section=args.section,
-                           fname=desired_name)
-    media_element_search=tator.Media.filter({"md5": md5})
+    media_element_search=tator.Media.filter({"name": desired_name})
+    if media_element_search == None:
+        print(f"Uploading file...{desired_name}")
+        tator.Media.uploadFile(args.media_type_id,
+                               img_path,
+                               md5=md5,
+                               progressBars=False,
+                               section=args.section,
+                               fname=desired_name)
+        media_element_search=tator.Media.filter({"name": desired_name})
     if media_element_search:
         return tator.Media.get(media_element_search[0]['id'])
     else:
         return None
-    
-    
-    
+
+
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser('openem_downloader')
     parser = pytator.tator.cli_parser(parser)
@@ -103,6 +126,8 @@ if __name__=="__main__":
     parser.add_argument("--section", help="Section name to apply")
     parser.add_argument("--pool-size", type=int, default=4, help="Number of threads to use")
     parser.add_argument("--train-ini", help="If uploading boxes, this is required to convert species id to a string")
+    parser.add_argument("--threshold", type=float, help="Discard boxes less than this value")
+    parser.add_argument("--truth-data", type=str, help="Path to annotations.csv to exclude non-truth data")
     args = parser.parse_args()
     tator = pytator.Tator(args.url, args.token, args.project)
 
@@ -138,17 +163,19 @@ if __name__=="__main__":
         config.read(args.train_ini)
         species_names=config.get('Data', 'Species').split(',')
 
+    truth_data = None
+    if args.truth_data:
+        truth_data = pd.read_csv(args.truth_data)
     partial_func = partial(function_map[mode], args, tator,
-                           species_names)
+                           species_names, truth_data)
     pool=Pool(processes=args.pool_size)
     input_data = list(input_data_reader)
     print(f"Processing {len(input_data)} elements")
-    result = pool.map_async(partial_func, input_data)
+    #result = pool.map_async(partial_func, input_data)
     bar = progressbar.ProgressBar(max_value=len(input_data),
                                   redirect_stdout=True)
-    #for row in bar(input_data):
-    #    partial_func(row)
-    while result.ready() == False:
-        bar.update(progress.value)
-        result.wait(1)
-    
+    for row in bar(input_data):
+        partial_func(row)
+    #while result.ready() == False:
+    #    bar.update(progress.value)
+    #    result.wait(1)

@@ -128,7 +128,8 @@ class RetinaNetDetector(ImageModel):
                 if confidence > threshold:
                     detection = Detection(location=detection[:4].tolist(),
                                           confidence=confidence,
-                                          species=label,
+                                          # OpenEM uses 1-based indexing
+                                          species=label+1,
                                           frame=this_frame,
                                           video_id=video_id)
                     image_detections.append(detection)

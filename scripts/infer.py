@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """ Run retinanet inference model on a set of images """
-    
+
 import argparse
 import pandas as pd
 from openem.Detect import Detection, RetinaNet
@@ -44,7 +44,7 @@ if __name__=="__main__":
 
     image_cnt = 0
     # OpenEM result columns
-    result_cols=['video_id', 'frame', 'x','y','w','h', 'det_conf', 'det_species'] 
+    result_cols=['video_id', 'frame', 'x','y','w','h', 'det_conf', 'det_species']
     results_df=pd.DataFrame(columns=result_cols)
     results_df.to_csv(args.output_csv, index=False)
     print(f"Outputing results to {args.output_csv}")
@@ -62,7 +62,7 @@ if __name__=="__main__":
         elif args.csv_flavor == 'openem':
             video_id = os.path.basename(os.path.dirname(image_path))
             frame = int(os.path.splitext(image)[0])
-        
+
         retinanet.addImage(image_data)
         image_cnt += 1
         if image_cnt == args.batch_size or idx + 1 == count:
@@ -81,5 +81,3 @@ if __name__=="__main__":
                     new_df = pd.DataFrame(columns=result_cols,
                                           data=[new_record])
                     new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
-                
-    

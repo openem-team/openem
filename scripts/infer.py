@@ -13,7 +13,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--graph-pb", required=True)
     parser.add_argument("--output-csv", default="results.csv")
-    parser.add_argument("--keep-threshold", required=True)
+    parser.add_argument("--keep-threshold", type=float, required=True)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--csv-flavor", required=True,
                         choices=["retinanet", "openem"])
@@ -48,7 +48,7 @@ if __name__=="__main__":
     results_df=pd.DataFrame(columns=result_cols)
     results_df.to_csv(args.output_csv, index=False)
     print(f"Outputing results to {args.output_csv}")
-    for image in work_df[0].unique():
+    for image in bar(work_df[0].unique()):
         image_path = os.path.join(args.img_base_dir, image)
         image_data = cv2.imread(image_path)
         if args.csv_flavor == 'retinanet':

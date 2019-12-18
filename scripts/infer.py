@@ -48,8 +48,8 @@ if __name__=="__main__":
     results_df=pd.DataFrame(columns=result_cols)
     results_df.to_csv(args.output_csv, index=False)
     print(f"Outputing results to {args.output_csv}")
-    for idx, image in bar(work_df.iterrows()):
-        image_path = os.path.join(args.img_base_dir, image[0])
+    for image in work_df[0].unique():
+        image_path = os.path.join(args.img_base_dir, image)
         image_data = cv2.imread(image_path)
         if args.csv_flavor == 'retinanet':
             # Raw video inputs may look like this:
@@ -70,6 +70,8 @@ if __name__=="__main__":
             results = retinanet.process()
             for batch_result in results:
                 for result in batch_result:
+                    if result.confidence < args.keep_threshold:
+                        continue
                     new_record = {'video_id': video_id,
                                   'frame': frame,
                                   'x': result.location[0],

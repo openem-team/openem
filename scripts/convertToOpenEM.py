@@ -29,9 +29,15 @@ if __name__=="__main__":
     for idx,row in bar(retinanet_df.iterrows()):
         video_fname = os.path.basename(row.img)
         mp4_pos = video_fname.find('.mp4')
-        video_id = video_fname[:mp4_pos]
-        frame_with_ext = video_fname[mp4_pos+5:]
-        frame = int(os.path.splitext(frame_with_ext)[0])
+        if mp4_pos >= 0:
+            video_id = video_fname[:mp4_pos]
+            frame_with_ext = video_fname[mp4_pos+5:]
+            frame = int(os.path.splitext(frame_with_ext)[0])
+        else:
+            video_fname = row.img
+            video_id = os.path.basename(os.path.dirname(video_fname))
+            frame_with_ext = os.path.basename(video_fname)
+            frame = int(os.path.splitext(frame_with_ext)[0])
         species_row = species_df.loc[species_df.species == row.species_name]
         species_id_0 = species_row.iloc[0].num
         species_id_1 = species_id_0 + 1

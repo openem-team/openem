@@ -31,8 +31,8 @@ if __name__=="__main__":
     elif args.csv_flavor == "openem":
         openem_df = pd.read_csv(args.work_csv)
         media_list = []
-        for idx, openem_row in openem_df.iterrows():
-            media_list.append(f"{row.vid_id}/{row.frame}.{args.img_ext}")
+        for idx, row in openem_df.iterrows():
+            media_list.append(f"{row.video_id}/{row.frame}.{args.img_ext}")
         work_df = pd.DataFrame(data=media_list)
 
     count = len(work_df)
@@ -61,7 +61,7 @@ if __name__=="__main__":
             frame = int(os.path.splitext(frame_with_ext)[0])
         elif args.csv_flavor == 'openem':
             video_id = os.path.basename(os.path.dirname(image_path))
-            frame = int(os.path.splitext(image)[0])
+            frame = int(os.path.splitext(os.path.basename(image))[0])
 
         retinanet.addImage(image_data)
         image_cnt += 1

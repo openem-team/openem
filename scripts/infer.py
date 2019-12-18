@@ -32,7 +32,7 @@ if __name__=="__main__":
         openem_df = pd.read_csv(args.work_csv)
         media_list = []
         for idx, row in openem_df.iterrows():
-            media_list.append(f"{row.video_id}/{row.frame}.{args.img_ext}")
+            media_list.append(f"{row.video_id}/{row.frame:04d}.{args.img_ext}")
         work_df = pd.DataFrame(data=media_list)
 
     count = len(work_df)

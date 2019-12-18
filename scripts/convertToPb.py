@@ -34,9 +34,12 @@ def keras_to_tensorflow(model, pred_node_names, out_path):
     graph_io.write_graph(constant_graph, out_dir, out_file, as_text=False)      
 
 
-def get_session():
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+def get_session(check):
+    if not check:
+        config = tf.ConfigProto(device_count = {'GPU' : 0})
+    else:
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
     return tf.Session(config=config)
 
 
@@ -49,7 +52,7 @@ if __name__=="__main__":
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     check_keras_version()
-    keras.backend.tensorflow_backend.set_session(get_session())
+    keras.backend.tensorflow_backend.set_session(get_session(args.check))
     K.set_learning_phase(0)
     if args.resnet:
         model = keras.models.load_model(args.input, custom_objects=custom_objects)

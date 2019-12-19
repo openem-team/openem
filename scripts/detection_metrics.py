@@ -106,12 +106,12 @@ def calculateStats(truth, detections, keep_threshold):
 
     precision = true_positives / (true_positives + false_positives)
     recall = true_positives / (true_positives + false_negatives)
-    return (precision, recall, double_counts)
+    return (precision, recall, double_counts / true_positives)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--truth")
-    parser.add_argument("--keep-threshold-min", type=float, default=0.10)
+    parser.add_argument("--keep-threshold-min", type=float, default=0.05)
     parser.add_argument("--keep-threshold-max", type=float, default=0.80)
     parser.add_argument("--keep-threshold-steps", type=int, default=10)
     parser.add_argument("--iou-threshold", type=float, default=0.4)

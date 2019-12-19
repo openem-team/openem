@@ -60,7 +60,7 @@ def _intersection_over_union(boxA, boxB):
     return iou
 
 def calculateStats(truth, detections, keep_threshold):
-    eval_detects = detections.loc[detections.det_conf > keep_threshold].unique()
+    eval_detects = detections.loc[detections.det_conf > keep_threshold]
     count = len(eval_detects)
     true_positives = 0
     false_positives = 0
@@ -83,29 +83,31 @@ def calculateStats(truth, detections, keep_threshold):
                 if iou > args.iou_threshold:
                     got_match = True
                     if truth_row.name in matches:
-                        print(f"Duplicate detection")
-                        print(f"Truth = {truth_box}")
-                        print(f"This Box = {row}")
-                        print(f"Previus box = {matches[truth_row.name]}")
                         double_counts += 1
                     else:
                         matches[truth_row.name] = row
                     break
-                
+
             if got_match == True:
                 true_positives += 1
             else:
                 false_positives += 1
 
+    counted=[]
     for idx, row in truth.iterrows():
         matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
-        if len(matching_detection_df) == 0:
-            false_negatives += 1
+        boxes_in_truth=len(truth.loc[(truth.video_id == row.video_id) & (truth.frame == row.frame)])
+        boxes_in_detection = len(matching_detection_df)
+        if boxes_in_detection < boxes_in_truth:
+            vid_tag=f"{row.video_id}_{row.frame}"
+            if not vid_tag in counted:
+                counted.append(vid_tag)
+                false_negatives += (boxes_in_truth - boxes_in_detection)
 
     precision = true_positives / (true_positives + false_positives)
     recall = true_positives / (true_positives + false_negatives)
     return (precision, recall, double_counts)
-    
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--truth")
@@ -116,7 +118,7 @@ if __name__=="__main__":
     parser.add_argument("--output-matrix", type=str)
     parser.add_argument("detect_csv")
     args = parser.parse_args()
-    
+
     detections=pd.read_csv(args.detect_csv)
     truth = pd.read_csv(args.truth)
     results=[]
@@ -132,7 +134,3 @@ if __name__=="__main__":
     print(matrix)
     if args.output_matrix:
         np.save(args.output_matrix, matrix)
-
-    
-        
-        

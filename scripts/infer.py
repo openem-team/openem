@@ -126,8 +126,9 @@ if __name__=="__main__":
             ok = True
             while ok:
                 ok, image_data = video_reader.read()
-                process_image_data(args, video_id, frame_num, image_data)
-                frame_num += 1
+                if ok:
+                    process_image_data(args, video_id, frame_num, image_data)
+                    frame_num += 1
         else:
             image_data = cv2.imread(image_path)
             process_image_data(args, video_id, frame, image_data)

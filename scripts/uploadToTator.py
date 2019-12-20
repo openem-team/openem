@@ -43,36 +43,38 @@ def process_detect(args, tator, species_names, truth_data, row):
     if media_element == None:
         print("ERROR: Could not find media element!")
 
+    obj = None
     if media_element and args.localization_type_id:
-        existing_locals = tator.Localization.filter({"media_id": media_element['id'],
-                                                     "type": args.localization_type_id})
         species_id_0 = int(float(row['det_species'])-1)
-
         confidence = float(row['det_conf'])
         add=True
         if args.threshold:
             if confidence < args.threshold:
                 add=False
-                print(f"Skipping detection {row}")
         if add:
-            add_localization(tator,
-                         args.localization_type_id,
-                         media_element,
-                         x=float(row['x']),
-                         y=float(row['y']),
-                         width=float(row['w']),
-                         height=float(row['h']),
-                         confidence=confidence,
-                         species=species_names[species_id_0])
+            obj = make_localization_obj(args,
+                                   tator,
+                                   args.localization_type_id,
+                                   media_element,
+                                   frame=int(row['frame']),
+                                   x=float(row['x']),
+                                   y=float(row['y']),
+                                   width=float(row['w']),
+                                   height=float(row['h']),
+                                   confidence=confidence,
+                                   species=species_names[species_id_0])
     with progress.get_lock():
         progress.value += 1
+    return obj
 
-def add_localization(tator,
-                     box_type,
-                     media_el,
-                     x,y,width,height,
-                     confidence,
-                     species):
+def make_localization_obj(args,
+                          tator,
+                          box_type,
+                          media_el,
+                          frame,
+                          x,y,width,height,
+                          confidence,
+                          species):
     obj={"type": box_type,
          "media_id": media_el['id'],
          "x" : x / media_el['width'],
@@ -81,38 +83,46 @@ def add_localization(tator,
          "height": height / media_el['height'],
          "Species": species,
          "Confidence": confidence}
-    result = tator.Localization.new(obj)
-    print(result)
+    if args.media_type == "video":
+        obj.update({"frame": frame})
+    return obj
+
+
+media_list_cache={}
 def uploadMedia(args, tator, row):
     """ Attempts to upload the media in the row to tator
         if already there, skips, but either way returns the
         media element information. """
     vid_dir=os.path.join(args.img_base_dir, row['video_id'])
+    global media_list_cache
     try:
         img_file=f"{int(row['frame']):04d}.{args.img_ext}"
     except:
         print(f"Skipping {row}")
         return
     img_path=os.path.join(vid_dir, img_file)
-    if not os.path.exists(img_path):
-        print(f"Could not find {img_path}")
-        return None
-    md5 = pytator.md5sum.md5_sum(img_path)
-    desired_name=f"{row['video_id']}_{row['frame']}.{args.img_ext}"
-    media_element_search=tator.Media.filter({"name": desired_name})
-    if media_element_search == None:
-        print(f"Uploading file...{desired_name}")
-        tator.Media.uploadFile(args.media_type_id,
-                               img_path,
-                               md5=md5,
-                               progressBars=False,
-                               section=args.section,
-                               fname=desired_name)
-        media_element_search=tator.Media.filter({"name": desired_name})
-    if media_element_search:
-        return tator.Media.get(media_element_search[0]['id'])
+    if args.media_type == "image":
+        desired_name = f"{row['video_id']}_{row['frame']}.{args.img_ext}"
     else:
-        return None
+        desired_name = f"{row['video_id']}.{args.img_ext}"
+    if desired_name in media_list_cache:
+        return media_list_cache[desired_name]
+    else:
+        media_element_search=tator.Media.filter({"name": desired_name})
+        if media_element_search == None:
+            print(f"Uploading file...{desired_name}")
+            tator.Media.uploadFile(args.media_type_id,
+                                   img_path,
+                                   progressBars=False,
+                                   section=args.section,
+                                   fname=desired_name)
+            media_element_search=tator.Media.filter({"name": desired_name})
+        if media_element_search:
+            result = tator.Media.get(media_element_search[0]['id'])
+            media_list_cache[desired_name] = result
+            return result
+        else:
+            return None
 
 
 
@@ -123,6 +133,10 @@ if __name__=="__main__":
     parser.add_argument("--img-base-dir", help="Base Path to media files", required=True)
     parser.add_argument("--img-ext", default="jpg")
     parser.add_argument("--media-type-id", type=int, required=True)
+    parser.add_argument("--media-type",
+                        type=str,
+                        choices=["image","video"],
+                        default="image")
     parser.add_argument("--localization-type-id", type=int)
     parser.add_argument("--section", help="Section name to apply")
     parser.add_argument("--pool-size", type=int, default=4, help="Number of threads to use")
@@ -175,8 +189,19 @@ if __name__=="__main__":
     #result = pool.map_async(partial_func, input_data)
     bar = progressbar.ProgressBar(max_value=len(input_data),
                                   redirect_stdout=True)
+
+    print("Generating localizations...")
+    local_list=[]
     for row in bar(input_data):
-        partial_func(row)
+        obj = partial_func(row)
+        if obj:
+            local_list.append(obj)
+
+        if len(local_list) == 200:
+            tator.Localization.addMany(local_list)
+            local_list=[]
+
+    tator.Localization.addMany(local_list)
     #while result.ready() == False:
     #    bar.update(progress.value)
     #    result.wait(1)

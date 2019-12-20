@@ -58,6 +58,7 @@ if __name__=="__main__":
     results_df=pd.DataFrame(columns=result_cols)
     results_df.to_csv(args.output_csv, index=False)
     print(f"Outputing results to {args.output_csv}")
+    batch_info=[]
     for image in bar(work_df[0].unique()):
         image_path = os.path.join(args.img_base_dir, image)
         image_data = cv2.imread(image_path)
@@ -74,16 +75,17 @@ if __name__=="__main__":
             frame = int(os.path.splitext(os.path.basename(image))[0])
 
         retinanet.addImage(image_data)
+        batch_info.append((video_id, frame))
         image_cnt += 1
         if image_cnt == args.batch_size or idx + 1 == count:
             image_cnt = 0
             results = retinanet.process()
-            for batch_result in results:
+            for batch_idx,batch_result in enumerate(results):
                 for result in batch_result:
                     if result.confidence < args.keep_threshold:
                         continue
-                    new_record = {'video_id': video_id,
-                                  'frame': frame,
+                    new_record = {'video_id': batch_info[batch_idx][0],
+                                  'frame': batch_info[batch_idx][1],
                                   'x': result.location[0],
                                   'y': result.location[1],
                                   'w': result.location[2],
@@ -93,3 +95,4 @@ if __name__=="__main__":
                     new_df = pd.DataFrame(columns=result_cols,
                                           data=[new_record])
                     new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
+            batch_info=[]

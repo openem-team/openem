@@ -9,7 +9,15 @@ The script takes a work file, which can be in the openem truth format. The
 outputted csv file can be used with this input with `detection_metrics.py` to
 acquire precision/recall data.
 
-The inference routine uses a frozen pb retinanet graph,
+The inference routine uses a frozen pb retinanet graph.
+
+The input csv work file can be in a couple of flavors.
+
+- The retinanet format used in the training and validation csv formats for that product.
+- The openem format used by openem for extracted imagery (vid_id, frame) across a disk layout
+  of <vid_id>/<frame:04d>.<img-ext>.
+- The video format which can be any CSV file where the first column is a path to a video file
+
 """
 
 import argparse
@@ -19,6 +27,35 @@ import progressbar
 import cv2
 import os
 
+# Static variables for recurrent process_image_data function
+batch_info = []
+image_cnt = 0
+def process_image_data(args, video_id, frame, image_data):
+    global batch_info
+    global image_cnt
+
+    retinanet.addImage(image_data)
+    batch_info.append((video_id, frame))
+    image_cnt += 1
+    if image_cnt == args.batch_size or idx + 1 == count:
+        image_cnt = 0
+        results = retinanet.process()
+        for batch_idx,batch_result in enumerate(results):
+            for result in batch_result:
+                if result.confidence < args.keep_threshold:
+                    continue
+                new_record = {'video_id': batch_info[batch_idx][0],
+                              'frame': batch_info[batch_idx][1],
+                              'x': result.location[0],
+                              'y': result.location[1],
+                              'w': result.location[2],
+                              'h': result.location[3],
+                              'det_species': result.species,
+                              'det_conf': result.confidence}
+                new_df = pd.DataFrame(columns=result_cols,
+                                      data=[new_record])
+                new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
+        batch_info=[]
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--graph-pb", required=True)
@@ -26,7 +63,8 @@ if __name__=="__main__":
     parser.add_argument("--keep-threshold", type=float, required=True)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--csv-flavor", required=True,
-                        choices=["retinanet", "openem"])
+                        help="See format description in top-level help"
+                        choices=["retinanet", "openem", "video"])
     parser.add_argument("--img-base-dir", required=True)
     parser.add_argument("--img-ext", default="jpg")
     parser.add_argument("--img-min-side", required=True, type=int)
@@ -44,6 +82,12 @@ if __name__=="__main__":
         for idx, row in openem_df.iterrows():
             media_list.append(f"{row.video_id}/{row.frame:04d}.{args.img_ext}")
         work_df = pd.DataFrame(data=media_list)
+    elif args.csv_flavor == "video":
+        video_df = pd.read_csv(args.work_csv, names=None)
+        count = len(video_df)
+        media_list=list(video_df.iloc[:,0])
+        work_df = pd.DataFrame(data=media_list)
+
 
     count = len(work_df)
     bar = progressbar.ProgressBar(redirect_stdout=True, max_value=count)
@@ -58,10 +102,8 @@ if __name__=="__main__":
     results_df=pd.DataFrame(columns=result_cols)
     results_df.to_csv(args.output_csv, index=False)
     print(f"Outputing results to {args.output_csv}")
-    batch_info=[]
-    for image in bar(work_df[0].unique()):
+    for idx, image in bar(enumerate(work_df[0].unique())):
         image_path = os.path.join(args.img_base_dir, image)
-        image_data = cv2.imread(image_path)
         if args.csv_flavor == 'retinanet':
             # Raw video inputs may look like this:
             # <section>/4996995_camera_1_2019_07_06-11_10.mp4_290.png
@@ -73,26 +115,19 @@ if __name__=="__main__":
         elif args.csv_flavor == 'openem':
             video_id = os.path.basename(os.path.dirname(image_path))
             frame = int(os.path.splitext(os.path.basename(image))[0])
+        elif args.csv_flavor == 'video':
+            video_id = os.path.splitext(os.path.basename(image_path))[0]
 
-        retinanet.addImage(image_data)
-        batch_info.append((video_id, frame))
-        image_cnt += 1
-        if image_cnt == args.batch_size or idx + 1 == count:
-            image_cnt = 0
-            results = retinanet.process()
-            for batch_idx,batch_result in enumerate(results):
-                for result in batch_result:
-                    if result.confidence < args.keep_threshold:
-                        continue
-                    new_record = {'video_id': batch_info[batch_idx][0],
-                                  'frame': batch_info[batch_idx][1],
-                                  'x': result.location[0],
-                                  'y': result.location[1],
-                                  'w': result.location[2],
-                                  'h': result.location[3],
-                                  'det_species': result.species,
-                                  'det_conf': result.confidence}
-                    new_df = pd.DataFrame(columns=result_cols,
-                                          data=[new_record])
-                    new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
-            batch_info=[]
+        # Now that we have video_id and frame, we can process them
+        if args.csv_flavor == "video":
+            video_reader = cv2.VideoCapture(image_path)
+            vid_len = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
+            frame_num = 0
+            ok = True
+            while ok:
+                ok, image_data = vid.read()
+                process_image_data(args, video_id, frame_num, image_data)
+                frame_num += 1
+        else:
+            image_data = cv2.imread(image_path)
+            process_image_data(args, video_id, frame, image_data)

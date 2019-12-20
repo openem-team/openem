@@ -63,7 +63,7 @@ if __name__=="__main__":
     parser.add_argument("--keep-threshold", type=float, required=True)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--csv-flavor", required=True,
-                        help="See format description in top-level help"
+                        help="See format description in top-level help",
                         choices=["retinanet", "openem", "video"])
     parser.add_argument("--img-base-dir", required=True)
     parser.add_argument("--img-ext", default="jpg")
@@ -121,11 +121,11 @@ if __name__=="__main__":
         # Now that we have video_id and frame, we can process them
         if args.csv_flavor == "video":
             video_reader = cv2.VideoCapture(image_path)
-            vid_len = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
+            vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
             frame_num = 0
             ok = True
             while ok:
-                ok, image_data = vid.read()
+                ok, image_data = video_reader.read()
                 process_image_data(args, video_id, frame_num, image_data)
                 frame_num += 1
         else:

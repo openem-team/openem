@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
-""" Convert retinanet data into openem test format """
+""" Convert retinanet data into openem test format
+
+This script is useful for generating work file inputs for `infer.py` or
+for generating truth files for `detection_metrics.py`
+
+"""
 
 import argparse
 import pandas as pd
@@ -9,23 +14,23 @@ import os
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("retinanet_input")
-    parser.add_argument("openem_output")
-    parser.add_argument("--species-csv", required=True)
+    parser.add_argument("retinanet_input", help="RetinaNet csv file")
+    parser.add_argument("openem_output", help="OpenEM output csv file")
+    parser.add_argument("--species-csv", required=True, help='Retinanet CSV file for species names + ids')
     args = parser.parse_args()
     openem_cols=['video_id','frame','x','y','width','height','theta','species_id']
     retinanet_cols = ['img', 'x1','y1','x2','y2', 'species_name']
     retinanet_df = pd.read_csv(args.retinanet_input, header=None, names=retinanet_cols)
 
-    
-    
+
+
     openem_df = pd.DataFrame(columns=openem_cols)
     openem_df.to_csv(args.openem_output, index=False)
     count = len(retinanet_df)
     bar = progressbar.ProgressBar(max_value=count, redirect_stdout=True)
 
     species_df = pd.read_csv(args.species_csv, header=None, names=['species','num'])
-    
+
     for idx,row in bar(retinanet_df.iterrows()):
         video_fname = os.path.basename(row.img)
         mp4_pos = video_fname.find('.mp4')
@@ -51,8 +56,6 @@ if __name__=="__main__":
                  "theta": 0.0,
                  # OpenEM uses 1-based indexing on species
                  'species_id': species_id_1}
-        
+
         datum_df = pd.DataFrame(data=[datum], columns=openem_cols)
         datum_df.to_csv(args.openem_output, header=False, index=False, mode='a')
-
-        

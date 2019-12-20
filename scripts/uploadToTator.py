@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+""" Upload a result set or training set to tator for analysis """
 import argparse
 import pytator
 import csv
@@ -116,7 +117,7 @@ def uploadMedia(args, tator, row):
 
 
 if __name__=="__main__":
-    parser = argparse.ArgumentParser('openem_downloader')
+    parser = argparse.ArgumentParser(description=__doc__)
     parser = pytator.tator.cli_parser(parser)
     parser.add_argument("csvfile", help="test.csv, length.csv, or detect.csv")
     parser.add_argument("--img-base-dir", help="Base Path to media files", required=True)

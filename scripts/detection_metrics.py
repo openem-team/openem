@@ -1,6 +1,23 @@
 #!/usr/bin/env python3
 
-""" Generate statistics on detections given a truth file + a detect inference output """
+""" Generate statistics on detections given a truth file + a detect inference output
+
+This script sweeps across different keep thresholds based on the provided
+CLI arguments (`--keep-threshold-[min,max,steps]`) and generates a
+precision/recall graph. It also calculates 'double count' metric which is
+the number of boxes that matched a truth box, but already had a box associated
+with it. Imagine two boxes around the same object, with slightly different
+confidences.
+
+The True Positive is based on the IoU of the detection box against the truth
+data. If the detection box is not within the IoU threshold of the truth it is
+counted as a false positive.
+
+The false negatives are calculated per frame, such that if a frame has 4 truth
+detections, but 2 inference detections, 2 false negatives are added to the
+metric.
+
+"""
 
 import argparse
 import pandas as pd
@@ -110,13 +127,27 @@ def calculateStats(truth, detections, keep_threshold):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--truth")
-    parser.add_argument("--keep-threshold-min", type=float, default=0.05)
-    parser.add_argument("--keep-threshold-max", type=float, default=0.80)
-    parser.add_argument("--keep-threshold-steps", type=int, default=10)
-    parser.add_argument("--iou-threshold", type=float, default=0.4)
-    parser.add_argument("--output-matrix", type=str)
-    parser.add_argument("detect_csv")
+    parser.add_argument("--truth", help="Truth CSV file")
+    parser.add_argument("--keep-threshold-min",
+                        type=float,
+                        default=0.05
+                        help="Minimum keep threshold to scan")
+    parser.add_argument("--keep-threshold-max",
+                        type=float,
+                        default=0.80
+                        help="Maximum keep threshold to scan")
+    parser.add_argument("--keep-threshold-steps",
+                        type=int,
+                        default=10,
+                        help="Number of steps to use between min/max")
+    parser.add_argument("--iou-threshold",
+                        type=float,
+                        default=0.4,
+                        help="IoU threshold for determining True Positive")
+    parser.add_argument("--output-matrix",
+                        type=str,
+                        help="If supplied, dumps the matrix to a file, else just prints")
+    parser.add_argument("detect_csv", help="Inference result CSV")
     args = parser.parse_args()
 
     detections=pd.read_csv(args.detect_csv)

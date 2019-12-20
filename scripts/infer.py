@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 
-""" Run retinanet inference model on a set of images """
+""" Run retinanet inference model on a set of images
+
+This is both an example script and one that can be used for network
+evaluaton purposes after training.
+
+The script takes a work file, which can be in the openem truth format. The
+outputted csv file can be used with this input with `detection_metrics.py` to
+acquire precision/recall data.
+
+The inference routine uses a frozen pb retinanet graph,
+"""
 
 import argparse
 import pandas as pd

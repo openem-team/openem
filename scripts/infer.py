@@ -23,17 +23,20 @@ The input csv work file can be in a couple of flavors.
 import argparse
 import pandas as pd
 from openem.Detect import Detection, RetinaNet
-import progressbar
+from tqdm import tqdm
 import cv2
 import os
+import importlib
 
 # Static variables for recurrent process_image_data function
 batch_info = []
 image_cnt = 0
-def process_image_data(args, video_id, frame, image_data):
+def process_image_data(args, preprocess_funcs, video_id, frame, image_data):
     global batch_info
     global image_cnt
 
+    for process in preprocess_funcs:
+        image_data = process(video_id, image_data)
     retinanet.addImage(image_data)
     batch_info.append((video_id, frame))
     image_cnt += 1
@@ -69,6 +72,9 @@ if __name__=="__main__":
     parser.add_argument("--img-ext", default="jpg")
     parser.add_argument("--img-min-side", required=True, type=int)
     parser.add_argument("--img-max-side", required=True, type=int)
+    parser.add_argument("--preprocess-module",
+                        nargs="+",
+                        help="Module name that contains preprocessing function(s) to call on the image prior to insertion into the network")
     parser.add_argument("work_csv", help="CSV with file per row")
     args = parser.parse_args()
 
@@ -90,11 +96,22 @@ if __name__=="__main__":
 
 
     count = len(work_df)
-    bar = progressbar.ProgressBar(redirect_stdout=True, max_value=count)
 
     image_dims = (args.img_min_side, args.img_max_side)
     retinanet = RetinaNet.RetinaNetDetector(args.graph_pb,
                                             imageShape=image_dims)
+
+
+    preprocess_funcs=[]
+    if args.preprocess_module:
+        for module_name in args.preprocess_module:
+            module=importlib.import_module(module_name)
+            all_funcs=[name for name, f in module.__dict__.items() if callable(f)]
+            for name in all_funcs:
+                print("Checking {name}")
+                if name.startswith('preprocess_'):
+                    print(f"Adding preprocessing routine {module}.{name}")
+                    preprocess_funcs.append(getattr(module, name))
 
     image_cnt = 0
     # OpenEM result columns
@@ -102,7 +119,7 @@ if __name__=="__main__":
     results_df=pd.DataFrame(columns=result_cols)
     results_df.to_csv(args.output_csv, index=False)
     print(f"Outputing results to {args.output_csv}")
-    for idx, image in bar(enumerate(work_df[0].unique())):
+    for idx, image in tqdm(enumerate(work_df[0].unique()), desc='Files'):
         image_path = os.path.join(args.img_base_dir, image)
         if args.csv_flavor == 'retinanet':
             # Raw video inputs may look like this:
@@ -124,11 +141,21 @@ if __name__=="__main__":
             vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
             frame_num = 0
             ok = True
-            while ok:
-                ok, image_data = video_reader.read()
-                if ok:
-                    process_image_data(args, video_id, frame_num, image_data)
-                    frame_num += 1
+            with tqdm(total=vid_len, desc="Frames",leave=True) as bar:
+                while ok:
+                    ok, image_data = video_reader.read()
+                    if ok:
+                        process_image_data(args,
+                                           preprocess_funcs,
+                                           video_id,
+                                           frame_num,
+                                           image_data)
+                        frame_num += 1
+                        bar.update(1)
         else:
             image_data = cv2.imread(image_path)
-            process_image_data(args, video_id, frame, image_data)
+            process_image_data(args,
+                               preprocess_funcs,
+                               video_id,
+                               frame,
+                               image_data)

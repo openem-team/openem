@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('../../examples'))
 # -- Project information -----------------------------------------------------
 
 project = 'OpenEM'
-copyright = '2019, CVision AI'
+copyright = '2020, CVision AI'
 author = 'CVision AI'
 
 # The short X.Y version

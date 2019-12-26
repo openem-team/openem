@@ -28,6 +28,7 @@ Click the image below to see a video of OpenEM in action:
 
    FAQS
    tutorial
+   api/deployment
    data_collection
    annotation
    training_environment
@@ -35,7 +36,28 @@ Click the image below to see a video of OpenEM in action:
    build/docker/build.md
 
 Change Log
-==========
+============
+
++---------+-----------+-------------------------------+
+| Version | Date      | Description of changes        |
++=========+===========+===============================+
+|         |           | - Add RetinaNet based         |
+|         |           |   detector                    |
+|         |           | - Deprecate C++ library       |
+| 0.1.3   | Jan-2020  | - Add python inference        |
++---------+-----------+-------------------------------+
+|         |           | - Docker image cleanups       |
+|         |           | - Add Improved documentation  |
+| 0.1.2   | June-2019 |                               |
++---------+-----------+-------------------------------+
+|         |           | - Fix training in Docker      |
+|         |           |                               |
+| 0.1.1   | Feb-2019  |                               |
++---------+-----------+-------------------------------+
+|         |           | - First stable release        |
+|         |           | - Training/Inference examples |
+| 0.1.0   | Jan-2019  |                               |
++---------+-----------+-------------------------------+
 
 Indices and tables
 ==================

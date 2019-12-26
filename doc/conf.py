@@ -14,8 +14,8 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../pytator'))
-sys.path.insert(0, os.path.abspath('../../examples'))
+sys.path.insert(0, os.path.abspath('../deploy_python'))
+sys.path.insert(0, os.path.abspath('../train'))
 
 # -- Project information -----------------------------------------------------
 
@@ -24,7 +24,7 @@ copyright = '2020, CVision AI'
 author = 'CVision AI'
 
 # The short X.Y version
-version = '1.9.0'
+version = '0.1.3'
 # The full version, including alpha/beta/rc tags
 release = ''
 
@@ -180,3 +180,5 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode', 'sphinx_rtd_theme', '
 html_theme = 'sphinx_rtd_theme'
 
 github_url='https://github.com/openem-team/openem'
+
+autoclass_content = 'both'

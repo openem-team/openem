@@ -178,3 +178,5 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode', 'sphinx_rtd_theme', '
 
 # Set the theme to use the RTD theme instead of alabaster
 html_theme = 'sphinx_rtd_theme'
+
+github_url='https://github.com/openem-team/openem'

@@ -16,6 +16,13 @@ Package openem
    :members:
    :undoc-members:
 
+Base objects
+************
+
+.. automodule:: openem.models
+   :members:
+   :show-inheritance:
+
 Find Ruler
 **********
 

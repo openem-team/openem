@@ -28,12 +28,12 @@ Click the image below to see a video of OpenEM in action:
 
    FAQS
    tutorial
-   api/deployment
    data_collection
    annotation
    training_environment
    build
    build/docker/build.md
+   api/deployment
 
 Change Log
 ============

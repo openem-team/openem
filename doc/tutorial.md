@@ -1,6 +1,8 @@
-# Quick Start
+# Quick Start (<= 0.1.2)
 
-This document is a quick start guide in how to use the OpenEM package. 
+This document is a quick start guide in how to use the OpenEM package. The
+instructions in this guide still work for newer versions, but usage of the
+python inference library is incouraged.
 
 ## Example data
 
@@ -9,6 +11,12 @@ This tutorial requires the OpenEM example data which can be downloaded via BitTo
 ## Installation
 
 OpenEM is distributed as a native Windows library or as a Docker image. See below for your selected option.
+
+
+    Warning: The windows binary releases have been deprecated as of
+    version 0.1.3.
+
+    Refer to the python deployment library.
 
 ### Windows
 
@@ -107,7 +115,7 @@ Now invoke the [run_all.py][RunAll] script to see how to run it:
 python run_all.py -h
 ```
 
-This will show you the command line options for this script, and give you 
+This will show you the command line options for this script, and give you
 an explanation of each of the available examples to run.  The simplest way
 to invoke the script is as follows:
 
@@ -115,10 +123,10 @@ to invoke the script is as follows:
 python run_all.py <path to OpenEM example data>
 ```
 
-Doing so will run all available examples in all languages for which you 
+Doing so will run all available examples in all languages for which you
 built the software.
 
-Once you are able to run the examples, you are encouraged to inspect the 
+Once you are able to run the examples, you are encouraged to inspect the
 source code for the language that you plan to use for your application.
 
 ## Training library
@@ -286,4 +294,3 @@ Now that you have done training using the example data, you can try doing the sa
 [NvidiaDocker]: https://github.com/nvidia/nvidia-docker/wiki/Installation-(version-2.0)
 [DataCollection]: ./data_collection.md
 [Annotation]: ./annotation.md
-

@@ -32,7 +32,6 @@ Watch the video below to see a video of OpenEM in action:
    tutorial
    data_collection
    annotation
-   training_environment
    build
    build/docker/build.md
    api/deployment

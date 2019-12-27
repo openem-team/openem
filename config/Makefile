@@ -5,8 +5,8 @@ build:
 openem_image: Dockerfile.gen
 	cd .. && docker build -t cvisionai/openem -f config/Dockerfile.gen . || exit 255
 
-openem_inference: inference.gen
-	cd .. && docker build -t cvisionai/openem_inference -f config/inference.gen . || exit 255
+openem_lite: inference.gen
+	cd .. && docker build -t cvisionai/openem_lite -f config/inference.gen . || exit 255
 
 ${BUILD_TOOLS}/makocc.py:
 	cd .. && git submodule update --init
@@ -40,4 +40,4 @@ endif
 
 
 inference_bash:
-	docker run --gpus device=0 --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) -p 10001:10001 cvisionai/openem_inference:latest
+	docker run --gpus device=0 --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) -p 10001:10001 cvisionai/openem_lite:latest

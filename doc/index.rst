@@ -18,9 +18,11 @@ The current release also includes a training library for the all OpenEM
 functionality. The library is distributed as a native Windows library and
 as a Docker image.
 
-Click the image below to see a video of OpenEM in action:
+Watch the video below to see a video of OpenEM in action:
 
-`OpenEM detection example <https://youtu.be/EZ1Xyg_mnhM>`_.
+.. raw:: html
+
+         <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/EZ1Xyg_mnhM" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 .. toctree::
    :maxdepth: 2

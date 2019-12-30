@@ -1,4 +1,4 @@
-# Quick Start (<= 0.1.2)
+# Quick Start
 
 This document is a quick start guide in how to use the OpenEM package. The
 instructions in this guide still work for newer versions, but usage of the
@@ -68,7 +68,40 @@ and use:
 
 `docker exec --env=DISPLAY -it <hash_of_container> bash`
 
-## Running the deployment library demo
+## Running the deployment library (0.1.3 and later)
+
+In version 0.1.3 the deployment library has changed from a C++ library with variable language bindings, to
+a single python library.
+
+In versions 0.1.3 and later there is a unit test for each inference module that runs against the example data
+provided above. To run the test suite; launch the openem-lite image with the example data mounted and the
+`deploy_dir` environment variable set appropriately.
+
+The included `Makefile` in config facilitates this by forwarding the host's `work_dir` environment variable to
+the container's `deploy_dir` variable. In the config directory with `work_dir` set to
+`/path/to/the/openem_example_data` run `make inference_bash`.
+
+The `inference_bash` target launches the nvidia container with recommended settings on device 0; forwarding
+port 10001 for potential tensorboard usage.
+
+### Running the tests in the container
+
+The unit tests can be used to verify the underlying computing envioronment for inference and serve as a
+regression test against modifications to optomize image preprocessing or result post processing. The unit tests
+are also an example usage of the python deployment API.
+
+* Whilst in the container navigate to `/deploy_python`
+* Type:
+
+```shell
+python -m test
+```
+
+* The results of the tests will print out.
+* On machines with limited memory resources, it may be required to run each unit test individually, this can
+  be done by replacing `test` with `test.CountTest` or `test.DetectionTest`
+
+## Running the deployment library demo (0.1.2 and earlier)
 
 * Navigate to examples/deploy/python.
 * Type:
@@ -105,7 +138,7 @@ nvidia-docker run --rm -ti -v \
     -e CUDA_VISIBLE_DEVICES=0 cvisionai/openem
 ```
 
-## Deployment library
+## Deployment library (0.1.2 and earlier)
 
 Navigate to examples/deploy.  This directory contains the examples for the main library in the cc directory, plus python and csharp if you built the bindings to the main library.  Source files for these examples are located [here][ExampleSources] for your inspection.  In addition, there is a script that will run all of the examples for you if you point it to the location of the example data.  This script is called [run_all.py][RunAll].
 

@@ -251,11 +251,81 @@ This will dump the ROI image corresponding to each extracted image into:
 
 ### Training Detector
 
-OpenEM supports two detector models. One is the [Single Shot Detector](https://arxiv.org/abs/1512.02325) the other is [RetinaNet](https://arxiv.org/abs/1708.02002). Both models can be trained using the `train.py` tool within OpenEM. The underlying RetinaNet implementation is a forked version of [keras_retinanet](https://github.com/cvisionai/keras_retinanet). 
+OpenEM supports two detector models. One is the [Single Shot Detector](https://arxiv.org/abs/1512.02325) the other is [RetinaNet](https://arxiv.org/abs/1708.02002). Both models can be trained using the `train.py` tool within OpenEM. The underlying RetinaNet implementation is a forked version of [keras_retinanet](https://github.com/cvisionai/keras_retinanet).
 
+#### Train RetinaNet Detector
+
+To properly train the retinanet model, additional steps are required to generate intermediate artifacts for the underlying retinanet train scripts. These
+intermediate artifacts are stored in `<work_dir>/retinanet`. In `train.ini`, additional parameters are supported for retinanet specifically:
+
+```shell
+# Random seed for validation split
+ValRandomSeed=200
+# Validation poulation (0 to 1.0)
+ValPopulation=0.2
+# Backbone for retinanet implementation
+Backbone=resnet152
+```
+
+`ValPopulation` is used by the `retinanet_split` to generate a validation population from the overall training population.
+
+##### Generate required retinanet artifacts
+
+```shell
+# Generate a csv file compatible with retinanet representing the entire training population (incl. species.csv)
+python3 train.py /path/to/train.ini retinanet_prep
+
+# Split population based on ValPopulation and ValRandomSeed
+python3 train.py /path/to/train.ini retinanet_split
+```
+
+##### Initiate retinanet training
+
+```shell
+python3 train.py /path/to/train.ini retinanet_train
+```
+
+At this point you will see retinanet training output including losses and current epoch. Tensorboard can be run from `<openem_work>/retinanet/train_log`
+and model files are stored in `<openem_work>/retinanet/train_snapshots`.
+
+##### Converting keras-style model to static protobuf format
+
+The keras training script results in a series of h5 files, one for each training epoch. To convert a given epoch to the protobuf format, utilize the
+`/scripts/convertToPb.py` script within the openem-lite container.
+
+An example invocation is:
+```shell
+
+# Create detection model folder
+mkdir -p /data/openem_model/deploy/detect/
+
+# Output epoch 17 to the model area
+python3 /scripts/convertToPb.py --resnet /data/openem_work/retinanet/train_snapshots/resnet152_csv_17.h5 /data/openem_model/deploy/detect/detect_retinanet.pb
+```
+
+##### Running inference with the protobuf graph output
+
+Similar to the SSD procedure `train.py` can be used to generate detection results on the training population (training + validation).
+
+```shell
+# Generate a detect.csv from retinanet detections
+python3 train.py /path/to/train.ini retinanet_predict
+```
+
+**Note:** If training both SSD and RetinaNet, care should be taken not to overwrite the respective `detect.csv` files.
+
+###### Executing in production environment
+
+The `scripts/infer.py` file can be used as an example or starting point for production runs of inference. The inputs of the inference script support
+both openem flavor CSV and retinanet inputs. This can be used to generate detection results on just validation imagery or batches of test imagery.
+
+##### Extracting Retinanet Detection Images
+
+The procedure to extract the detection images for retinanet is identical to the [SSD procedure](#Extracting-detection-imagery).
 
 #### Train Single Shot Detector
-Now we are ready to train the detection model. Run the following:
+
+Once all ROIs are extracted, run the following:
 
 ```shell
 python train.py train.ini detect_train
@@ -301,6 +371,7 @@ This will dump all of the detection outputs into:
 <WorkDir>/train_dets
 ```
 
+### Training the rest of the algorithm pipeline
 And finally we can repeat the train/predict cycle for the classifier and counting algorithms:
 
 ```shell

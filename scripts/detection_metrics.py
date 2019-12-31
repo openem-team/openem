@@ -120,6 +120,7 @@ def calculateStats(truth, detections, keep_threshold):
             if not vid_tag in counted:
                 counted.append(vid_tag)
                 false_negatives += (boxes_in_truth - boxes_in_detection)
+                print(f"False Negatives {false_negatives} @ {vid_tag}")
 
     precision = true_positives / (true_positives + false_positives)
     recall = true_positives / (true_positives + false_negatives)
@@ -130,11 +131,11 @@ if __name__=="__main__":
     parser.add_argument("--truth", help="Truth CSV file")
     parser.add_argument("--keep-threshold-min",
                         type=float,
-                        default=0.05
+                        default=0.05,
                         help="Minimum keep threshold to scan")
     parser.add_argument("--keep-threshold-max",
                         type=float,
-                        default=0.80
+                        default=0.80,
                         help="Maximum keep threshold to scan")
     parser.add_argument("--keep-threshold-steps",
                         type=int,

@@ -194,7 +194,13 @@ def split(config):
         val_population = config.detect_val_population()
         print(f"Generating validation data set {val_population*100}% @ RS:{random_seed}")
         train_pop = 1.0 - val_population
-        train_df=total_df.sample(frac=train_pop, random_state=random_seed)
+
+        videos_list=total_df['video_id'].unique()
+        videos_df=pd.DataFrame(columns=['video_id'],
+                               data=videos_list)
+        train_videos=videos_df.sample(frac=train_pop,
+                                      random_state=random_seed)
+        train_df = total_df.loc[train_df['video_id'].isin(train_vids["video_id"].tolist())]
         validation_df=total_df.drop(train_df.index)
 
         print("Total Population:")

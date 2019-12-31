@@ -27,12 +27,14 @@ if __name__=="__main__":
     #ax1.plot(recall, keep_t, color='green', label='Keep Threshold')
     ax1.set_xlim(0,1)
     ax1.set_ylim(0,1)
+    ax1.grid()
     ax2 = axes[1]
     ax2.plot(recall, keep_t,color='green', label='Keep Threshold')
     ax2.set_ylabel('Keep Threshold')
     ax2.set_xlabel('Recall')
     ax2.set_xlim(0,1)
     ax2.set_ylim(0,1)
+    ax2.grid()
     if not args.doubles:
         ax2 = ax1.twinx()
         ax2.plot(recall, doubles, color='red', label='doubles')

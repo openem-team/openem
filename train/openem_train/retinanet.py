@@ -195,12 +195,12 @@ def split(config):
         print(f"Generating validation data set {val_population*100}% @ RS:{random_seed}")
         train_pop = 1.0 - val_population
 
-        videos_list=total_df['video_id'].unique()
-        videos_df=pd.DataFrame(columns=['video_id'],
+        videos_list=total_df['img_file'].unique()
+        videos_df=pd.DataFrame(columns=['img_file'],
                                data=videos_list)
-        train_videos=videos_df.sample(frac=train_pop,
+        train_vids=videos_df.sample(frac=train_pop,
                                       random_state=random_seed)
-        train_df = total_df.loc[train_df['video_id'].isin(train_vids["video_id"].tolist())]
+        train_df = total_df.loc[total_df['img_file'].isin(train_vids["img_file"].tolist())]
         validation_df=total_df.drop(train_df.index)
 
         print("Total Population:")

@@ -178,6 +178,8 @@ ModelDir=<Path where you want to store models>
 TestDir=<Path to OpenEM example data>/test
 ```
 
+### Extracting imagery
+
 TrainDir is the path to the example training data. WorkDir is where temporary files are stored during training. ModelDir contains model outputs that can be used directly by the deployment library.  Once you have modified your copy of train.ini to use the right paths on your system, you can do the following:
 
 ```shell
@@ -190,6 +192,7 @@ Where train.ini is your modified copy. This command will go through the videos a
 <WorkDir>/train_imgs
 ```
 
+### Ruler Training
 Next, you can do some training. To train the find ruler model you can do the following command:
 
 ```shell
@@ -214,6 +217,8 @@ Once training completes, a new model will be converted to protobuf format and sa
 
 This file is the same format used in the example data for the deployment library.
 
+#### Running Inference on train/val data
+
 Now that we have a model for finding rulers, we can run the algorithm on all of our extracted images. Run the following command:
 
 ```shell
@@ -230,6 +235,8 @@ This file has a simple format, which is just a csv containing the video ID and (
 
 It is possible to train only particular models in openem. Suppose we always know the position of the ruler in our videos and do not need the find ruler algorithm. In this case, we can manually create our own find ruler inference file that contains the same information and store it in the path above. So for example, if we know the ruler is always horizontal spanning the entire video frame, we would use the same (x, y) coordinates for every video in the csv.
 
+### Extract ROIs for Detection Training
+
 The next step is extracting the regions of interest for the videos as determined in the previous step. Run the following:
 
 ```shell
@@ -242,6 +249,12 @@ This will dump the ROI image corresponding to each extracted image into:
 <WorkDir>/train_rois
 ```
 
+### Training Detector
+
+OpenEM supports two detector models. One is the [Single Shot Detector](https://arxiv.org/abs/1512.02325) the other is [RetinaNet](https://arxiv.org/abs/1708.02002). Both models can be trained using the `train.py` tool within OpenEM. The underlying RetinaNet implementation is a forked version of [keras_retinanet](https://github.com/cvisionai/keras_retinanet). 
+
+
+#### Train Single Shot Detector
 Now we are ready to train the detection model. Run the following:
 
 ```shell
@@ -272,6 +285,8 @@ This will create a new inference output at:
 <WorkDir>/inference/detect.csv
 ```
 
+### Extracting detection imagery
+
 As with the find ruler output, if you have a situation where you do not need detection (you always know where the fish is) then you can create this file manually and continue with the next steps.
 
 Next we can extract the detection images:
@@ -296,6 +311,7 @@ python train.py train.ini count_train
 
 As with other training steps, these will take a while and can be monitored with TensorBoard. We should now have protobuf models in our designated model directory for all four models.
 
+### Testing complete algorithm chain
 To test our newly trained models, we can use the test videos included with the openem example data. Run the following command:
 
 ```shell

@@ -371,6 +371,22 @@ This will dump all of the detection outputs into:
 <WorkDir>/train_dets
 ```
 
+### Evaluating detection performance
+
+Traditional graphs using mAP metrics can be generated using `scripts/detection_metrics.py` and `scripts/make_pr_graph.py`. Example invocation:
+
+```shell
+# openem_val.csv is the truth data for the validation set
+# results.csv is the detection results from the inference results from the validation set
+python3 scripts/detection_metrics.py --truth /data/openem_val.csv --output-matrix pr-curve.npy results.csv
+
+# Outputs the PR curve to pr.png
+python3 scripts/make_pr_graph.py --output pr.png pr-curve.npy
+```
+
+Advanced usage of detection_metrics.py includes changing sweep parameters of keep threshold, and changing the iou threshold for determining a true positive. 
+`detection_metrics.py --help` can be utilized to explore this use-cases.
+
 ### Training the rest of the algorithm pipeline
 And finally we can repeat the train/predict cycle for the classifier and counting algorithms:
 

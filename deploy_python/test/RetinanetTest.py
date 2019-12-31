@@ -39,7 +39,9 @@ class DetectionTest(tf.test.TestCase):
         self.assertEqual(len(batch_result),len(self.images))
         for idx in range(len(self.images)):
             with self.subTest(idx=idx):
-                self.assertEqual(len(batch_result[idx]), 1)
+                # Retinanet will return 300 boxes need to use keep threshold
+                # to keep out bad ones.
+                self.assertEqual(len(batch_result[idx]), 300)
                 location=batch_result[idx][0].location
                 print(location)
                 self.assertAllClose(location,

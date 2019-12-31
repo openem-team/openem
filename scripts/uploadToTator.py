@@ -20,13 +20,33 @@ def exit_func(_,__):
     print("SIGINT detected")
     os._exit(0)
 
-def process_box(args, tator, species_names, row):
+def process_box(args, tator, species_names, truth_data, row):
     media_element = uploadMedia(args, tator, row)
+    if media_element == None:
+        print("ERROR: Could not find media element!")
+
+    obj = None
     if media_element and args.localization_type_id:
-        pass
+        species_id_0 = int(float(row['species_id'])-1)
+        add=True
+        if args.threshold:
+            if confidence < args.threshold:
+                add=False
+        if add:
+            obj = make_localization_obj(args,
+                                   tator,
+                                   args.localization_type_id,
+                                   media_element,
+                                   frame=int(row['frame']),
+                                   x=float(row['x']),
+                                   y=float(row['y']),
+                                   width=float(row['width']),
+                                   height=float(row['height']),
+                                   confidence=None,
+                                   species=species_names[species_id_0])
     with progress.get_lock():
         progress.value += 1
-
+    return obj
 def process_line(args, tator, species_names, row):
     print("ERROR: Line mode --- Not supported")
 
@@ -81,8 +101,9 @@ def make_localization_obj(args,
          "y": y / media_el['height'],
          "width": width / media_el['width'],
          "height": height / media_el['height'],
-         "Species": species,
-         "Confidence": confidence}
+         "Species": species}
+    if confidence:
+        obj.update({"Confidence": confidence})
     if args.media_type == "video":
         obj.update({"frame": frame})
     return obj

@@ -20,6 +20,8 @@ if __name__=="__main__":
     doubles = matrix[:,3]
 
     fig,axes = plt.subplots(2)
+    fig.set_figheight(10)
+    fig.set_figwidth(8)
     ax1 = axes[0]
     ax1.plot(recall, precision, color='blue', label='Precision/Recall')
     ax1.set_xlabel('Recall')

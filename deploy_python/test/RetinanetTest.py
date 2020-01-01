@@ -19,9 +19,9 @@ class DetectionTest(tf.test.TestCase):
                      'test_image_001.jpg',
                      'test_image_002.jpg']
         self.fishLocations=[
-            [144, 102, 163, 104],
-            [320,138,156,91],
-            [88,98,317,177]
+            [138, 108, 169, 89],
+            [318,138,164,91],
+            [120,83,315,201]
         ]
 
     def test_correctness(self):

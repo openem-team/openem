@@ -182,3 +182,4 @@ html_theme = 'sphinx_rtd_theme'
 github_url='https://github.com/openem-team/openem'
 
 autoclass_content = 'both'
+autodoc_mock_imports = ['tensorflow']

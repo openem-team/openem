@@ -2,5 +2,6 @@
 *__pycache__*
 config/Dockerfile.gen
 config/inference.gen
+config/arm_packages/*
 *~
 \#*\#

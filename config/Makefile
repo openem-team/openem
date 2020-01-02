@@ -21,8 +21,15 @@ ${BUILD_TOOLS}/version.py: ${BUILD_TOOLS}/version.sh
 Dockerfile.gen: Dockerfile.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py 
 	./../externals/build_tools/makocc.py -o $@ $<
 
+# Built wheels if on ARM
+ifeq ($(shell uname -p), aarch64)
 inference.gen: inference.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
 	./../externals/build_tools/makocc.py -o $@ $<
+	make -C arm_packages
+else
+inference.gen: inference.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
+	./../externals/build_tools/makocc.py -o $@ $<
+endif
 
 ifeq ($(work_dir), )
 extra_mounts=

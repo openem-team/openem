@@ -140,6 +140,11 @@ def uploadMedia(args, tator, row):
             media_element_search=tator.Media.filter({"name": desired_name})
         if media_element_search:
             result = tator.Media.get(media_element_search[0]['id'])
+            if result['attributes']['tator_user_sections'] != args.section:
+                tator.Media.update(result['id'], {'attributes':
+                                                 {'tator_user_sections':
+                                                     args.section}})
+                print(f"Moving to {args.section}")
             media_list_cache[desired_name] = result
             return result
         else:

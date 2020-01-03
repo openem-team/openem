@@ -50,7 +50,7 @@ def get_session(check):
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", help="Input file (*.h5)")
-    parser.add_argument("output" help="Output file (*.pb)")
+    parser.add_argument("output", help="Output file (*.pb)")
     parser.add_argument("--resnet", action="store_true", help="Use this for resnet-based models like RetinaNet")
     parser.add_argument("--appearance", action="store_true")
     parser.add_argument("--check", action="store_true", help="Check the graph can load and be optomized by tensorrt (requires GPU session!)")

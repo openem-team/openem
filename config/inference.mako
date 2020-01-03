@@ -35,7 +35,7 @@ RUN apt-get update && \
     python3-pil python3-pywt && \
     rm -fr /var/lib/apt/lists/*
 
-# Make sure pip can see the packages we installed from apt-get above 
+# Make sure pip can see the packages we installed from apt-get above
 WORKDIR /usr/local/lib/python3.6/dist-packages
 RUN ln -s /usr/lib/python3/dist-packages/scipy
 RUN ln -s /usr/lib/python3/dist-packages/PIL
@@ -70,8 +70,36 @@ COPY config/arm_packages/trusted.gpg /etc/apt
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libnvinfer6 libopencv-python && \
+    libnvinfer6 libopencv-python automake autoconf libtool m4 && \
     rm -fr /var/lib/apt/lists/*
+
+# But a cpp version of protobuf on instead of pure python which is what
+# ARM gets you by default
+RUN pip3 uninstall -y protobuf
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp
+WORKDIR /protobuf_build
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.11.2/protobuf-python-3.11.2.tar.gz
+RUN tar -xf protobuf-python-3.11.2.tar.gz
+WORKDIR /protobuf_build/protobuf-3.11.2
+RUN ./autogen.sh
+RUN ./configure --prefix=/usr
+RUN make -j16
+RUN make install
+RUN ldconfig
+WORKDIR /protobuf_build/protobuf-3.11.2/python
+# make c++11 work
+RUN sed -i '205s/if v:/if True:/' setup.py
+RUN python3 setup.py build --cpp_implementation
+RUN python3 setup.py install --cpp_implementation
+
+WORKDIR /
+RUN rm -fr protobuf_build
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3-pandas python3-tqdm  && \
+    rm -fr /var/lib/apt/lists/*
+
 % endif
 
 COPY deploy_python /openem

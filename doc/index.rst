@@ -28,37 +28,37 @@ Watch the video below to see a video of OpenEM in action:
    :maxdepth: 2
    :caption: Contents:
 
-   FAQS
    tutorial
    data_collection
    annotation
    build
    build/docker/build.md
+   FAQS
    api/deployment
 
 Change Log
 ============
 
-+---------+-----------+-------------------------------+
-| Version | Date      | Description of changes        |
-+=========+===========+===============================+
-|         |           | - Add RetinaNet based         |
-|         |           |   detector                    |
-|         |           | - Deprecate C++ library       |
-| 0.1.3   | Jan-2020  | - Add python inference        |
-+---------+-----------+-------------------------------+
-|         |           | - Docker image cleanups       |
-|         |           | - Add Improved documentation  |
-| 0.1.2   | June-2019 |                               |
-+---------+-----------+-------------------------------+
-|         |           | - Fix training in Docker      |
-|         |           |                               |
-| 0.1.1   | Feb-2019  |                               |
-+---------+-----------+-------------------------------+
-|         |           | - First stable release        |
-|         |           | - Training/Inference examples |
-| 0.1.0   | Jan-2019  |                               |
-+---------+-----------+-------------------------------+
++---------+-----------+---------------------------------------------------------------------+
+| Version | Date      | Description of changes                                              |
++=========+===========+=====================================================================+
+|         |           | - Add RetinaNet based detector                                      |
+|         |           | - Add pure python inference library                                 |
+|         |           | - Deprecate C++ library                                             |
+| 0.1.3   | Jan-2020  | - Alpha support for Xavier-based platforms                          |
++---------+-----------+---------------------------------------------------------------------+
+|         |           | - Docker image cleanups                                             |
+|         |           | - Add Improved documentation                                        |
+| 0.1.2   | June-2019 |                                                                     |
++---------+-----------+---------------------------------------------------------------------+
+|         |           | - Fix training in Docker                                            |
+|         |           |                                                                     |
+| 0.1.1   | Feb-2019  |                                                                     |
++---------+-----------+---------------------------------------------------------------------+
+|         |           | - First stable release                                              |
+|         |           | - Training/Inference examples                                       |
+| 0.1.0   | Jan-2019  |                                                                     |
++---------+-----------+---------------------------------------------------------------------+
 
 Indices and tables
 ==================

@@ -22,6 +22,7 @@ def peak_sum(array, idx, width):
     return sum_value
 
 class KeyframeFinder:
+    """ Model to find keyframes of a given species """
     def __init__(self, model_path, img_width, img_height, gpu_fraction=1.0):
         """ Initialize a keyframe finder model. Gives a list of keyframes for
             each species. Caveats of this model:

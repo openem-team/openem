@@ -1,6 +1,8 @@
 # Quick Start
 
-This document is a quick start guide in how to use the OpenEM package. 
+This document is a quick start guide in how to use the OpenEM package. The
+instructions in this guide still work for newer versions, but usage of the
+python inference library is incouraged.
 
 ## Example data
 
@@ -9,6 +11,12 @@ This tutorial requires the OpenEM example data which can be downloaded via BitTo
 ## Installation
 
 OpenEM is distributed as a native Windows library or as a Docker image. See below for your selected option.
+
+
+    Warning: The windows binary releases have been deprecated as of
+    version 0.1.3.
+
+    Refer to the python deployment library.
 
 ### Windows
 
@@ -60,7 +68,40 @@ and use:
 
 `docker exec --env=DISPLAY -it <hash_of_container> bash`
 
-## Running the deployment library demo
+## Running the deployment library (0.1.3 and later)
+
+In version 0.1.3 the deployment library has changed from a C++ library with variable language bindings, to
+a single python library.
+
+In versions 0.1.3 and later there is a unit test for each inference module that runs against the example data
+provided above. To run the test suite; launch the openem-lite image with the example data mounted and the
+`deploy_dir` environment variable set appropriately.
+
+The included `Makefile` in config facilitates this by forwarding the host's `work_dir` environment variable to
+the container's `deploy_dir` variable. In the config directory with `work_dir` set to
+`/path/to/the/openem_example_data/deploy` run `make inference_bash`.
+
+The `inference_bash` target launches the nvidia container with recommended settings on device 0; forwarding
+port 10001 for potential tensorboard usage.
+
+### Running the tests in the container
+
+The unit tests can be used to verify the underlying computing envioronment for inference and serve as a
+regression test against modifications to optomize image preprocessing or result post processing. The unit tests
+are also an example usage of the python deployment API.
+
+* Whilst in the container navigate to `/deploy_python`
+* Type:
+
+```shell
+python -m unittest test
+```
+
+* The results of the tests will print out.
+* On machines with limited memory resources, it may be required to run each unit test individually, this can
+  be done by replacing `test` with `test.CountTest` or `test.DetectionTest`
+
+## Running the deployment library demo (0.1.2 and earlier)
 
 * Navigate to examples/deploy/python.
 * Type:
@@ -97,7 +138,7 @@ nvidia-docker run --rm -ti -v \
     -e CUDA_VISIBLE_DEVICES=0 cvisionai/openem
 ```
 
-## Deployment library
+## Deployment library (0.1.2 and earlier)
 
 Navigate to examples/deploy.  This directory contains the examples for the main library in the cc directory, plus python and csharp if you built the bindings to the main library.  Source files for these examples are located [here][ExampleSources] for your inspection.  In addition, there is a script that will run all of the examples for you if you point it to the location of the example data.  This script is called [run_all.py][RunAll].
 
@@ -107,7 +148,7 @@ Now invoke the [run_all.py][RunAll] script to see how to run it:
 python run_all.py -h
 ```
 
-This will show you the command line options for this script, and give you 
+This will show you the command line options for this script, and give you
 an explanation of each of the available examples to run.  The simplest way
 to invoke the script is as follows:
 
@@ -115,10 +156,10 @@ to invoke the script is as follows:
 python run_all.py <path to OpenEM example data>
 ```
 
-Doing so will run all available examples in all languages for which you 
+Doing so will run all available examples in all languages for which you
 built the software.
 
-Once you are able to run the examples, you are encouraged to inspect the 
+Once you are able to run the examples, you are encouraged to inspect the
 source code for the language that you plan to use for your application.
 
 ## Training library
@@ -137,6 +178,8 @@ ModelDir=<Path where you want to store models>
 TestDir=<Path to OpenEM example data>/test
 ```
 
+### Extracting imagery
+
 TrainDir is the path to the example training data. WorkDir is where temporary files are stored during training. ModelDir contains model outputs that can be used directly by the deployment library.  Once you have modified your copy of train.ini to use the right paths on your system, you can do the following:
 
 ```shell
@@ -149,6 +192,7 @@ Where train.ini is your modified copy. This command will go through the videos a
 <WorkDir>/train_imgs
 ```
 
+### Ruler Training
 Next, you can do some training. To train the find ruler model you can do the following command:
 
 ```shell
@@ -173,6 +217,8 @@ Once training completes, a new model will be converted to protobuf format and sa
 
 This file is the same format used in the example data for the deployment library.
 
+#### Running Inference on train/val data
+
 Now that we have a model for finding rulers, we can run the algorithm on all of our extracted images. Run the following command:
 
 ```shell
@@ -189,6 +235,8 @@ This file has a simple format, which is just a csv containing the video ID and (
 
 It is possible to train only particular models in openem. Suppose we always know the position of the ruler in our videos and do not need the find ruler algorithm. In this case, we can manually create our own find ruler inference file that contains the same information and store it in the path above. So for example, if we know the ruler is always horizontal spanning the entire video frame, we would use the same (x, y) coordinates for every video in the csv.
 
+### Extract ROIs for Detection Training
+
 The next step is extracting the regions of interest for the videos as determined in the previous step. Run the following:
 
 ```shell
@@ -201,7 +249,83 @@ This will dump the ROI image corresponding to each extracted image into:
 <WorkDir>/train_rois
 ```
 
-Now we are ready to train the detection model. Run the following:
+### Training Detector
+
+OpenEM supports two detector models. One is the [Single Shot Detector](https://arxiv.org/abs/1512.02325) the other is [RetinaNet](https://arxiv.org/abs/1708.02002). Both models can be trained using the `train.py` tool within OpenEM. The underlying RetinaNet implementation is a forked version of [keras_retinanet](https://github.com/cvisionai/keras_retinanet).
+
+#### Train RetinaNet Detector
+
+To properly train the retinanet model, additional steps are required to generate intermediate artifacts for the underlying retinanet train scripts. These
+intermediate artifacts are stored in `<work_dir>/retinanet`. In `train.ini`, additional parameters are supported for retinanet specifically:
+
+```shell
+# Random seed for validation split
+ValRandomSeed=200
+# Validation poulation (0 to 1.0)
+ValPopulation=0.2
+# Backbone for retinanet implementation
+Backbone=resnet152
+```
+
+`ValPopulation` is used by the `retinanet_split` to generate a validation population from the overall training population.
+
+##### Generate required retinanet artifacts
+
+```shell
+# Generate a csv file compatible with retinanet representing the entire training population (incl. species.csv)
+python3 train.py /path/to/train.ini retinanet_prep
+
+# Split population based on ValPopulation and ValRandomSeed
+python3 train.py /path/to/train.ini retinanet_split
+```
+
+##### Initiate retinanet training
+
+```shell
+python3 train.py /path/to/train.ini retinanet_train
+```
+
+At this point you will see retinanet training output including losses and current epoch. Tensorboard can be run from `<openem_work>/retinanet/train_log`
+and model files are stored in `<openem_work>/retinanet/train_snapshots`.
+
+##### Converting keras-style model to static protobuf format
+
+The keras training script results in a series of h5 files, one for each training epoch. To convert a given epoch to the protobuf format, utilize the
+`/scripts/convertToPb.py` script within the openem-lite container.
+
+An example invocation is:
+```shell
+
+# Create detection model folder
+mkdir -p /data/openem_model/deploy/detect/
+
+# Output epoch 17 to the model area
+python3 /scripts/convertToPb.py --resnet /data/openem_work/retinanet/train_snapshots/resnet152_csv_17.h5 /data/openem_model/deploy/detect/detect_retinanet.pb
+```
+
+##### Running inference with the protobuf graph output
+
+Similar to the SSD procedure `train.py` can be used to generate detection results on the training population (training + validation).
+
+```shell
+# Generate a detect.csv from retinanet detections
+python3 train.py /path/to/train.ini retinanet_predict
+```
+
+**Note:** If training both SSD and RetinaNet, care should be taken not to overwrite the respective `detect.csv` files.
+
+###### Executing in production environment
+
+The `scripts/infer.py` file can be used as an example or starting point for production runs of inference. The inputs of the inference script support
+both openem flavor CSV and retinanet inputs. This can be used to generate detection results on just validation imagery or batches of test imagery.
+
+##### Extracting Retinanet Detection Images
+
+The procedure to extract the detection images for retinanet is identical to the [SSD procedure](#Extracting-detection-imagery).
+
+#### Train Single Shot Detector
+
+Once all ROIs are extracted, run the following:
 
 ```shell
 python train.py train.ini detect_train
@@ -231,6 +355,8 @@ This will create a new inference output at:
 <WorkDir>/inference/detect.csv
 ```
 
+### Extracting detection imagery
+
 As with the find ruler output, if you have a situation where you do not need detection (you always know where the fish is) then you can create this file manually and continue with the next steps.
 
 Next we can extract the detection images:
@@ -245,6 +371,23 @@ This will dump all of the detection outputs into:
 <WorkDir>/train_dets
 ```
 
+### Evaluating detection performance
+
+Traditional graphs using mAP metrics can be generated using `scripts/detection_metrics.py` and `scripts/make_pr_graph.py`. Example invocation:
+
+```shell
+# openem_val.csv is the truth data for the validation set
+# results.csv is the detection results from the inference results from the validation set
+python3 scripts/detection_metrics.py --truth /data/openem_val.csv --output-matrix pr-curve.npy results.csv
+
+# Outputs the PR curve to pr.png
+python3 scripts/make_pr_graph.py --output pr.png pr-curve.npy
+```
+
+Advanced usage of detection_metrics.py includes changing sweep parameters of keep threshold, and changing the iou threshold for determining a true positive. 
+`detection_metrics.py --help` can be utilized to explore this use-cases.
+
+### Training the rest of the algorithm pipeline
 And finally we can repeat the train/predict cycle for the classifier and counting algorithms:
 
 ```shell
@@ -255,6 +398,7 @@ python train.py train.ini count_train
 
 As with other training steps, these will take a while and can be monitored with TensorBoard. We should now have protobuf models in our designated model directory for all four models.
 
+### Testing complete algorithm chain
 To test our newly trained models, we can use the test videos included with the openem example data. Run the following command:
 
 ```shell
@@ -286,4 +430,3 @@ Now that you have done training using the example data, you can try doing the sa
 [NvidiaDocker]: https://github.com/nvidia/nvidia-docker/wiki/Installation-(version-2.0)
 [DataCollection]: ./data_collection.md
 [Annotation]: ./annotation.md
-

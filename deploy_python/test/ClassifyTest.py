@@ -92,7 +92,9 @@ class ClassifyTest(tf.test.TestCase):
             with self.subTest(idx=idx):
                 classification=batch_result[idx]
                 self.assertAllClose(self.species[idx],
-                                    classification.species)
+                                    classification.species,
+                                    rtol=0.10)
                 self.assertAllClose(self.covers[idx],
-                                    classification.cover)
+                                    classification.cover,
+                                    rtol=0.10)
                 

@@ -1,3 +1,6 @@
 [submodule "externals/build_tools"]
 	path = externals/build_tools
 	url = https://github.com/bctcvai/build_tools.git
+[submodule "externals/keras_retinanet"]
+	path = externals/keras_retinanet
+	url = https://github.com/cvisionai/keras_retinanet.git

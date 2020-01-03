@@ -73,6 +73,11 @@ class ConfigInterface:
         """
         return os.path.join(self.detect_model_dir(), 'detect.pb')
 
+    def detect_retinanet_path(self):
+        """Gets detection file path.
+        """
+        return os.path.join(self.detect_model_dir(), 'detect_retinanet.pb')
+
     def classify_model_dir(self):
         """Gets classification model directory.
         """
@@ -173,6 +178,26 @@ class ConfigInterface:
         """
         return self.config.getint('Detect', 'ValBatchSize')
 
+    def detect_val_random_seed(self):
+        """ Returns the value to use for the random seed
+            to generate the validation population size.
+        """
+        return self.config.getint('Detect', 'ValRandomSeed')
+    def detect_val_population(self):
+        """ Returns the population percentage for the validation set """
+        return self.config.getfloat('Detect', 'ValPopulation')
+    def detect_backbone(self):
+        """ Returns the backbone for retinanet to use """
+        if self.config.has_option('Detect', 'Backbone'):
+            return self.config.get('Detect', 'Backbone')
+        else:
+            return None
+    def detect_force_aspect(self):
+        """ Returns the backbone for retinanet to use """
+        if self.config.has_option('Detect', 'ForceAspect'):
+            return self.config.getfloat('Detect', 'ForceAspect')
+        else:
+            return None
     def detect_num_epochs(self):
         """Returns number of epochs used for detection training.
         """
@@ -404,7 +429,8 @@ class ConfigInterface:
         """Returns list of all training roi images.
         """
         patt = os.path.join(self.train_rois_dir(), '**', '*.jpg')
-        return glob.glob(patt, recursive=True)
+        patt2 = os.path.join(self.train_rois_dir(), '**', '*.png')
+        return glob.glob(patt, recursive=True).extend(glob.glob(patt2, recursive=True))
 
     def train_dets(self):
         """Returns list of all training detection images.

@@ -139,6 +139,7 @@ if __name__=="__main__":
         if args.csv_flavor == "video":
             video_reader = cv2.VideoCapture(image_path)
             vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
+            count = vid_len
             frame_num = 0
             ok = True
             with tqdm(total=vid_len, desc="Frames",leave=True) as bar:

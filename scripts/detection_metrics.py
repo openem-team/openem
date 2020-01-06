@@ -24,6 +24,7 @@ import pandas as pd
 import progressbar
 import numpy as np
 import pickle
+from pprint import pprint
 
 def _rowToBoxDict(row):
     """ Converts a row from a csv to a dictionary """
@@ -119,18 +120,18 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
         for species in species_list:
             species_df = truth.loc[truth.species_id==species]
             for idx, row in species_df.iterrows():
-            matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
-            boxes_in_truth=len(species_df.loc[(species_df.video_id == row.video_id) & (species_df.frame == row.frame)])
-            boxes_in_detection = len(matching_detection_df)
-            if boxes_in_detection < boxes_in_truth:
-                vid_tag=f"{row.video_id}_{row.frame}"
-                if not vid_tag in counted:
-                    counted.append(vid_tag)
-                    false_negatives += (boxes_in_truth - boxes_in_detection)
+                matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
+                boxes_in_truth=len(species_df.loc[(species_df.video_id == row.video_id) & (species_df.frame == row.frame)])
+                boxes_in_detection = len(matching_detection_df)
+                if boxes_in_detection < boxes_in_truth:
+                    vid_tag=f"{row.video_id}_{row.frame}"
+                    if not vid_tag in counted:
+                        counted.append(vid_tag)
+                        false_negatives += (boxes_in_truth - boxes_in_detection)
 
-        precision = true_positives / (true_positives + false_positives)
-        recall = true_positives / (true_positives + false_negatives)
-        results_by_species[species] = (precision, recall, double_counts / true_positives)
+            precision = true_positives / (true_positives + false_positives)
+            recall = true_positives / (true_positives + false_negatives)
+            results_by_species[species] = (precision, recall, double_counts / true_positives)
     else:
         for idx, row in truth.iterrows():
             matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
@@ -178,16 +179,19 @@ if __name__=="__main__":
 
     detections=pd.read_csv(args.detect_csv)
     truth = pd.read_csv(args.truth)
-    results=[]
+    results={}
     keep_thresholds = np.linspace(args.keep_threshold_min,
                                   args.keep_threshold_max,
                                   args.keep_threshold_steps)
     bar = progressbar.ProgressBar(redirect_stdout=True)
     for keep_threshold in bar(keep_thresholds):
-        results = calculateStats(truth, detections, keep_threshold, args.recall_by_species)
-        results.append([keep_threshold, results])
+        threshold_results = calculateStats(truth, detections, keep_threshold, args.recall_by_species)
+        for species in threshold_results:
+            if species not in results:
+                results[species] = []
+            results[species].append([keep_threshold, *threshold_results[species]])
 
-    print(matrix)
+    pprint(results)
     if args.output_matrix:
         with open(args.output_matrix, 'wb') as output:
-            pickle.dump(output, results)
+            pickle.dump(results, output)

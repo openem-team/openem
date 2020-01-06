@@ -35,9 +35,11 @@ def _rowToBoxDict(row):
     try:
         box_dict['w'] = row.width
         box_dict['h'] = row.height
+        box_dict['species'] = row.species_id
     except:
         box_dict['w'] = row.w
         box_dict['h'] = row.h
+        box_dict['speices'] = row.det_species
     return box_dict
 def _intersection_over_union(boxA, boxB):
     """ Computes intersection over union for two bounding boxes.
@@ -81,6 +83,7 @@ def _intersection_over_union(boxA, boxB):
 def calculateStats(truth, detections, keep_threshold, recall_by_species):
     eval_detects = detections.loc[detections.det_conf > keep_threshold]
     count = len(eval_detects)
+    true_positives_by_species = {}
     true_positives = 0
     false_positives = 0
     false_negatives = 0
@@ -109,6 +112,9 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
 
             if got_match == True:
                 true_positives += 1
+                if not truth_box['species'] in true_positives_by_species:
+                    true_positives_by_species[truth_box['species']] = 0
+                true_positives_by_species[truth_box['species']] += 1
             else:
                 false_positives += 1
 
@@ -119,6 +125,9 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
         species_list=list(truth.species_id.unique())
         for species in species_list:
             species_df = truth.loc[truth.species_id==species]
+            counted=[]
+            #Reset these globals for each species
+            false_negatives=0
             for idx, row in species_df.iterrows():
                 matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
                 boxes_in_truth=len(species_df.loc[(species_df.video_id == row.video_id) & (species_df.frame == row.frame)])
@@ -129,8 +138,10 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
                         counted.append(vid_tag)
                         false_negatives += (boxes_in_truth - boxes_in_detection)
 
+            # Precision is not by species (yet)
             precision = true_positives / (true_positives + false_positives)
-            recall = true_positives / (true_positives + false_negatives)
+            recall = true_positives_by_species[species] / (true_positives_by_species[species] + false_negatives)
+            print(f"Species '{species}' @ {keep_threshold}: FN = {false_negatives}")
             results_by_species[species] = (precision, recall, double_counts / true_positives)
     else:
         for idx, row in truth.iterrows():

@@ -10,7 +10,7 @@ can be used for both training and inference of OpenEM models.
 
 The docker image is provided from dockerhub, and can be installed with:
 ```shell
-docker pull cvision/openem_lite:latest
+docker pull cvisionai/openem_lite:latest
 ```
 
 ### Building the image

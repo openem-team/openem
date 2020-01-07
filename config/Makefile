@@ -48,7 +48,7 @@ endif
 ifeq ($(shell uname -p), aarch64)
 docker_cmd=nvidia-docker run
 else
-docker_cmd=docker --gpus device=0
+docker_cmd=docker run --gpus device=0
 endif
 
 inference_bash:

@@ -45,6 +45,70 @@ def _getTrackQuality(tracks, frame : int):
 
     return quality
 
+def check_file(detections):
+    for detection in detections:
+        if detection["type"] == "box" or detection["type"] == "line":
+            return True
+    return False
+
+def convert_line_ann_to_box(ann):
+    """Convert a line annotation to a bounding box one
+    """
+    x1 = min(int(ann['x']),int(ann['w']))
+    x2 = max(int(ann['x']),int(ann['w']))
+    y1 = min(int(ann['y']),int(ann['h']))
+    y2 = max(int(ann['y']),int(ann['h']))
+    assert(x2>=x1)
+    assert(y2>=y1)
+    z = 1.1 * np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    nx = x1 + (x2 - x1)/2 - z/2
+    ny = y1 + (y2 - y1)/2 - z/2
+    new_ann = ann
+    new_ann['image_file'] = ann['image_file']
+    new_ann['type'] = 'box'
+    new_ann['x'] = str(int(round(nx)))
+    new_ann['y'] = str(int(round(ny)))
+    new_ann['w'] = str(int(round(z)))
+    new_ann['h'] = str(int(round(z)))
+    return new_ann
+
+def generate_box(detection, speciesNameMap, video_id, createCover, oemCovers, oemDetections):
+    try:
+        frame=int(detection["frame"])
+    except:
+        frame=0
+    oemDetections.append(
+        FishBoxDetection(
+            video_id=video_id,
+            frame=frame,
+            x=float(detection["x"]),
+            y=float(detection["y"]),
+            width=float(detection["w"]),
+            height=float(detection["h"]),
+            species_id=speciesNameMap[name],
+            theta=0
+        )
+    )
+
+    #For now assume all localizations are non-covered
+    if createCover:
+        oemCovers.append(
+            Cover(video_id=video_id,
+                frame=frame,
+                cover=_getTrackQuality(tracks,frame)
+            )
+        )
+
+    return oemDetections, oemCovers
+
+def check_species(detection, unknown, unknownNames, speciesNameMap):
+    name=_getScientificName(detection["species"])
+    print(speciesNameMap)
+    if name not in speciesNameMap:
+        unknown+=1
+        unknownNames.add(name)
+        return True, unknown, unknownNames
+    return False, unknown, unknownNames
 
 def _convertLocalizationsFromFile(inputPath, speciesNames, createCover):
     base=os.path.basename(inputPath)
@@ -59,47 +123,31 @@ def _convertLocalizationsFromFile(inputPath, speciesNames, createCover):
         if createCover:
             tracks=obj["tracks"]
         boxes=0
+        lines=0
         ignored=0
         unknown=0
         unknownNames=set()
 
-        for detection in detections:
-            if detection["type"] == "box":
-                name=_getScientificName(detection["species"])
-                if name not in speciesNameMap:
-                    unknown=unknown+1
-                    unknownNames.add(name)
-                    continue
-                try:
-                    frame=int(detection["frame"])
-                except:
-                    frame=0
-                oemDetections.append(
-                    FishBoxDetection(
-                        video_id=video_id,
-                        frame=frame,
-                        x=float(detection["x"]),
-                        y=float(detection["y"]),
-                        width=float(detection["w"]),
-                        height=float(detection["h"]),
-                        species_id=speciesNameMap[name],
-                        theta=0
-                    )
-                )
+        if check_file(detections):
+            for detection in detections:
+                if detection["type"] == "box":
+                    species, unknown, unknownNames = check_species(detection, unknown, unknownNames, speciesNameMap)
+                    if species:
+                        continue
+                    oemDetections, oemCovers = generate_box(detection, speciesNameMap, video_id, createCover, oemCovers, oemDetections)
+                    boxes +=1
+                elif detection["type"] == "line":
+                    species, unknown, unknownNames = check_species(detection, unknown, unknownNames, speciesNameMap)
+                    if species:
+                        continue
+                    #Generate box notations
+                    detection=convert_line_ann_to_box(detection)
+                    oemDetections, oemCovers = generate_box(detection, speciesNameMap, video_id, createCover, oemCovers)
+                    lines += 1
+        else:
+            ignored+=1
 
-                #For now assume all localizations are non-covered
-                if createCover:
-                    oemCovers.append(
-                        Cover(video_id=video_id,
-                            frame=frame,
-                            cover=_getTrackQuality(tracks,frame)
-                        )
-                    )
-                boxes=boxes+1
-            else:
-                ignored=ignored+1
-
-    return (oemDetections, (boxes,ignored, unknown, unknownNames), oemCovers)
+    return (oemDetections, (boxes,ignored, unknown, unknownNames, lines), oemCovers)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Converts tator json annotations to csv.")

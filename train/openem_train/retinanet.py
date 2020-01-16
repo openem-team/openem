@@ -237,6 +237,10 @@ def train(config):
     else:
         print("Detected Species.csv in training dir")
 
+    if not os.path.exists(snapshot_dir):
+        os.makedirs(snapshot_dir)
+
+
     train_annotations=pd.read_csv(annotations_csv)
     steps_per_epoch = len(train_annotations) / config.detect_batch_size()
     steps_per_epoch = int(np.floor(steps_per_epoch))

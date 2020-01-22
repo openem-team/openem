@@ -39,7 +39,7 @@ def _rowToBoxDict(row):
     except:
         box_dict['w'] = row.w
         box_dict['h'] = row.h
-        box_dict['speices'] = row.det_species
+        box_dict['species'] = row.det_species
     return box_dict
 def _intersection_over_union(boxA, boxB):
     """ Computes intersection over union for two bounding boxes.
@@ -89,6 +89,8 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
     false_negatives = 0
     double_counts = 0
 
+    num_of_classes=truth['species_id'].max() + 1
+    confusion_matrix = np.zeros((num_of_classes,num_of_classes))
     matches={}
     # Iterate over all detections from inference over keep threshold
     # calculate true and false positives
@@ -115,8 +117,16 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
                 if not truth_box['species'] in true_positives_by_species:
                     true_positives_by_species[truth_box['species']] = 0
                 true_positives_by_species[truth_box['species']] += 1
+                confusion_matrix[truth_box['species'],canidate_box['species']] += 1
             else:
                 false_positives += 1
+                confusion_matrix[0,canidate_box['species']] += 1
+
+    # Normalize each col of the confusion_matrix
+    for idx in range(num_of_classes):
+        col_sum = np.sum(confusion_matrix[:,idx])
+        if col_sum > 0:
+            confusion_matrix[:,idx] /= col_sum
 
     counted=[]
     results_by_species = {}
@@ -140,7 +150,11 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
 
             # Precision is not by species (yet)
             precision = true_positives / (true_positives + false_positives)
-            recall = true_positives_by_species[species] / (true_positives_by_species[species] + false_negatives)
+            try:
+                recall = true_positives_by_species[species] / (true_positives_by_species[species] + false_negatives)
+            except:
+                print(f"No true positives for {species} @ {keep_threshold}!")
+                recall = 0
             print(f"Species '{species}' @ {keep_threshold}: FN = {false_negatives}")
             results_by_species[species] = (precision, recall, double_counts / true_positives)
     else:
@@ -158,7 +172,7 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
         recall = true_positives / (true_positives + false_negatives)
         results_by_species[None] = (precision, recall, double_counts / true_positives)
 
-    return results_by_species
+    return results_by_species,confusion_matrix
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -190,17 +204,18 @@ if __name__=="__main__":
 
     detections=pd.read_csv(args.detect_csv)
     truth = pd.read_csv(args.truth)
-    results={}
+    results={"CONFUSION_MATRICES":{}}
     keep_thresholds = np.linspace(args.keep_threshold_min,
                                   args.keep_threshold_max,
                                   args.keep_threshold_steps)
     bar = progressbar.ProgressBar(redirect_stdout=True)
     for keep_threshold in bar(keep_thresholds):
-        threshold_results = calculateStats(truth, detections, keep_threshold, args.recall_by_species)
+        threshold_results, confusion_matrix = calculateStats(truth, detections, keep_threshold, args.recall_by_species)
         for species in threshold_results:
             if species not in results:
                 results[species] = []
             results[species].append([keep_threshold, *threshold_results[species]])
+        results["CONFUSION_MATRICES"][keep_threshold] = confusion_matrix
 
     pprint(results)
     if args.output_matrix:

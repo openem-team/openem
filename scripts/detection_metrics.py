@@ -80,8 +80,15 @@ def _intersection_over_union(boxA, boxB):
         # return the intersection over union value
     return iou
 
+def max_score(row):
+    vals=np.array(str(row).split(":"))
+    vals=vals.astype(np.float)
+    return vals.max()
+
 def calculateStats(truth, detections, keep_threshold, recall_by_species):
-    eval_detects = detections.loc[detections.det_conf > keep_threshold]
+    eval_detects = detections
+    eval_detects['max_score'] = eval_detects['det_conf'].transform(max_score)
+    eval_detects = eval_detects.loc[eval_detects.max_score > keep_threshold]
     count = len(eval_detects)
     true_positives_by_species = {}
     true_positives = 0

@@ -125,10 +125,10 @@ class RetinaNetDetector(ImageModel):
             image_detections=[]
             for detection in detections[img_idx, ...]:
                 label = int(detection[4])
-                confidence = float(detection[5+label])
-                if confidence > threshold:
+                max_confidence = detection[5+label])
+                if max_confidence >= threshold:
                     detection = Detection(location=detection[:4].tolist(),
-                                          confidence=confidence,
+                                          confidence=detection[5:].tolist(),
                                           # OpenEM uses 1-based indexing
                                           species=label+1,
                                           frame=this_frame,

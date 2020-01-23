@@ -27,6 +27,7 @@ from tqdm import tqdm
 import cv2
 import os
 import importlib
+import numpy as np
 
 # Static variables for recurrent process_image_data function
 batch_info = []
@@ -45,8 +46,13 @@ def process_image_data(args, preprocess_funcs, video_id, frame, image_data):
         results = retinanet.process()
         for batch_idx,batch_result in enumerate(results):
             for result in batch_result:
-                if result.confidence < args.keep_threshold:
+                confidence_array=np.array(result.confidence)
+                confidence = np.max(confidence_array)
+                if confidence < args.keep_threshold:
                     continue
+
+                conf_as_string = confidence_array.astype(np.str)
+                confidence_formatted = ':'.join(list(conf_as_string))
                 new_record = {'video_id': batch_info[batch_idx][0],
                               'frame': batch_info[batch_idx][1],
                               'x': result.location[0],
@@ -54,7 +60,7 @@ def process_image_data(args, preprocess_funcs, video_id, frame, image_data):
                               'w': result.location[2],
                               'h': result.location[3],
                               'det_species': result.species,
-                              'det_conf': result.confidence}
+                              'det_conf': confidence_formatted}
                 new_df = pd.DataFrame(columns=result_cols,
                                       data=[new_record])
                 new_df.to_csv(args.output_csv, mode='a', header=False,index=False)

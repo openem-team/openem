@@ -48,6 +48,13 @@ class ConfigInterface:
                 raise ValueError(msg)
         self._num_classes = len(self._species) + 1
 
+    def tensorboard_port(self):
+        """ Returns the backbone for retinanet to use """
+        if self.config.has_option('Tensorboard', 'Port'):
+            return self.config.get('Tensorboard', 'Port')
+        else:
+            return 10000
+
     def model_dir(self):
         """Gets model directory.
         """

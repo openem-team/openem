@@ -286,6 +286,21 @@ def train(config):
     p.wait()
     return p.returncode
 
+def tensorboard(config):
+    work_dir = config.work_dir()
+    retinanet_dir = os.path.join(work_dir, "retinanet")
+    log_dir = os.path.join(retinanet_dir, "train_log")
+    port = config.tensorboard_port()
+
+    args=['tensorboard',
+          '--logdir',
+          log_dir,
+          '--port',
+          str(port)]
+    p=subprocess.Popen(args)
+    p.wait()
+    return p.returncode
+
 def predict(config):
     import openem
     from openem.Detect import Detection,RetinaNet

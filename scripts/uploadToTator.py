@@ -123,7 +123,7 @@ def uploadMedia(args, tator, row):
         return
     img_path=os.path.join(vid_dir, img_file)
     if args.media_type == "image":
-        desired_name = f"{row['video_id']}_{row['frame']}.{args.img_ext}"
+        desired_name = f"{row['video_id']}.{args.img_ext}"
     else:
         desired_name = f"{row['video_id']}.{args.img_ext}"
     if desired_name in media_list_cache:

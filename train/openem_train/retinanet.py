@@ -242,6 +242,8 @@ def train(config):
     steps_per_epoch = len(unique_videos) / config.detect_batch_size()
     steps_per_epoch = int(np.floor(steps_per_epoch))
     print("Calculated steps per epoch = {steps_per_epoch}")
+    os.makedirs(snapshot_path, exist_ok=True)
+    os.makedirs(log_path, exist_ok=True)
     args = ['python',
             '/keras_retinanet/scripts/train.py',
             '--train-img-dir',

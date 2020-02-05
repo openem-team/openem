@@ -125,7 +125,7 @@ class RetinaNetDetector(ImageModel):
             image_detections=[]
             for detection in detections[img_idx, ...]:
                 label = int(detection[4])
-                max_confidence = detection[5+label])
+                max_confidence = detection[5+label]
                 if max_confidence >= threshold:
                     detection = Detection(location=detection[:4].tolist(),
                                           confidence=detection[5:].tolist(),

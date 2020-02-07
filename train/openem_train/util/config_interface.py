@@ -165,6 +165,12 @@ class ConfigInterface:
         """
         return self.config.getint('FindRuler', 'InitialEpoch')
 
+    def detect_patience(self):
+        try:
+            return self.config.getint('Detect', 'LR_Patience')
+        except:
+            return None
+
     def detect_width(self):
         """Returns width of ROI used for detection.
         """

@@ -265,6 +265,11 @@ def train(config):
         args.extend(['--backbone',
                      backbone])
 
+    patience = config.detect_patience()
+    if patience:
+        args.extend(['--lr-patience',
+                     str(patience)])
+
     args.extend(['csv',
                  annotations_csv,
                  species_csv])

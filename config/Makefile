@@ -39,19 +39,27 @@ else
 extra_mounts=-v $(work_dir):/working --env deploy_dir=/working
 endif
 
+container_name=openem_$(USER)
 ifeq ($(data_dir), )
 
 else
 extra_mounts+=-v $(data_dir):/data
+container_name=openem_$(USER)_$(shell basename $(data_dir))
 endif
 
 
-
+ifndef openem_gpu
+openem_gpu=0
+endif
 ifeq ($(shell uname -p), aarch64)
 docker_cmd=nvidia-docker run
 else
-docker_cmd=docker run --gpus device=0
+docker_cmd=docker run --gpus device=$(openem_gpu)
+endif
+
+ifndef openem_container_name
+openem_container_name=$(container_name)_gpu_$(openem_gpu)
 endif
 
 inference_bash:
-	$(docker_cmd) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) -p 10001:10001 cvisionai/openem_lite:$(USER)
+	$(docker_cmd) --name $(openem_container_name) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_lite:$(USER)

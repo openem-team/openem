@@ -19,7 +19,7 @@ RUN apt-get update && \
 
 % if multiArch.arch == "x86_64":
 RUN pip3 install --no-cache-dir --upgrade pip
-RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2
+RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 pytator>=0.0.4
 % elif multiArch.arch == "aarch64":
 # ARM64 needs to have tensorflow installed
 # https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html

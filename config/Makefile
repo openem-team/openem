@@ -63,3 +63,7 @@ endif
 
 inference_bash:
 	$(docker_cmd) --name $(openem_container_name) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_lite:$(USER)
+
+publish_lite:
+	docker tag cvisionai/openem_lite:$(USER) cvisionai/openem_lite:latest
+	docker push cvisionai/openem_lite:latest

@@ -10,7 +10,7 @@ def optimizeGraph(graph_def, output_nodes, user_trt_args=None):
         from tensorflow.python.compiler.tensorrt import trt_convert as trt
         tensor_rt_args={'input_graph_def':graph_def,
                         'nodes_blacklist':output_nodes,
-                        'precision_mode':trt.TrtPrecisionMode.FP16,
+                        'precision_mode':trt.TrtPrecisionMode.FP32,
                         'is_dynamic_op':True,
                         'maximum_cached_engines':10,
                         'minimum_segment_size': 6,

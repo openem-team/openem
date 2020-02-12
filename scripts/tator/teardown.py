@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import subprocess
+import sys
 
 if __name__ == '__main__':
     rest_svc = os.getenv('TATOR_API_SERVICE')
@@ -21,23 +22,24 @@ if __name__ == '__main__':
     box_type_id = pipeline_args['type_id']
     img_ext = pipeline_args.get('img_ext', None)
     media_type = pipeline_args.get('media_type', None)
-    
+    image_ext = pipeline_args.get('img_ext', None)
+
     args = ["python3",
             "/scripts/uploadToTator.py",
             "--url", rest_svc,
             "--project", str(project_id),
-            "--token", token
+            "--token", token,
             "--img-base-dir", "/work",
             "--localization-type-id", str(box_type_id),
-            "--media-type-id", 0,
+            "--media-type-id", str(0),
             '--media-type', media_type,
             '--img-ext', image_ext,
-            '--train-ini', '/work/train.ini',
+            '--train-ini', '/network/train.ini',
             '/work/results.csv']
     cmd = " ".join(args)
-    print(f"Inference Command = '{cmd}'")
+    print(f"Upload Command = '{cmd}'")
     p=subprocess.Popen(args)
     p.wait()
-    return p.returncode
+    sys.exit(p.returncode)
 
             

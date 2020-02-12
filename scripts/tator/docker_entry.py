@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import subprocess
 import json
+import sys
 
 if __name__=="__main__":
     work_dir = os.getenv('TATOR_WORK_DIR')
@@ -19,20 +20,22 @@ if __name__=="__main__":
     img_min_side = pipeline_args.get('img_min_side', None)
     img_ext = pipeline_args.get('img_ext', None)
     media_type = pipeline_args.get('media_type', None)
-    
+    batch_size = pipeline_args.get('batch_size', 1)
+
     args = ['python3', '/scripts/infer.py',
-            '--graph-pb', '/work/graph.pb',
+            '--graph-pb', '/network/graph.pb',
             '--keep-threshold', str(keep_threshold),
             '--csv-flavor', media_type,
             '--img-base-dir', '/',
-            '--img-min-side', img_min_side,
-            '--img-max-side', img_max_side,
+            '--img-min-side', str(img_min_side),
+            '--img-max-side', str(img_max_side),
             '--img-ext', img_ext,
             '--output-csv', '/work/results.csv',
+            '--batch-size', str(batch_size),
             '/work/work.csv' ]
 
     cmd = " ".join(args)
     print(f"Inference Command = '{cmd}'")
     p=subprocess.Popen(args)
     p.wait()
-    return p.returncode
+    sys.exit(p.returncode)

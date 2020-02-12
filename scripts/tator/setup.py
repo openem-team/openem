@@ -9,7 +9,7 @@ import requests
 
 if __name__ == '__main__':
     media_ids = os.getenv('TATOR_MEDIA_IDS')
-    print(f"processing = {media_ids)")
+    print(f"processing = {media_ids})")
     media_ids = [int(m) for m in media_ids.split(',')]
     rest_svc = os.getenv('TATOR_API_SERVICE')
     work_dir = os.getenv('TATOR_WORK_DIR')
@@ -27,23 +27,6 @@ if __name__ == '__main__':
         os.remove(work_filepath)
     except:
         pass
-
-    # Download graph file
-    graph_url = pipeline_args.get('graph_url')
-    train_ini= pipeline_args.get('train_ini')
-    graph_response = requests.get(graph_url)
-    if graph_response.status_code == 200:
-        with open('/work/graph.pb', 'wb') as graph_fp:
-            graph_fp.write(graph_response.content)
-    else:
-        print(f"Error downloading {graph_url}")
-
-    train_response = requests.get(train_ini)
-    if train_response.status_code == 200:
-        with open('/work/train.ini', 'wb') as train_fp:
-            train_fp.write(train_response.content)
-    else:
-        print(f"Error downloading {train_ini}")
 
     # First write CSV header
     cols=['media']

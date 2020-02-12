@@ -83,6 +83,7 @@ def process_detect(args, tator, species_names, truth_data, row):
                                    height=float(row['h']),
                                    confidence=confidence,
                                    species=species_names[species_id_0])
+            print(obj)
     with progress.get_lock():
         progress.value += 1
     return obj
@@ -104,7 +105,7 @@ def make_localization_obj(args,
          "Species": species}
     if confidence:
         obj.update({"Confidence": confidence})
-    if args.media_type == "video":
+    if args.media_type != "image":
         obj.update({"frame": frame})
     return obj
 
@@ -122,10 +123,14 @@ def uploadMedia(args, tator, row):
         print(f"Skipping {row}")
         return
     img_path=os.path.join(vid_dir, img_file)
-    if args.media_type == "image":
+    if args.media_type == "pipeline":
+        media_id = row['video_id'].split('_')[0]
+        return tator.Media.get(media_id)
+    elif args.media_type == "image":
         desired_name = f"{row['video_id']}_{row['frame']}.{args.img_ext}"
-    else:
+    elif args.media_type == "video":
         desired_name = f"{row['video_id']}.{args.img_ext}"
+        
     if desired_name in media_list_cache:
         return media_list_cache[desired_name]
     else:
@@ -161,7 +166,7 @@ if __name__=="__main__":
     parser.add_argument("--media-type-id", type=int, required=True)
     parser.add_argument("--media-type",
                         type=str,
-                        choices=["image","video"],
+                        choices=["pipeline", "image","video"],
                         default="image")
     parser.add_argument("--localization-type-id", type=int)
     parser.add_argument("--section", help="Section name to apply")

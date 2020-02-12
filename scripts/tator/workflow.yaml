@@ -4,31 +4,31 @@ metadata:
   generateName: openem-inference-
 spec:
   entrypoint: pipeline
-  ttlSecondsAfterFinished: 30
+  ttlSecondsAfterFinished: 3600
   volumeClaimTemplates:
   - metadata:
       name: workdir
     spec:
-      accessModes: [ "ReadWriteOnce" ]
+      accessModes: [ "ReadWriteMany" ]
       resources:
         requests:
-          storage: 200Gi
+          storage: 20Gi
   templates:
   - name: pipeline
     steps:
     - - name: setup
         template: setup
-    - - name: object-detect-inference
-        template: object-detect-inference
+    - - name: worker
+        template: worker
     - - name: teardown
         template: teardown
   - name: setup
     container:
-      image: cvisionai/openem_lite
+      image: bctcvai/bigelow
       resources:
         limits:
           cpu: 250m
-          memory: 200Mi
+          memory: 1024Mi
       env:
       - name: TATOR_MEDIA_IDS
         value: "{{workflow.parameters.media_ids}}"
@@ -41,19 +41,20 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": 64, \"img_max_side\: 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": "video", \"img_ext\": \"mp4\", \"graph_url\", \"https://adamant.duckdns.org/static/bigelow.pb\", \"train_ini\": \"https://adamant.duckdns.org/static/bigelow.ini\"}"
+        value: "{\"type_id\": 58, \"img_max_side\": 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": \"video\", \"img_ext\": \"mp4\"}"
       volumeMounts:
       - name: workdir
         mountPath: /work
       command: [python3]
       args: ["/scripts/tator/setup.py"]
-  - name: object-detector-inference
+  - name: worker
     container:
-      image: cvisionai/openem_lite
+      image: bctcvai/bigelow
       resources:
         limits:
           cpu: 1500m
           memory: 12000Mi
+          nvidia.com/gpu: 1
       env:
       - name: TATOR_MEDIA_IDS
         value: "{{workflow.parameters.media_ids}}"
@@ -66,7 +67,7 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": 64, \"img_max_side\: 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": "video", \"media_type\": \"mp4\"}"
+        value: "{\"type_id\": 58, \"img_max_side\": 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": \"video\", \"img_ext\": \"mp4\", \"batch_size\" : 4}"
       volumeMounts:
       - name: workdir
         mountPath: /work
@@ -74,11 +75,11 @@ spec:
       args: ["/scripts/tator/docker_entry.py"]
   - name: teardown
     container:
-      image: cvisionai/openem_lite
+      image: bctcvai/bigelow
       resources:
         limits:
           cpu: 250m
-          memory: 200Mi
+          memory: 1024Mi
       env:
       - name: TATOR_MEDIA_IDS
         value: "{{workflow.parameters.media_ids}}"
@@ -91,7 +92,7 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": 64, \"img_max_side\: 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": "video", \"media_type\": \"mp4\"}"
+        value: "{\"type_id\": 58, \"img_max_side\": 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": \"pipeline\", \"img_ext\": \"mp4\"}"
       volumeMounts:
       - name: workdir
         mountPath: /work

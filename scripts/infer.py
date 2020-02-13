@@ -28,6 +28,7 @@ import cv2
 import os
 import importlib
 import numpy as np
+import shutil
 
 # Static variables for recurrent process_image_data function
 batch_info = []
@@ -143,7 +144,8 @@ if __name__=="__main__":
 
         # Now that we have video_id and frame, we can process them
         if args.csv_flavor == "video":
-            video_reader = cv2.VideoCapture(image_path)
+            shutil.copyfile(image_path, "/tmp/video.mp4")
+            video_reader = cv2.VideoCapture("/tmp/video.mp4")
             vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
             count = vid_len
             frame_num = 0

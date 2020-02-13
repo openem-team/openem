@@ -5,6 +5,7 @@ import pandas as pd
 import subprocess
 import json
 import sys
+import shutil
 
 if __name__=="__main__":
     work_dir = os.getenv('TATOR_WORK_DIR')
@@ -32,10 +33,12 @@ if __name__=="__main__":
             '--img-ext', img_ext,
             '--output-csv', '/work/results.csv',
             '--batch-size', str(batch_size),
-            '/work/work.csv' ]
+            '/tmp/work.csv' ]
 
     cmd = " ".join(args)
     print(f"Inference Command = '{cmd}'")
     p=subprocess.Popen(args)
     p.wait()
+
+    shutil.copyfile("/tmp/work.csv", "/work/work.csv")
     sys.exit(p.returncode)

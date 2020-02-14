@@ -31,14 +31,14 @@ if __name__=="__main__":
             '--img-min-side', str(img_min_side),
             '--img-max-side', str(img_max_side),
             '--img-ext', img_ext,
-            '--output-csv', '/work/results.csv',
+            '--output-csv', '/tmp/results.csv',
             '--batch-size', str(batch_size),
-            '/tmp/work.csv' ]
+            '/work/work.csv' ]
 
     cmd = " ".join(args)
     print(f"Inference Command = '{cmd}'")
     p=subprocess.Popen(args)
     p.wait()
 
-    shutil.copyfile("/tmp/work.csv", "/work/work.csv")
+    shutil.copyfile("/tmp/results.csv", "/work/results.csv")
     sys.exit(p.returncode)

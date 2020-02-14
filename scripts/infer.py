@@ -21,6 +21,7 @@ The input csv work file can be in a couple of flavors.
 """
 
 import argparse
+from multiprocessing import Process,Queue
 import pandas as pd
 from openem.Detect import Detection, RetinaNet
 from tqdm import tqdm
@@ -29,43 +30,91 @@ import os
 import importlib
 import numpy as np
 import shutil
+import copy
+import time
+
+def process_batch_result(args, batch_info, result_queue):
+    names=[]
+    for batch_item in batch_info:
+        retinanet.addImage(batch_item[2])
+        names.append(batch_item[:2])
+    before = time.time()
+    results = retinanet.process()
+    after = time.time()
+    duration = after-before
+    print(f"gpu duration = {duration*1000}ms; {1/duration}Hz")
+    process=(names, results)
+    try:
+        result_queue.put_nowait(process)
+    except:
+        print("Result Queue Stuffed")
+        result_queue.put(process)
+ 
+def process_retinanet_result(args, process):
+    raw_results=process[1][0]
+    sizes=process[1][1]
+    results=retinanet.format_results(raw_results, sizes, threshold=args.keep_threshold)
+    batch_info=process[0]
+    new_df = pd.DataFrame(columns=result_cols)
+    for batch_idx,batch_result in enumerate(results):
+        for result in batch_result:
+            confidence_array=np.array(result.confidence)
+            confidence = np.max(confidence_array)
+            if confidence < args.keep_threshold:
+                continue
+
+            conf_as_string = confidence_array.astype(np.str)
+            confidence_formatted = ':'.join(list(conf_as_string))
+            new_record = {'video_id': batch_info[batch_idx][0],
+                          'frame': batch_info[batch_idx][1],
+                          'x': result.location[0],
+                          'y': result.location[1],
+                          'w': result.location[2],
+                          'h': result.location[3],
+                          'det_species': result.species,
+                          'det_conf': confidence_formatted}
+            new_df = new_df.append(pd.DataFrame(columns=result_cols,
+                                  data=[new_record]))
+    new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
+
+def process_video(video_path, preprocess_funcs, queue):
+    video_reader = cv2.VideoCapture(video_path)
+    vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
+    count = vid_len
+    frame_num = 0
+    ok = True
+    batch_info=[]
+    while ok:
+        ok, image_data = video_reader.read()
+        if ok:
+            processed_image = process_image_data(image_data,
+                                                 preprocess_funcs)
+            batch_info.append((video_id, frame_num, processed_image))
+            if len(batch_info) == args.batch_size:
+                batch_copy =copy.copy(batch_info)
+                try:
+                    queue.put_nowait(batch_copy)
+                except:
+                    print("GPU stuffed")
+                    queue.put(batch_copy)
+                finally:
+                    batch_info=[]
+            frame_num += 1
+
+    if len(batch_info) > 0:
+        queue.put(batch_info)
+    queue.put(None)
 
 # Static variables for recurrent process_image_data function
-batch_info = []
-image_cnt = 0
-def process_image_data(args, preprocess_funcs, video_id, frame, image_data):
+def process_image_data(image_data, preprocess_funcs):
     global batch_info
     global image_cnt
 
     for process in preprocess_funcs:
         image_data = process(video_id, image_data)
-    retinanet.addImage(image_data)
-    batch_info.append((video_id, frame))
-    image_cnt += 1
-    if image_cnt == args.batch_size or idx + 1 == count:
-        image_cnt = 0
-        results = retinanet.process()
-        for batch_idx,batch_result in enumerate(results):
-            for result in batch_result:
-                confidence_array=np.array(result.confidence)
-                confidence = np.max(confidence_array)
-                if confidence < args.keep_threshold:
-                    continue
 
-                conf_as_string = confidence_array.astype(np.str)
-                confidence_formatted = ':'.join(list(conf_as_string))
-                new_record = {'video_id': batch_info[batch_idx][0],
-                              'frame': batch_info[batch_idx][1],
-                              'x': result.location[0],
-                              'y': result.location[1],
-                              'w': result.location[2],
-                              'h': result.location[3],
-                              'det_species': result.species,
-                              'det_conf': confidence_formatted}
-                new_df = pd.DataFrame(columns=result_cols,
-                                      data=[new_record])
-                new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
-        batch_info=[]
+    return image_data
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--graph-pb", required=True)
@@ -144,23 +193,51 @@ if __name__=="__main__":
 
         # Now that we have video_id and frame, we can process them
         if args.csv_flavor == "video":
-            shutil.copyfile(image_path, "/tmp/video.mp4")
-            video_reader = cv2.VideoCapture("/tmp/video.mp4")
+            video_path="/tmp/video.mp4"
+            shutil.copyfile(image_path, video_path)
+            video_reader = cv2.VideoCapture(video_path)
             vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
-            count = vid_len
-            frame_num = 0
-            ok = True
-            with tqdm(total=vid_len, desc="Frames",leave=True) as bar:
-                while ok:
-                    ok, image_data = video_reader.read()
-                    if ok:
-                        process_image_data(args,
-                                           preprocess_funcs,
-                                           video_id,
-                                           frame_num,
-                                           image_data)
-                        frame_num += 1
-                        bar.update(1)
+            del video_reader
+
+            queue=Queue(maxsize=2)
+            result_queue=Queue(maxsize=2)
+            def image_consumer(q, result_q):
+                with tqdm(total=vid_len, desc="Frames", leave=True) as bar:
+                    batch_result = q.get()
+
+                    while batch_result is not None:
+                        process_batch_result(args, batch_result, result_q)
+                        bar.update(len(batch_result))
+                        try:
+                            batch_result = q.get_nowait()
+                        except:
+                            print("GPU is starved")
+                            batch_result = q.get()
+                    result_q.put(None)
+
+            def result_consumer(result_q):
+                result = result_q.get()
+
+                while result is not None:
+                    process_retinanet_result(args, result)
+                    try:
+                        result = result_q.get_nowait()
+                    except:
+                        print("Reporter is starved")
+                        result = result_q.get()
+
+
+            reader_thread=Process(target=process_video, args=(video_path, preprocess_funcs, queue))
+            #process_thread=Process(target=image_consumer, args=(queue,result_queue))
+            results_thread=Process(target=result_consumer, args=(result_queue,))
+            reader_thread.start()
+            #process_thread.start()
+            results_thread.start()
+            # Run the Tensorflow stuff in the main thread
+            image_consumer(queue, result_queue)
+            reader_thread.join()
+            #process_thread.join() 
+            results_thread.join()
         else:
             image_data = cv2.imread(image_path)
             process_image_data(args,

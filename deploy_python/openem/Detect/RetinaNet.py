@@ -6,6 +6,7 @@ from openem.models import ImageModel
 
 import cv2
 import math
+import copy
 
 from openem.Detect import Detection
 from openem.image import force_aspect
@@ -86,7 +87,11 @@ class RetinaNetDetector(ImageModel):
 
     def process(self, threshold=0.0, **kwargs):
         detections = super(RetinaNetDetector,self).process()
+        process = (detections, copy.copy(self._imageSizes))
+        self._imageSizes=[]
+        return process
 
+    def format_results(self, detections, sizes, threshold, **kwargs):
         # clip to image shape
         detections[:, :, 0] = np.maximum(0, detections[:, :, 0])
         detections[:, :, 1] = np.maximum(0, detections[:, :, 1])
@@ -98,8 +103,8 @@ class RetinaNetDetector(ImageModel):
             # correct boxes for image scale
             # Keep in mind there is a shift here potentially to force
             # an aspect ratio.
-            h_scale = self.image_shape[0] / self._imageSizes[idx][0]
-            w_scale = self.image_shape[1] / self._imageSizes[idx][1]
+            h_scale = self.image_shape[0] / sizes[idx][0]
+            w_scale = self.image_shape[1] / sizes[idx][1]
 
             detections[idx, :, 0] /= w_scale
             detections[idx, :, 1] /= h_scale
@@ -136,5 +141,4 @@ class RetinaNetDetector(ImageModel):
                     image_detections.append(detection)
             results.append(image_detections)
 
-        self._imageSizes = None
         return results

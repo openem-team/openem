@@ -103,7 +103,7 @@ def generate_box(detection, speciesNameMap, video_id, createCover, oemCovers, oe
 
 def check_species(detection, unknown, unknownNames, speciesNameMap):
     name=_getScientificName(detection["species"])
-    print(speciesNameMap)
+    print(name)
     if name not in speciesNameMap:
         unknown+=1
         unknownNames.add(name)
@@ -120,6 +120,7 @@ def _convertLocalizationsFromFile(inputPath, speciesNames, createCover):
     with open(inputPath, 'r') as data:
         obj=json.load(data)
         detections=obj["detections"]
+        
         if createCover:
             tracks=obj["tracks"]
         boxes=0
@@ -142,7 +143,7 @@ def _convertLocalizationsFromFile(inputPath, speciesNames, createCover):
                         continue
                     #Generate box notations
                     detection=convert_line_ann_to_box(detection)
-                    oemDetections, oemCovers = generate_box(detection, speciesNameMap, video_id, createCover, oemCovers)
+                    oemDetections, oemCovers = generate_box(detection, speciesNameMap, video_id, createCover, oemCovers, oemDetections)
                     lines += 1
         else:
             ignored+=1

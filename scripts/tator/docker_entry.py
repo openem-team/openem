@@ -24,7 +24,7 @@ if __name__=="__main__":
     batch_size = pipeline_args.get('batch_size', 1)
 
     args = ['python3', '/scripts/infer.py',
-            '--graph-pb', '/network/graph.pb',
+            '--graph-pb', '/work/network/graph.pb',
             '--keep-threshold', str(keep_threshold),
             '--csv-flavor', media_type,
             '--img-base-dir', '/',

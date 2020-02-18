@@ -34,7 +34,7 @@ if __name__ == '__main__':
             "--media-type-id", str(0),
             '--media-type', media_type,
             '--img-ext', image_ext,
-            '--train-ini', '/network/train.ini',
+            '--train-ini', '/work/network/train.ini',
             '/work/results.csv']
     cmd = " ".join(args)
     print(f"Upload Command = '{cmd}'")

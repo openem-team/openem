@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import pytator
+import docker
+import tarfile
 import os
 import sys
 import json
 import pandas as pd
 import requests
+import time
 
 if __name__ == '__main__':
     media_ids = os.getenv('TATOR_MEDIA_IDS')
@@ -28,6 +31,23 @@ if __name__ == '__main__':
     except:
         pass
 
+    # Download the network coefficients
+    # Image stores coeffients in "/network" folder
+    client=docker.from_env()
+    image=client.images.pull(pipeline_args['data_image'])
+    container=client.containers.create(pipeline_args['data_image'])
+    bits, stats = container.get_archive("/network")
+    network_tar = os.path.join(work_dir, "network.tar") 
+    with open(network_tar, 'wb') as tar_file:
+        for chunk in bits:
+            tar_file.write(chunk)
+
+    with tarfile.TarFile(network_tar) as tar_file:
+        print(tar_file.getmembers())
+        tar_file.extract("network/graph.pb", work_dir)
+        tar_file.extract("network/train.ini", work_dir)
+
+    container.remove()
     # First write CSV header
     cols=['media']
     work_frame=pd.DataFrame(columns=cols)

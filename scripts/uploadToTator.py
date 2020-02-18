@@ -10,6 +10,9 @@ import signal
 import os
 import configparser
 import pandas as pd
+import datetime
+import time
+import traceback
 
 from multiprocessing import Pool, Value
 from functools import partial
@@ -130,6 +133,7 @@ def uploadMedia(args, tator, row):
         desired_name = f"{row['video_id']}_{row['frame']}.{args.img_ext}"
     elif args.media_type == "video":
         desired_name = f"{row['video_id']}.{args.img_ext}"
+        img_path = os.path.join(args.img_base_dir, desired_name)
         
     if desired_name in media_list_cache:
         return media_list_cache[desired_name]
@@ -223,16 +227,33 @@ if __name__=="__main__":
 
     print("Generating localizations...")
     local_list=[]
+    media_ids=set()
     for row in bar(input_data):
         obj = partial_func(row)
         if obj:
             local_list.append(obj)
+            media_ids.add(obj['media_id'])
 
-        if len(local_list) == 200:
-            tator.Localization.addMany(local_list)
-            local_list=[]
+        if len(local_list) == 25:
+            try:
+                before=time.time()
+                tator.Localization.addMany(local_list)
+                after=time.time()
+                print(f"Duration={(after-before)*1000}ms")
+            except:
+                traceback.print_exc(file=sys.stdout)
+            finally:
+                local_list=[]
 
-    tator.Localization.addMany(local_list)
+    try:
+        tator.Localization.addMany(local_list)
+    except:
+        traceback.print_exc(file=sys.stdout)
+
+    for media_id in media_ids:
+        print(f"Updating Media ID {media_id}")
+        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaVideo"})
+        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaImage"})
     #while result.ready() == False:
     #    bar.update(progress.value)
     #    result.wait(1)

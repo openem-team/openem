@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: openem-inference-
+  generateName: openem-workflow-
 spec:
   entrypoint: pipeline
   ttlSecondsAfterFinished: 3600
@@ -9,10 +9,14 @@ spec:
   - metadata:
       name: workdir
     spec:
-      accessModes: [ "ReadWriteMany" ]
+      accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
           storage: 20Gi
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
   templates:
   - name: pipeline
     steps:
@@ -24,7 +28,7 @@ spec:
         template: teardown
   - name: setup
     container:
-      image: bctcvai/bigelow
+      image: cvisionai/openem_lite:latest
       resources:
         limits:
           cpu: 250m
@@ -41,19 +45,19 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": 58, \"img_max_side\": 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": \"video\", \"img_ext\": \"mp4\"}"
+        value: "{\"data_image\" : \"<docker_hub_user>/<data_image>\"}"
       volumeMounts:
       - name: workdir
         mountPath: /work
+      - name: dockersock
+        mountPath: /var/run/docker.sock
       command: [python3]
       args: ["/scripts/tator/setup.py"]
   - name: worker
     container:
-      image: bctcvai/bigelow
+      image: cvisionai/openem_lite:latest
       resources:
         limits:
-          cpu: 1500m
-          memory: 12000Mi
           nvidia.com/gpu: 1
       env:
       - name: TATOR_MEDIA_IDS
@@ -67,7 +71,7 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": 58, \"img_max_side\": 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": \"video\", \"img_ext\": \"mp4\", \"batch_size\" : 4}"
+        value: "{"img_max_side\": <max>, \"img_min_side\": <min>, \"keep_threshold\": <keep>, \"media_type\": \"video\", \"img_ext\": \"mp4\", \"batch_size\" : <batch_size>}"
       volumeMounts:
       - name: workdir
         mountPath: /work
@@ -75,7 +79,7 @@ spec:
       args: ["/scripts/tator/docker_entry.py"]
   - name: teardown
     container:
-      image: bctcvai/bigelow
+      image: cvisionai/openem_lite:latest
       resources:
         limits:
           cpu: 250m
@@ -92,7 +96,7 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": 58, \"img_max_side\": 960, \"img_min_side\": 325, \"keep_threshold\": 0.30, \"media_type\": \"pipeline\", \"img_ext\": \"mp4\"}"
+        value: "{\"type_id\": <type_id>, \"media_type\": \"pipeline\", \"img_ext\": \"mp4\"}"
       volumeMounts:
       - name: workdir
         mountPath: /work

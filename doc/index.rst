@@ -35,6 +35,7 @@ Watch the video below to see a video of OpenEM in action:
    build/docker/build.md
    FAQS
    api/deployment
+   pipelines
 
 Change Log
 ============
@@ -42,6 +43,11 @@ Change Log
 +---------+-----------+---------------------------------------------------------------------+
 | Version | Date      | Description of changes                                              |
 +=========+===========+=====================================================================+
+|         |           | - Add support and scripts for Tator support                         |
+|         |           | - Make image models multi-process capable                           |
+|         |           | - Documentation improvements                                        |
+| 0.1.4   | XXX-2020  |                                                                     |
++---------+-----------+---------------------------------------------------------------------+
 |         |           | - Add RetinaNet based detector                                      |
 |         |           | - Add pure python inference library                                 |
 |         |           | - Deprecate C++ library                                             |

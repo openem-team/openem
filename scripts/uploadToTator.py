@@ -14,10 +14,7 @@ import datetime
 import time
 import traceback
 
-from multiprocessing import Pool, Value
 from functools import partial
-
-progress = Value('i', 0)
 
 def exit_func(_,__):
     print("SIGINT detected")
@@ -47,8 +44,6 @@ def process_box(args, tator, species_names, truth_data, row):
                                    height=float(row['height']),
                                    confidence=None,
                                    species=species_names[species_id_0])
-    with progress.get_lock():
-        progress.value += 1
     return obj
 def process_line(args, tator, species_names, row):
     print("ERROR: Line mode --- Not supported")
@@ -87,8 +82,6 @@ def process_detect(args, tator, species_names, truth_data, row):
                                    confidence=confidence,
                                    species=species_names[species_id_0])
             print(obj)
-    with progress.get_lock():
-        progress.value += 1
     return obj
 
 def make_localization_obj(args,
@@ -174,7 +167,6 @@ if __name__=="__main__":
                         default="image")
     parser.add_argument("--localization-type-id", type=int)
     parser.add_argument("--section", help="Section name to apply")
-    parser.add_argument("--pool-size", type=int, default=4, help="Number of threads to use")
     parser.add_argument("--train-ini", help="If uploading boxes, this is required to convert species id to a string")
     parser.add_argument("--threshold", type=float, help="Discard boxes less than this value")
     parser.add_argument("--truth-data", type=str, help="Path to annotations.csv to exclude non-truth data")
@@ -218,10 +210,9 @@ if __name__=="__main__":
         truth_data = pd.read_csv(args.truth_data)
     partial_func = partial(function_map[mode], args, tator,
                            species_names, truth_data)
-    pool=Pool(processes=args.pool_size)
+
     input_data = list(input_data_reader)
     print(f"Processing {len(input_data)} elements")
-    #result = pool.map_async(partial_func, input_data)
     bar = progressbar.ProgressBar(max_value=len(input_data),
                                   redirect_stdout=True)
 
@@ -254,6 +245,3 @@ if __name__=="__main__":
         print(f"Updating Media ID {media_id}")
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaVideo"})
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaImage"})
-    #while result.ready() == False:
-    #    bar.update(progress.value)
-    #    result.wait(1)

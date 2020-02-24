@@ -21,7 +21,7 @@ def exit_func(_,__):
     os._exit(0)
 
 def process_box(args, tator, species_names, truth_data, row):
-    media_element = uploadMedia(args, tator, row)
+    media_element = row['media_element']
     if media_element == None:
         print("ERROR: Could not find media element!")
 
@@ -208,40 +208,50 @@ if __name__=="__main__":
     truth_data = None
     if args.truth_data:
         truth_data = pd.read_csv(args.truth_data)
-    partial_func = partial(function_map[mode], args, tator,
-                           species_names, truth_data)
 
     input_data = list(input_data_reader)
     print(f"Processing {len(input_data)} elements")
     bar = progressbar.ProgressBar(max_value=len(input_data),
                                   redirect_stdout=True)
 
+    print("Ingesting media...")
+    input_data["media_id"] = None
+    media_map={}
+    for idx,row in bar(input_data):
+        media_element = uploadMedia(args, tator, row)
+        if media_element:
+            media_map[media_element['id']] = media_element
+            input_data.iloc[idx]['media_id'] = media_element['id']
+        else:
+            print("ERROR: Could not upload.")
+
+    partial_func = partial(function_map[mode], args, tator,
+                           species_names, truth_data, media_map)
     print("Generating localizations...")
-    local_list=[]
-    media_ids=set()
-    for row in bar(input_data):
-        obj = partial_func(row)
-        if obj:
-            local_list.append(obj)
-            media_ids.add(obj['media_id'])
+    for media_id in media_map:
+        local_list=[]
+        media_data = input_data.loc[input_data['media_id'] == media_id]
+        for idx,row in bar(media_data):
+            obj = partial_func(row)
+            if obj:
+                local_list.append(obj)
 
-        if len(local_list) == 25:
-            try:
-                before=time.time()
-                tator.Localization.addMany(local_list)
-                after=time.time()
-                print(f"Duration={(after-before)*1000}ms")
-            except:
-                traceback.print_exc(file=sys.stdout)
-            finally:
-                local_list=[]
+            if len(local_list) == 25:
+                try:
+                    before=time.time()
+                    tator.Localization.addMany(local_list)
+                    after=time.time()
+                    print(f"Duration={(after-before)*1000}ms")
+                except:
+                    traceback.print_exc(file=sys.stdout)
+                finally:
+                    local_list=[]
 
-    try:
-        tator.Localization.addMany(local_list)
-    except:
-        traceback.print_exc(file=sys.stdout)
+        try:
+            tator.Localization.addMany(local_list)
+        except:
+            traceback.print_exc(file=sys.stdout)
 
-    for media_id in media_ids:
-        print(f"Updating Media ID {media_id}")
+        # When complete for a given media update the sentinel value
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaVideo"})
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaImage"})

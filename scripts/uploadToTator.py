@@ -98,7 +98,7 @@ def make_localization_obj(args,
          "y": y / media_el['height'],
          "width": width / media_el['width'],
          "height": height / media_el['height'],
-         "Species": species}
+         args.species_keyname: species}
     if confidence:
         obj.update({"Confidence": confidence})
     if args.media_type != "image":
@@ -143,10 +143,11 @@ def uploadMedia(args, tator, row):
         if media_element_search:
             result = tator.Media.get(media_element_search[0]['id'])
             if result['attributes']['tator_user_sections'] != args.section:
-                tator.Media.update(result['id'], {'attributes':
-                                                 {'tator_user_sections':
-                                                     args.section}})
-                print(f"Moving to {args.section}")
+                if args.section:
+                    tator.Media.update(result['id'], {'attributes':
+                                                      {'tator_user_sections':
+                                                       args.section}})
+                    print(f"Moving to {args.section}")
             media_list_cache[desired_name] = result
             return result
         else:
@@ -170,6 +171,7 @@ if __name__=="__main__":
     parser.add_argument("--train-ini", help="If uploading boxes, this is required to convert species id to a string")
     parser.add_argument("--threshold", type=float, help="Discard boxes less than this value")
     parser.add_argument("--truth-data", type=str, help="Path to annotations.csv to exclude non-truth data")
+    parser.add_argument("--species-keyname", type=str,default="Species")
     args = parser.parse_args()
     tator = pytator.Tator(args.url, args.token, args.project)
 

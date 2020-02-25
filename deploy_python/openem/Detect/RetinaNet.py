@@ -62,12 +62,7 @@ class RetinaNetDetector(ImageModel):
         else:
             self.preprocessor=RetinaNetPreprocessor(meanImage=None)
 
-        self._imageSizes = None
-
-    def addImage(self, image):
-        if self._imageSizes is None:
-            self._imageSizes = []
-
+    def addImage(self, image, cookie=None):
         # Determine the actual shape of the image as it goes into the network
         # To account for padding to aspect ratio
         img_height = image.shape[0]
@@ -78,18 +73,17 @@ class RetinaNetDetector(ImageModel):
         elif img_aspect < self.network_aspect:
             #Image is boxer than we want
             new_width = round(img_height * self.network_aspect)
-            self._imageSizes.append((img_height, new_width))
+            img_size = (img_height, new_width)
         else:
             new_height = round(img_width / self.network_aspect)
-            self._imageSizes.append((new_height,img_width))
-        return super(RetinaNetDetector, self)._addImage(image,
-                                                        self.preprocessor)
+            img_size = (new_height,img_width)
 
-    def process(self, threshold=0.0, **kwargs):
-        detections = super(RetinaNetDetector,self).process()
-        process = (detections, copy.copy(self._imageSizes))
-        self._imageSizes=[]
-        return process
+        if cookie is None:
+            cookie = {}
+        cookie.update({"size": img_size})
+        return super(RetinaNetDetector, self)._addImage(image,
+                                                        self.preprocessor,
+                                                        cookie)
 
     def format_results(self, detections, sizes, threshold, **kwargs):
         # clip to image shape

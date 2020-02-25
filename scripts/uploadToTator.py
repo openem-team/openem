@@ -20,8 +20,8 @@ def exit_func(_,__):
     print("SIGINT detected")
     os._exit(0)
 
-def process_box(args, tator, species_names, truth_data, row):
-    media_element = row['media_element']
+def process_box(args, tator, species_names, truth_data, media_map, row):
+    media_element = media_map[row['media_id']]
     if media_element == None:
         print("ERROR: Could not find media element!")
 
@@ -48,7 +48,7 @@ def process_box(args, tator, species_names, truth_data, row):
 def process_line(args, tator, species_names, row):
     print("ERROR: Line mode --- Not supported")
 
-def process_detect(args, tator, species_names, truth_data, row):
+def process_detect(args, tator, species_names, truth_data, media_map, row):
     if type(truth_data) != type(None):
         if row['frame'] == '':
             return
@@ -57,7 +57,7 @@ def process_detect(args, tator, species_names, truth_data, row):
             return
         else:
             pass
-    media_element = uploadMedia(args, tator, row)
+    media_element = media_map[row['media_id']]
     if media_element == None:
         print("ERROR: Could not find media element!")
 
@@ -177,9 +177,8 @@ if __name__=="__main__":
 
     signal.signal(signal.SIGINT, exit_func)
 
-    csv_file = open(args.csvfile, 'r')
-    input_data_reader = csv.DictReader(csv_file)
-    keys = input_data_reader.fieldnames
+    input_data = pd.read_csv(args.csvfile)
+    keys = list(input_data.columns)
     boxes_keys = ['video_id','frame','x','y','width','height','theta','species_id']
     lines_keys = ['video_id','frame','x1','y1','x2','y2','species_id']
     detect_keys = ['video_id', 'frame', 'x','y','w','h','det_conf','det_species']
@@ -211,7 +210,6 @@ if __name__=="__main__":
     if args.truth_data:
         truth_data = pd.read_csv(args.truth_data)
 
-    input_data = list(input_data_reader)
     print(f"Processing {len(input_data)} elements")
     bar = progressbar.ProgressBar(max_value=len(input_data),
                                   redirect_stdout=True)
@@ -219,22 +217,27 @@ if __name__=="__main__":
     print("Ingesting media...")
     input_data["media_id"] = None
     media_map={}
-    for idx,row in bar(input_data):
+    for idx,row in bar(input_data.iterrows()):
         media_element = uploadMedia(args, tator, row)
         if media_element:
             media_map[media_element['id']] = media_element
-            input_data.iloc[idx]['media_id'] = media_element['id']
+            input_data.loc[idx,'media_id'] = media_element['id']
         else:
             print("ERROR: Could not upload.")
 
-    partial_func = partial(function_map[mode], args, tator,
-                           species_names, truth_data, media_map)
     print("Generating localizations...")
-    for media_id in media_map:
+    bar = progressbar.ProgressBar(redirect_stdout=True, max_value=len(media_map.keys()))
+    for media_id in bar(media_map):
         local_list=[]
         media_data = input_data.loc[input_data['media_id'] == media_id]
-        for idx,row in bar(media_data):
-            obj = partial_func(row)
+        bar2 = progressbar.ProgressBar(redirect_stdout=True, max_value=len(media_data))
+        for idx,row in bar2(media_data.iterrows()):
+            obj = function_map[mode](args,
+                                     tator,
+                                     species_names,
+                                     truth_data,
+                                     media_map,
+                                     row)
             if obj:
                 local_list.append(obj)
 

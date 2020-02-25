@@ -33,28 +33,29 @@ import shutil
 import copy
 import time
 
-def process_batch_result(args, batch_info, result_queue):
-    names=[]
-    for batch_item in batch_info:
-        retinanet.addImage(batch_item[2])
-        names.append(batch_item[:2])
+def process_batch_result(args, image_count, result_queue):
     before = time.time()
-    results = retinanet.process()
+    results = retinanet.process(batch_size=image_count)
     after = time.time()
     duration = after-before
     print(f"gpu duration = {duration*1000}ms; {1/duration}Hz")
-    process=(names, results)
     try:
-        result_queue.put_nowait(process)
+        result_queue.put_nowait(results)
     except:
         print("Result Queue Stuffed")
-        result_queue.put(process)
- 
-def process_retinanet_result(args, process):
-    raw_results=process[1][0]
-    sizes=process[1][1]
-    results=retinanet.format_results(raw_results, sizes, threshold=args.keep_threshold)
-    batch_info=process[0]
+        result_queue.put(results)
+
+def process_retinanet_result(args, network_results):
+    raw_results=network_results[0]
+    sizes=[]
+    batch_info=[]
+    for cookie in network_results[1]:
+        sizes.append(cookie["size"])
+        batch_info.append(cookie["batch_info"])
+
+    results=retinanet.format_results(raw_results,
+                                     sizes,
+                                     threshold=args.keep_threshold)
     new_df = pd.DataFrame(columns=result_cols)
     for batch_idx,batch_result in enumerate(results):
         for result in batch_result:
@@ -77,32 +78,27 @@ def process_retinanet_result(args, process):
                                   data=[new_record]))
     new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
 
-def process_video(video_path, preprocess_funcs, queue):
+def process_video(video_path, retinanet, preprocess_funcs, queue):
     video_reader = cv2.VideoCapture(video_path)
     vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
     count = vid_len
     frame_num = 0
     ok = True
-    batch_info=[]
+    current_frames=[]
     while ok:
         ok, image_data = video_reader.read()
         if ok:
             processed_image = process_image_data(image_data,
                                                  preprocess_funcs)
-            batch_info.append((video_id, frame_num, processed_image))
-            if len(batch_info) == args.batch_size:
-                batch_copy =copy.copy(batch_info)
-                try:
-                    queue.put_nowait(batch_copy)
-                except:
-                    print("GPU stuffed")
-                    queue.put(batch_copy)
-                finally:
-                    batch_info=[]
+            cookie = {"batch_info": (video_id, frame_num)}
+            retinanet.addImage(processed_image, cookie)
             frame_num += 1
+            current_frames.append(frame_num)
+            if len(current_frames) == args.batch_size:
+                queue.put(len(current_frames))
 
-    if len(batch_info) > 0:
-        queue.put(batch_info)
+    if len(tokens) > 0:
+        queue.put(len(current_frames))
     queue.put(None)
 
 # Static variables for recurrent process_image_data function
@@ -228,15 +224,14 @@ if __name__=="__main__":
 
 
             reader_thread=Process(target=process_video, args=(video_path, preprocess_funcs, queue))
-            #process_thread=Process(target=image_consumer, args=(queue,result_queue))
             results_thread=Process(target=result_consumer, args=(result_queue,))
             reader_thread.start()
-            #process_thread.start()
             results_thread.start()
+
             # Run the Tensorflow stuff in the main thread
             image_consumer(queue, result_queue)
+
             reader_thread.join()
-            #process_thread.join() 
             results_thread.join()
         else:
             image_data = cv2.imread(image_path)

@@ -36,7 +36,7 @@ class RetinaNetPreprocessor:
         return resized_image
 
 class RetinaNetDetector(ImageModel):
-    def __init__(self, modelPath, meanImage=None, gpuFraction=1.0, imageShape=(360,720)):
+    def __init__(self, modelPath, meanImage=None, gpuFraction=1.0, imageShape=(360,720), **kwargs):
         """ Initialize the RetinaNet Detector model
         modelPath: str
                    path-like object to frozen pb graph
@@ -50,7 +50,8 @@ class RetinaNetDetector(ImageModel):
                                                image_dims=imageShape,
                                                gpu_fraction=gpuFraction,
                                                input_name='input_1:0',
-                                               output_name='nms/map/TensorArrayStack/TensorArrayGatherV3:0')
+                                               output_name='nms/map/TensorArrayStack/TensorArrayGatherV3:0',
+                                               **kwargs)
         self.input_shape[1:3] = imageShape
 
         self.image_shape = imageShape

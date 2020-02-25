@@ -81,7 +81,6 @@ def process_detect(args, tator, species_names, truth_data, media_map, row):
                                    height=float(row['h']),
                                    confidence=confidence,
                                    species=species_names[species_id_0])
-            print(obj)
     return obj
 
 def make_localization_obj(args,
@@ -121,7 +120,12 @@ def uploadMedia(args, tator, row):
     img_path=os.path.join(vid_dir, img_file)
     if args.media_type == "pipeline":
         media_id = row['video_id'].split('_')[0]
-        return tator.Media.get(media_id)
+        if media_id in media_list_cache:
+            return media_list_cache[media_id]
+        else:
+            result = tator.Media.get(media_id)
+            media_list_cache[media_id] = result
+            return result
     elif args.media_type == "image":
         desired_name = f"{row['video_id']}_{row['frame']}.{args.img_ext}"
     elif args.media_type == "video":
@@ -129,8 +133,11 @@ def uploadMedia(args, tator, row):
         img_path = os.path.join(args.img_base_dir, desired_name)
         
     if desired_name in media_list_cache:
+        print(f"{time.time()}: In Cache")
         return media_list_cache[desired_name]
     else:
+        print(f"{time.time()}: {desired_name}: Not In Cache")
+        print(f"Cache = {media_list_cache}")
         media_element_search=tator.Media.filter({"name": desired_name})
         if media_element_search == None:
             print(f"Uploading file...{desired_name}")
@@ -211,8 +218,8 @@ if __name__=="__main__":
         truth_data = pd.read_csv(args.truth_data)
 
     print(f"Processing {len(input_data)} elements")
-    bar = progressbar.ProgressBar(max_value=len(input_data),
-                                  redirect_stdout=True)
+    bar = progressbar.ProgressBar(max_value=len(input_data))
+                                  #redirect_stdout=True)
 
     print("Ingesting media...")
     input_data["media_id"] = None

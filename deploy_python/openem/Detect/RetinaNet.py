@@ -47,9 +47,10 @@ class RetinaNetDetector(ImageModel):
                    (height, width) of the image to feed into the detector network.
         """
         super(RetinaNetDetector,self).__init__(modelPath,
-                                               gpuFraction,
-                                               'input_1:0',
-                                               'nms/map/TensorArrayStack/TensorArrayGatherV3:0')
+                                               image_dims=imageShape,
+                                               gpu_fraction=gpuFraction,
+                                               input_name='input_1:0',
+                                               output_name='nms/map/TensorArrayStack/TensorArrayGatherV3:0')
         self.input_shape[1:3] = imageShape
 
         self.image_shape = imageShape
@@ -69,7 +70,7 @@ class RetinaNetDetector(ImageModel):
         img_width = image.shape[1]
         img_aspect = img_width / img_height
         if math.isclose(img_aspect, self.network_aspect):
-            self._imageSizes.append(image.shape)
+            img_size = image.shape[:2]
         elif img_aspect < self.network_aspect:
             #Image is boxer than we want
             new_width = round(img_height * self.network_aspect)

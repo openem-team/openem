@@ -96,8 +96,9 @@ def process_video(video_path, retinanet, preprocess_funcs, queue):
             current_frames.append(frame_num)
             if len(current_frames) == args.batch_size:
                 queue.put(len(current_frames))
+                current_frames=[]
 
-    if len(tokens) > 0:
+    if len(current_frames) > 0:
         queue.put(len(current_frames))
     queue.put(None)
 
@@ -203,7 +204,7 @@ if __name__=="__main__":
 
                     while batch_result is not None:
                         process_batch_result(args, batch_result, result_q)
-                        bar.update(len(batch_result))
+                        bar.update(batch_result)
                         try:
                             batch_result = q.get_nowait()
                         except:
@@ -223,7 +224,7 @@ if __name__=="__main__":
                         result = result_q.get()
 
 
-            reader_thread=Process(target=process_video, args=(video_path, preprocess_funcs, queue))
+            reader_thread=Process(target=process_video, args=(video_path, retinanet, preprocess_funcs, queue))
             results_thread=Process(target=result_consumer, args=(result_queue,))
             reader_thread.start()
             results_thread.start()

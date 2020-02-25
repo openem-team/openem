@@ -57,7 +57,9 @@ class ImageModel:
     gpu_pid = None
     batch_size = None
 
-    def __init__(self, model_path, gpu_fraction=1.0,
+    def __init__(self, model_path,
+                 image_dims,
+                 gpu_fraction = 1.0,
                  input_name = 'input_1:0',
                  output_name = 'output_node0:0',
                  optimize = True,
@@ -120,15 +122,14 @@ class ImageModel:
             self.input_shape = self.input_tensor.get_shape().as_list()
 
             # Each channel is 1 byte, width * height * # of channels
-            image_size_in_bytes = self.input_shape[1] * self.input_shape[2] * self.input_shape[3]
-
+            image_size_in_bytes = image_dims[0] * image_dims[1] * 3
             # Initialize the shared memory buffer
             buffer_count=batch_size * 2
             self._buffers=[]
-            self._inputQueue = Queue(max_size=buffer_count)
-            self._processQueue = Queue(max_size=buffer_count)
+            self._inputQueue = Queue(maxsize=buffer_count)
+            self._processQueue = Queue(maxsize=buffer_count)
             for buffer_num in range(buffer_count):
-                self._buffers.append(RawArray(ctypes.c_uint8, image_size_in_bytes))
+                self._buffers.append(RawArray(ctypes.c_uint8, image_size_in_bytes*8))
                 self._inputQueue.put(buffer_num)
 
 
@@ -150,7 +151,7 @@ class ImageModel:
         
         idx = self._inputQueue.get()
         flat = np.frombuffer(self._buffers[idx])
-        flat = processed_image.reshape(-1)
+        flat[:] = processed_image.reshape(-1)
         self._processQueue.put((idx, cookie))
 
     def process(self, batch_size=None):
@@ -160,10 +161,6 @@ class ImageModel:
         """
         if os.getpid() != self.gpu_pid:
             logger.error("Tensorflow crossed process boundary")
-            return None
-        
-        if self.images == None:
-            logger.warning("No images loaded to process")
             return None
 
         if batch_size is None:

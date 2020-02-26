@@ -22,7 +22,8 @@ import random
 from copy import copy
 from multiprocessing.pool import ThreadPool
 import numpy as np
-import scipy.misc
+from skimage.io import imread
+from skimage.transform import rescale
 from openem_train.util.utils import chunks
 
 def preprocess_input(img):
@@ -91,13 +92,13 @@ class UnetDataset:
 
     def load(self, image_files, mask_files):
         def load_image(img_fn):
-            img_data = scipy.misc.imread(img_fn)
-            img_data = scipy.misc.imresize(img_data, 0.5, interp='cubic')
+            img_data = imread(img_fn)[:, :, :3]
+            img_data = rescale(img_data, 0.5)
             return img_data
 
         def load_mask(mask_fn):
-            mask_data = scipy.misc.imread(mask_fn, mode='L')
-            mask_data = scipy.misc.imresize(mask_data, 0.5, interp='bilinear', mode='L')
+            mask_data = imread(mask_fn, as_gray=True).astype(np.uint8)
+            mask_data = rescale(mask_data, 0.5).astype(np.uint8)
             return mask_data
 
         pool = ThreadPool(processes=8)

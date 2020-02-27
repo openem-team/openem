@@ -149,15 +149,10 @@ class ImageModel:
                                        self.inputShape()[2],
                                        self.inputShape()[1])
         
-        try:
-            idx = self._inputQueue.get(timeout=3)
-        except:
-            print("MODEL: Input Queue is clogged")
-            idx = self._inputQueue.get()
+        idx = self._inputQueue.get()
         flat = np.frombuffer(self._buffers[idx])
         flat[:] = processed_image.reshape(-1)
         self._processQueue.put((idx, cookie))
-        print(f"PUT: {self._processQueue.qsize()}")
 
     def process(self, batch_size=None):
         """ Process the current batch of image(s).
@@ -174,7 +169,6 @@ class ImageModel:
         images=[]
         image_indices=[]
         image_cookies=[]
-        print(f"GET: {self._processQueue.qsize()}")
         for idx in range(batch_size):
             msg = self._processQueue.get()
             if msg is not None:

@@ -86,9 +86,7 @@ def process_frame(image, preprocess_funcs, cookie, queue):
     global current_frames
     processed_image = process_image_data(image,
                                          preprocess_funcs)
-    print(f"ADDING {current_frames}")
     retinanet.addImage(processed_image, cookie)
-    print("ADDED")
     with frame_lock:
         current_frames += 1
         if current_frames >= args.batch_size:
@@ -245,7 +243,6 @@ if __name__=="__main__":
                     try:
                         result = result_q.get_nowait()
                     except:
-                        print("Reporter is starved")
                         result = result_q.get()
 
 

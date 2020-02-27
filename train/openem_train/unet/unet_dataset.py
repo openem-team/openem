@@ -19,12 +19,17 @@ __license__ = "GPLv3"
 import glob
 import os
 import random
+from collections import namedtuple
 from copy import copy
 from multiprocessing.pool import ThreadPool
 import numpy as np
 from skimage.io import imread
 from skimage.transform import rescale
 from openem_train.util.utils import chunks
+from openem_train.util import img_augmentation
+from openem_train.util import utils
+
+Rect = namedtuple('Rect', ['x', 'y', 'w', 'h'])
 
 def preprocess_input(img):
     return img.astype(np.float32) / 128.0 - 1.0
@@ -34,7 +39,7 @@ class SampleCfg:
     Configuration structure for crop parameters.
     """
 
-    def __init__(self, img_idx,
+    def __init__(self, img_idx, config,
                  scale_rect_x=1.0,
                  scale_rect_y=1.0,
                  shift_x_ratio=0.0,
@@ -42,7 +47,8 @@ class SampleCfg:
                  angle=0.0,
                  saturation=0.5, contrast=0.5, brightness=0.5,  # 0.5  - no changes, range 0..1
                  hflip=False,
-                 vflip=False):
+                 vflip=False,
+                 blurred_by_downscaling=1):
         self.angle = angle
         self.shift_y_ratio = shift_y_ratio
         self.shift_x_ratio = shift_x_ratio
@@ -54,7 +60,15 @@ class SampleCfg:
         self.brightness = brightness
         self.contrast = contrast
         self.saturation = saturation
-        self.blurred_by_downscaling = None
+        self.blurred_by_downscaling = blurred_by_downscaling
+
+        orig_w = config.find_ruler_width()
+        orig_h = config.find_ruler_height()
+        w = random.randrange(int(0.5 * orig_w), orig_w)
+        x = random.randrange(0, orig_w - w)
+        h = int(w * orig_h / orig_w)
+        y = random.randrange(0, orig_h - h)
+        self.rect = Rect(x=x, y=y, w=w, h=h)
 
     def __lt__(self, other):
         return True
@@ -112,17 +126,81 @@ class UnetDataset:
         img = preprocess_input(self.images[cfg.img_idx])
         return img
 
+    def prepare_x(self, cfg: SampleCfg):
+        crop = utils.get_image_crop(
+            full_rgb=self.images[cfg.img_idx], rect=cfg.rect,
+            scale_rect_x=cfg.scale_rect_x, scale_rect_y=cfg.scale_rect_y,
+            shift_x_ratio=cfg.shift_x_ratio, shift_y_ratio=cfg.shift_y_ratio,
+            angle=cfg.angle,
+            out_size=(self.config.find_ruler_width(), self.config.find_ruler_height()),
+            square=False)
+
+        crop = crop.astype('float32')
+        if cfg.saturation != 0.5:
+            crop = img_augmentation.saturation(crop, variance=0.2, mean=cfg.saturation)
+
+        if cfg.contrast != 0.5:
+            crop = img_augmentation.contrast(crop, variance=0.25, mean=cfg.contrast)
+
+        if cfg.brightness != 0.5:
+            crop = img_augmentation.brightness(crop, variance=0.3, mean=cfg.brightness)
+
+        if cfg.hflip:
+            crop = img_augmentation.horizontal_flip(crop)
+
+        if cfg.vflip:
+            crop = img_augmentation.vertical_flip(crop)
+
+        if cfg.blurred_by_downscaling != 1:
+            crop = img_augmentation.blurred_by_downscaling(
+                crop,
+                1.0 / cfg.blurred_by_downscaling
+            )
+        crop = preprocess_input(crop)
+        return crop
+
     def prepare_y(self, cfg: SampleCfg):
-        return np.expand_dims(self.masks[cfg.img_idx].astype(np.float32) / 256.0, axis=3)
+        img = np.expand_dims(self.masks[cfg.img_idx].astype(np.float32) / 256.0, axis=3)
+        crop = utils.get_image_crop(
+            full_rgb=img, rect=cfg.rect,
+            scale_rect_x=cfg.scale_rect_x, scale_rect_y=cfg.scale_rect_y,
+            shift_x_ratio=cfg.shift_x_ratio, shift_y_ratio=cfg.shift_y_ratio,
+            angle=cfg.angle, square=False,
+            out_size=(self.config.find_ruler_width(), self.config.find_ruler_height()))
+
+        if cfg.hflip:
+            crop = img_augmentation.horizontal_flip(crop)
+
+        if cfg.vflip:
+            crop = img_augmentation.vertical_flip(crop)
+
+        return crop
 
     def generate(self, batch_size):
         pool = ThreadPool(processes=8)
         samples_to_process = []  # type: [SampleCfg]
 
+        def rand_or_05():
+            if random.random() > 0.5:
+                return random.random()
+            return 0.5
 
         while True:
             img_idx = random.choice(self.train_idx)
-            cfg = SampleCfg(img_idx=img_idx)
+            cfg = SampleCfg(
+                img_idx=img_idx,
+                config=self.config,
+                saturation=rand_or_05(),
+                contrast=rand_or_05(),
+                brightness=rand_or_05(),
+                scale_rect_x=random.uniform(0.5, 1.0),
+                scale_rect_y=random.uniform(0.5, 1.0),
+                shift_x_ratio=random.uniform(-0.1, 0.1),
+                shift_y_ratio=random.uniform(-0.1, 0.1),
+                angle=random.uniform(-10.0, 10.0),
+                hflip=random.choice([True, False]),
+                vflip=random.choice([True, False]),
+            )
             samples_to_process.append(cfg)
 
             if len(samples_to_process) == batch_size:
@@ -135,7 +213,7 @@ class UnetDataset:
         pool = ThreadPool(processes=8)
         while True:
             for idxs in chunks(self.test_idx, batch_size):
-                samples_to_process = [SampleCfg(idx) for idx in idxs]
+                samples_to_process = [SampleCfg(idx, self.config) for idx in idxs]
                 X_batch = np.array(pool.map(self.prepare_x, samples_to_process))
                 y_batch = np.array(pool.map(self.prepare_y, samples_to_process))
                 yield X_batch, y_batch

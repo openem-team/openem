@@ -23,6 +23,7 @@ import sys
 from collections import defaultdict
 import pandas as pd
 import numpy as np
+import cv2
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -144,6 +145,7 @@ def predict(config):
     # Import deployment library.
     sys.path.append('../python')
     import openem
+    from openem.FindRuler import RulerMaskFinder
 
     # Make a dict to contain find ruler results.
     find_ruler_data = {
@@ -161,10 +163,14 @@ def predict(config):
     num_masks = defaultdict(int)
 
     # Create and initialize the mask finder.
-    mask_finder = openem.RulerMaskFinder()
-    status = mask_finder.Init(config.find_ruler_model_path())
-    if not status == openem.kSuccess:
-        raise IOError("Failed to initialize ruler mask finder!")
+    image_dims = (config.find_ruler_width(), config.find_ruler_height())
+    finder = RulerMaskFinder(config.find_ruler_model_path(), image_dims)
+
+    # Check if saving masks is enabled.
+    save_masks = config.find_ruler_save_masks()
+    if save_masks:
+        mask_dir = config.predict_masks_dir()
+        os.makedirs(mask_dir, exist_ok=True)
 
     for img_path in config.train_imgs():
 
@@ -181,34 +187,37 @@ def predict(config):
         print("Finding mask for image {}...".format(img_path))
 
         # Load in image.
-        img = openem.Image()
-        status = img.FromFile(img_path)
-        if not status == openem.kSuccess:
-            continue
+        img = cv2.imread(img_path)
 
         # Add image to processing queue.
-        status = mask_finder.AddImage(img)
-        if not status == openem.kSuccess:
-            raise RuntimeError("Failed to add image {} for processing!".format(img_path))
+        finder.addImage(img)
 
-        # Process the loaded image.
-        masks = openem.VectorImage()
-        status = mask_finder.Process(masks)
-        if not status == openem.kSuccess:
-            raise RuntimeError("Failed to process image {}!".format(img_path))
+        # Process the image.
+        image_result = finder.process()
+        if image_result is None:
+            raise RuntimeError(f"Failed to process image {img_path}!")
 
         # Resize the mask back to the same size as the image.
-        mask = masks[0]
-        mask.Resize(img.Width(), img.Height())
+        mask = image_result[0]
+        h, w, _ = img.shape
+        mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_AREA)
+
+        # If specified, save the generated mask.
+        if save_masks:
+            basename = os.path.basename(img_path)
+            subdir = os.path.basename(os.path.dirname(img_path))
+            os.makedirs(os.path.join(mask_dir, subdir), exist_ok=True)
+            mask_path = os.path.join(mask_dir, subdir, basename)
+            cv2.imwrite(mask_path, mask * 255)
 
         # Initialize the mean mask if necessary.
         if video_id not in mask_avg:
-            mask_avg[video_id] = np.zeros((img.Height(), img.Width()));
+            mask_avg[video_id] = np.zeros((h, w));
 
         # Add the mask to the mask average.
-        mask_data = mask.DataCopy()
+        mask_data = np.copy(mask)
         mask_data = np.array(mask_data)
-        mask_data = np.reshape(mask_data, (img.Height(), img.Width()))
+        mask_data = np.reshape(mask_data, (h, w))
         mask_avg[video_id] += mask_data
 
     for video_id in mask_avg:

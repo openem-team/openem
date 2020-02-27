@@ -124,7 +124,7 @@ class ImageModel:
             # Each channel is 1 byte, width * height * # of channels
             image_size_in_bytes = image_dims[0] * image_dims[1] * 3
             # Initialize the shared memory buffer
-            buffer_count=batch_size * 2
+            buffer_count=batch_size * 4
             self._buffers=[]
             self._inputQueue = Queue(maxsize=buffer_count)
             self._processQueue = Queue(maxsize=buffer_count)
@@ -149,10 +149,15 @@ class ImageModel:
                                        self.inputShape()[2],
                                        self.inputShape()[1])
         
-        idx = self._inputQueue.get()
+        try:
+            idx = self._inputQueue.get(timeout=3)
+        except:
+            print("MODEL: Input Queue is clogged")
+            idx = self._inputQueue.get()
         flat = np.frombuffer(self._buffers[idx])
         flat[:] = processed_image.reshape(-1)
         self._processQueue.put((idx, cookie))
+        print(f"PUT: {self._processQueue.qsize()}")
 
     def process(self, batch_size=None):
         """ Process the current batch of image(s).
@@ -169,6 +174,7 @@ class ImageModel:
         images=[]
         image_indices=[]
         image_cookies=[]
+        print(f"GET: {self._processQueue.qsize()}")
         for idx in range(batch_size):
             msg = self._processQueue.get()
             if msg is not None:

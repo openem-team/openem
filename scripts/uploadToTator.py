@@ -13,6 +13,7 @@ import pandas as pd
 import datetime
 import time
 import traceback
+import math
 
 from functools import partial
 
@@ -20,8 +21,12 @@ def exit_func(_,__):
     print("SIGINT detected")
     os._exit(0)
 
-def process_box(args, tator, species_names, truth_data, media_map, row):
-    media_element = media_map[row['media_id']]
+detect_count = 0
+def process_box(row, args, tator, species_names, truth_data, bar):
+    global detect_count
+    detect_count += 1
+    bar.update(detect_count)
+    media_element = row['media_element']
     if media_element == None:
         print("ERROR: Could not find media element!")
 
@@ -48,7 +53,10 @@ def process_box(args, tator, species_names, truth_data, media_map, row):
 def process_line(args, tator, species_names, row):
     print("ERROR: Line mode --- Not supported")
 
-def process_detect(args, tator, species_names, truth_data, media_map, row):
+def process_detect(row, args, tator, species_names, truth_data, bar):
+    global detect_count
+    detect_count += 1
+    bar.update(detect_count)
     if type(truth_data) != type(None):
         if row['frame'] == '':
             return
@@ -57,7 +65,9 @@ def process_detect(args, tator, species_names, truth_data, media_map, row):
             return
         else:
             pass
-    media_element = media_map[row['media_id']]
+        
+    media_element = row['media_element']
+    
     if media_element == None:
         print("ERROR: Could not find media element!")
 
@@ -106,35 +116,44 @@ def make_localization_obj(args,
 
 
 media_list_cache={}
-def uploadMedia(args, tator, row):
+media_count = 0
+def uploadMedia(row, args, tator, bar):
     """ Attempts to upload the media in the row to tator
         if already there, skips, but either way returns the
         media element information. """
-    vid_dir=os.path.join(args.img_base_dir, row['video_id'])
+    video_id = row['video_id']
+    frame = row['frame']
+    vid_dir=os.path.join(args.img_base_dir, video_id)
+
     global media_list_cache
+    global media_count
+    
+    media_count += 1
+    bar.update(media_count)
+
     try:
-        img_file=f"{int(row['frame']):04d}.{args.img_ext}"
+        img_file=f"{int(frame):04d}.{args.img_ext}"
     except:
         print(f"Skipping {row}")
         return
     img_path=os.path.join(vid_dir, img_file)
     if args.media_type == "pipeline":
-        media_id = row['video_id'].split('_')[0]
+        media_id = int(video_id.split('_')[0])
         if media_id in media_list_cache:
-            return media_list_cache[media_id]
+            return media_id,media_list_cache[media_id]
         else:
             result = tator.Media.get(media_id)
             media_list_cache[media_id] = result
-            return result
+            return result['id'],result
     elif args.media_type == "image":
-        desired_name = f"{row['video_id']}_{row['frame']}.{args.img_ext}"
+        desired_name = f"{video_id}_{frame}.{args.img_ext}"
     elif args.media_type == "video":
-        desired_name = f"{row['video_id']}.{args.img_ext}"
+        desired_name = f"{video_id}.{args.img_ext}"
         img_path = os.path.join(args.img_base_dir, desired_name)
         
     if desired_name in media_list_cache:
-        print(f"{time.time()}: In Cache")
-        return media_list_cache[desired_name]
+        cache_result = media_list_cache[desired_name] 
+        return cache_result['id'], cache_result
     else:
         print(f"{time.time()}: {desired_name}: Not In Cache")
         print(f"Cache = {media_list_cache}")
@@ -156,9 +175,9 @@ def uploadMedia(args, tator, row):
                                                        args.section}})
                     print(f"Moving to {args.section}")
             media_list_cache[desired_name] = result
-            return result
+            return result['id'], result
         else:
-            return None
+            return None,None
 
 
 
@@ -185,6 +204,8 @@ if __name__=="__main__":
     signal.signal(signal.SIGINT, exit_func)
 
     input_data = pd.read_csv(args.csvfile)
+    #For testing big sets try this:
+    #input_data = input_data.head(500)
     keys = list(input_data.columns)
     boxes_keys = ['video_id','frame','x','y','width','height','theta','species_id']
     lines_keys = ['video_id','frame','x1','y1','x2','y2','species_id']
@@ -222,48 +243,49 @@ if __name__=="__main__":
                                   #redirect_stdout=True)
 
     print("Ingesting media...")
-    input_data["media_id"] = None
-    media_map={}
-    for idx,row in bar(input_data.iterrows()):
-        media_element = uploadMedia(args, tator, row)
-        if media_element:
-            media_map[media_element['id']] = media_element
-            input_data.loc[idx,'media_id'] = media_element['id']
-        else:
-            print("ERROR: Could not upload.")
+    media_info = input_data.apply(uploadMedia,
+                                  axis=1,
+                                  result_type='expand',
+                                  args=(args, tator, bar),
+                                  raw=False)
+    bar.finish()
+    input_data = input_data.assign(media_id = media_info[0])
+    input_data = input_data.assign(media_element = media_info[1])
 
     print("Generating localizations...")
-    bar = progressbar.ProgressBar(redirect_stdout=True, max_value=len(media_map.keys()))
-    for media_id in bar(media_map):
+    unique_media = input_data['media_id'].unique()
+    print(unique_media)
+    bar = progressbar.ProgressBar(redirect_stdout=True,
+                                  max_value=len(unique_media))
+    for media_id in bar(unique_media):
         local_list=[]
         media_data = input_data.loc[input_data['media_id'] == media_id]
         bar2 = progressbar.ProgressBar(redirect_stdout=True, max_value=len(media_data))
-        for idx,row in bar2(media_data.iterrows()):
-            obj = function_map[mode](args,
-                                     tator,
-                                     species_names,
-                                     truth_data,
-                                     media_map,
-                                     row)
-            if obj:
-                local_list.append(obj)
-
-            if len(local_list) == 25:
-                try:
-                    before=time.time()
-                    tator.Localization.addMany(local_list)
-                    after=time.time()
-                    print(f"Duration={(after-before)*1000}ms")
-                except:
-                    traceback.print_exc(file=sys.stdout)
-                finally:
-                    local_list=[]
-
-        try:
-            tator.Localization.addMany(local_list)
-        except:
-            traceback.print_exc(file=sys.stdout)
-
+        detect_count = 0
+        localizations = media_data.apply(function_map[mode],
+                                         args=(args,
+                                               tator,
+                                               species_names,
+                                               truth_data,
+                                               bar2),
+                                         raw=False,
+                                         axis=1)
+        bar2.finish()
+        raw_objects = localizations.values
+        upload_count = 0
+        upload_batch = 25
+        batch_count = math.ceil(len(raw_objects) / 25)
+        for idx in range(batch_count):
+            start_idx = 0+(idx*upload_batch)
+            current_batch=list(raw_objects[start_idx:start_idx+upload_batch])
+            try:
+                before=time.time()
+                tator.Localization.addMany(current_batch)
+                after=time.time()
+                print(f"Duration={(after-before)*1000}ms")
+            except:
+                traceback.print_exc(file=sys.stdout)
+                
         # When complete for a given media update the sentinel value
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaVideo"})
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaImage"})

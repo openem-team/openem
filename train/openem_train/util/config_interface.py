@@ -165,6 +165,14 @@ class ConfigInterface:
         """
         return self.config.getint('FindRuler', 'InitialEpoch')
 
+    def find_ruler_save_masks(self):
+        """Returns whether to save output masks during inference.
+        """
+        save_masks = False
+        if self.config.has_option('FindRuler', 'SaveMasks'):
+            save_masks = self.config.getboolean('FindRuler', 'SaveMasks')
+        return save_masks
+
     def detect_patience(self):
         try:
             return self.config.getint('Detect', 'LR_Patience')
@@ -417,6 +425,11 @@ class ConfigInterface:
         """Returns path to training detection images directory.
         """
         return os.path.join(self.work_dir(), 'train_dets')
+
+    def predict_masks_dir(self):
+        """Returns path to generated mask images directory.
+        """
+        return os.path.join(self.work_dir(), 'predict_masks')
 
     def train_imgs(self):
         """Returns list of all training images.

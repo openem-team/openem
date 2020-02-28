@@ -267,6 +267,7 @@ if __name__=="__main__":
             if num_images > 0:
                 b_queue.put(num_images)
                 num_images = 0
+            b_queue.put(None)
 
         reader_thread=Process(target=image_reader,
                               args=(batch_queue,))

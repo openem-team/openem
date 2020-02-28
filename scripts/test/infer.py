@@ -35,3 +35,29 @@ class TestInfer(unittest.TestCase):
                                delta=round(len(results_df)*0.05))
 
         os.unlink(temp_path)
+
+    def test_image_mode(self):
+        temp_file, temp_path = tempfile.mkstemp(".csv")
+        os.close(temp_file)
+        cmd = ["python3",
+               "/scripts/infer.py",
+               "--graph-pb", "/working/deploy/detect/detect_retinanet.pb",
+               "--img-base-dir", "/working/deploy/detect",
+               "--img-min-side", "360",
+               "--img-max-side", "720",
+               "--keep-threshold","0.40",
+               "--csv-flavor", "image",
+               "--output-csv", temp_path,
+               "/working/deploy/detect/work.csv"]
+        proc = subprocess.Popen(cmd)
+        proc.wait()
+
+        # Verify successful execution
+        self.assertEqual(proc.returncode, 0)
+
+        results_df = pd.read_csv(temp_path)
+
+        self.assertGreaterEqual(len(results_df),
+                                3)
+
+        os.unlink(temp_path)

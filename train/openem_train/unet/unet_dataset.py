@@ -31,9 +31,6 @@ from openem_train.util import utils
 
 Rect = namedtuple('Rect', ['x', 'y', 'w', 'h'])
 
-def preprocess_input(img):
-    return img.astype(np.float32) / 128.0 - 1.0
-
 class SampleCfg:
     """
     Configuration structure for crop parameters.
@@ -83,27 +80,34 @@ class UnetDataset:
         self.config = config
 
         # Find all images.
-        image_files = glob.glob(os.path.join(config.train_mask_imgs_dir(), '*'))
+        self.image_files = glob.glob(os.path.join(config.train_mask_imgs_dir(), '*'))
 
-        # Try to find corresponding masks.
-        mask_files = []
-        for f in image_files:
-            path, fname = os.path.split(f)
-            base, ext = os.path.splitext(fname)
-            patt = os.path.join(config.train_mask_masks_dir(), base + '.*')
-            mask = glob.glob(patt)
-            if len(mask) != 1:
-                msg = "Could not find mask image corresponding to {}!"
-                msg += " Searched at: {}"
-                raise ValueError(msg.format(f, patt))
-            mask_files += mask
+        # Build list of corresponding mask files.
+        self.mask_files = [
+            os.path.join(
+                config.train_mask_masks_dir(),
+                os.path.basename(fname),
+            ) for fname in self.image_files
+        ]
 
         # Load in the masks and images.
-        self.images, self.masks = self.load(image_files, mask_files)
-        all_idx = list(range(self.images.shape[0]))
-        self.train_idx = all_idx[:-96]
-        self.test_idx = all_idx[-96:]
+        #self.images, self.masks = self.load(image_files, mask_files)
+        all_idx = list(range(len(self.image_files)))
+        split_idx = int(len(all_idx) * 0.9)
+        self.train_idx = all_idx[:-split_idx]
+        self.test_idx = all_idx[-split_idx:]
 
+    def load_image(self, img_fn):
+        img_data = imread(img_fn)[:, :, :3]
+        img_data = rescale(img_data, 0.5)
+        return img_data
+
+    def load_mask(self, mask_fn):
+        mask_data = imread(mask_fn, as_gray=True)
+        mask_data = rescale(mask_data, 0.5)
+        return mask_data
+
+    """
     def load(self, image_files, mask_files):
         def load_image(img_fn):
             img_data = imread(img_fn)[:, :, :3]
@@ -111,8 +115,8 @@ class UnetDataset:
             return img_data
 
         def load_mask(mask_fn):
-            mask_data = imread(mask_fn, as_gray=True).astype(np.uint8)
-            mask_data = rescale(mask_data, 0.5).astype(np.uint8)
+            mask_data = imread(mask_fn, as_gray=True)
+            mask_data = rescale(mask_data, 0.5)
             return mask_data
 
         pool = ThreadPool(processes=8)
@@ -121,14 +125,12 @@ class UnetDataset:
         masks = pool.map(load_mask, mask_files)
         masks = np.array(masks)
         return images, masks
+    """
 
     def prepare_x(self, cfg: SampleCfg):
-        img = preprocess_input(self.images[cfg.img_idx])
-        return img
-
-    def prepare_x(self, cfg: SampleCfg):
+        img = self.load_image(self.image_files[cfg.img_idx])
         crop = utils.get_image_crop(
-            full_rgb=self.images[cfg.img_idx], rect=cfg.rect,
+            full_rgb=img, rect=cfg.rect,
             scale_rect_x=cfg.scale_rect_x, scale_rect_y=cfg.scale_rect_y,
             shift_x_ratio=cfg.shift_x_ratio, shift_y_ratio=cfg.shift_y_ratio,
             angle=cfg.angle,
@@ -156,11 +158,13 @@ class UnetDataset:
                 crop,
                 1.0 / cfg.blurred_by_downscaling
             )
-        crop = preprocess_input(crop)
+        # Center the input to interval -1.0, 1.0
+        crop = 2.0 * crop - 1.0
         return crop
 
     def prepare_y(self, cfg: SampleCfg):
-        img = np.expand_dims(self.masks[cfg.img_idx].astype(np.float32) / 256.0, axis=3)
+        img = self.load_mask(self.mask_files[cfg.img_idx])
+        img = np.expand_dims(img.astype(np.float32), axis=3)
         crop = utils.get_image_crop(
             full_rgb=img, rect=cfg.rect,
             scale_rect_x=cfg.scale_rect_x, scale_rect_y=cfg.scale_rect_y,
@@ -190,11 +194,11 @@ class UnetDataset:
             cfg = SampleCfg(
                 img_idx=img_idx,
                 config=self.config,
-                saturation=rand_or_05(),
-                contrast=rand_or_05(),
-                brightness=rand_or_05(),
-                scale_rect_x=random.uniform(0.5, 1.0),
-                scale_rect_y=random.uniform(0.5, 1.0),
+                #saturation=rand_or_05(),
+                #contrast=rand_or_05(),
+                #brightness=rand_or_05(),
+                scale_rect_x=random.uniform(0.8, 1.0),
+                scale_rect_y=random.uniform(0.8, 1.0),
                 shift_x_ratio=random.uniform(-0.1, 0.1),
                 shift_y_ratio=random.uniform(-0.1, 0.1),
                 angle=random.uniform(-10.0, 10.0),

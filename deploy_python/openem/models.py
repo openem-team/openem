@@ -68,6 +68,8 @@ class ImageModel:
         """ Initialize an image model object
         model_path : str or path-like object
                      Path to the frozen protobuf of the tensorflow graph
+        image_dims : tuple
+                     Tuple for image dims: (<height>, <width>, <channels>)
         gpu_fraction : float
                        Fraction of GPU allowed to be used by this object.
         input_name : str
@@ -122,7 +124,7 @@ class ImageModel:
             self.input_shape = self.input_tensor.get_shape().as_list()
 
             # Each channel is 1 byte, width * height * # of channels
-            image_size_in_bytes = image_dims[0] * image_dims[1] * 3
+            image_size_in_bytes = image_dims[0] * image_dims[1] * image_dims[2]
             # Initialize the shared memory buffer
             buffer_count=batch_size * 4
             self._buffers=[]

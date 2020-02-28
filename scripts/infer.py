@@ -150,7 +150,7 @@ if __name__=="__main__":
 
     count = len(work_df)
 
-    image_dims = (args.img_min_side, args.img_max_side)
+    image_dims = (args.img_min_side, args.img_max_side, 3)
     retinanet = RetinaNet.RetinaNetDetector(args.graph_pb,
                                             imageShape=image_dims,
                                             batch_size=args.batch_size)

@@ -79,7 +79,7 @@ provided above. To run the test suite; launch the openem-lite image with the exa
 
 The included `Makefile` in config facilitates this by forwarding the host's `work_dir` environment variable to
 the container's `deploy_dir` variable. In the config directory with `work_dir` set to
-`/path/to/the/openem_example_data/deploy` run `make inference_bash`.
+`/path/to/the/openem_example_data` run `make inference_bash`.
 
 The `inference_bash` target launches the nvidia container with recommended settings on device 0; forwarding
 port 10001 for potential tensorboard usage.

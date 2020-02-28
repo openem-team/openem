@@ -36,7 +36,7 @@ endif
 ifeq ($(work_dir), )
 extra_mounts=
 else
-extra_mounts=-v $(work_dir):/working --env deploy_dir=/working
+extra_mounts=-v $(work_dir):/working --env deploy_dir=/working/deploy
 endif
 
 container_name=openem_$(USER)

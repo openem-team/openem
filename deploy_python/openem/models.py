@@ -58,7 +58,7 @@ class ImageModel:
     batch_size = None
 
     def __init__(self, model_path,
-                 image_dims,
+                 image_dims = None,
                  gpu_fraction = 1.0,
                  input_name = 'input_1:0',
                  output_name = 'output_node0:0',
@@ -70,6 +70,7 @@ class ImageModel:
                      Path to the frozen protobuf of the tensorflow graph
         image_dims : tuple
                      Tuple for image dims: (<height>, <width>, <channels>)
+                     If None, is inferred from the graph.
         gpu_fraction : float
                        Fraction of GPU allowed to be used by this object.
         input_name : str
@@ -81,7 +82,7 @@ class ImageModel:
                       the process function returns each tensor output in the
                       order specified in this function as a list.
         batch_size : int
-                     Number of images to process as a batch
+                     Maximum number of images to process as a batch
         """
 
         self.gpu_pid = os.getpid()
@@ -123,6 +124,11 @@ class ImageModel:
 
             self.input_shape = self.input_tensor.get_shape().as_list()
 
+            if image_dims is None:
+                image_dims = (self.input_shape[1],
+                              self.input_shape[2],
+                              self.input_shape[3])
+                print(f"Inferred image dims = {image_dims}")
             # Each channel is 1 byte, width * height * # of channels
             image_size_in_bytes = image_dims[0] * image_dims[1] * image_dims[2]
             # Initialize the shared memory buffer
@@ -163,10 +169,14 @@ class ImageModel:
         """
         if os.getpid() != self.gpu_pid:
             logger.error("Tensorflow crossed process boundary")
-            return None
+            return None,None
 
         if batch_size is None:
-            batch_size = self.batch_size
+            # Default to whatever is ready to process
+            batch_size = self._processQueue.qsize()
+
+        if batch_size == 0:
+            return None,None
 
         images=[]
         image_indices=[]

@@ -32,6 +32,6 @@ class TestInfer(unittest.TestCase):
 
         self.assertAlmostEqual(len(expected_df),
                                len(results_df),
-                               delta=round(results_df*0.05))
+                               delta=round(len(results_df)*0.05))
 
         os.unlink(temp_path)

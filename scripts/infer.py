@@ -22,6 +22,7 @@ The input csv work file can be in a couple of flavors.
 
 import argparse
 from multiprocessing import Process,Queue
+import threading
 import pandas as pd
 from openem.Detect import Detection, RetinaNet
 from tqdm import tqdm
@@ -46,14 +47,15 @@ def process_batch_result(args, image_count, result_queue):
         result_queue.put(results)
 
 def process_retinanet_result(args, network_results):
-    raw_results = network_results[0]
+    raw_results=network_results[0]
     cookies = network_results[1]
     sizes=[cookie["size"] for cookie in cookies]
     batch_info=[cookie["batch_info"] for cookie in cookies]
+
     results=retinanet.format_results(raw_results,
                                      sizes,
                                      threshold=args.keep_threshold)
-    new_df = pd.DataFrame(columns=result_cols)
+    data = []
     for batch_idx,batch_result in enumerate(results):
         for result in batch_result:
             confidence_array=np.array(result.confidence)
@@ -71,32 +73,53 @@ def process_retinanet_result(args, network_results):
                           'h': result.location[3],
                           'det_species': result.species,
                           'det_conf': confidence_formatted}
-            new_df = new_df.append(pd.DataFrame(columns=result_cols,
-                                  data=[new_record]))
+            data.append(new_record)
+    new_df = pd.DataFrame(columns=result_cols,
+                          data=data)
     new_df.to_csv(args.output_csv, mode='a', header=False,index=False)
 
-def process_video(video_path, retinanet, preprocess_funcs, queue):
+current_frames = 0
+frame_lock = threading.Lock()
+def process_frame(image, preprocess_funcs, cookie, queue):
+    global current_frames
+    processed_image = process_image_data(image,
+                                         preprocess_funcs)
+    retinanet.addImage(processed_image, cookie)
+    with frame_lock:
+        current_frames += 1
+        if current_frames >= args.batch_size:
+            try:
+                queue.put_nowait(args.batch_size)
+            except:
+                print("GPU Stuffed")
+                queue.put(args.batch_size)
+            finally:
+                current_frames-=args.batch_size
+    
+def process_video(video_path, preprocess_funcs, queue):
     video_reader = cv2.VideoCapture(video_path)
     vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
     count = vid_len
     frame_num = 0
+    threads = []
     ok = True
-    current_frames=[]
     while ok:
         ok, image_data = video_reader.read()
         if ok:
-            processed_image = process_image_data(image_data,
-                                                 preprocess_funcs)
+            for idx,thread in enumerate(threads):
+                if thread.is_alive() == False:
+                    thread.join()
+                    del threads[idx]
             cookie = {"batch_info": (video_id, frame_num)}
-            retinanet.addImage(processed_image, cookie)
+            thread = threading.Thread(target=process_frame,
+                                      args=(image_data, preprocess_funcs, cookie, queue))
+            thread.start()
+            threads.append(thread)
             frame_num += 1
-            current_frames.append(frame_num)
-            if len(current_frames) == args.batch_size:
-                queue.put(len(current_frames))
-                current_frames=[]
 
-    if len(current_frames) > 0:
-        queue.put(len(current_frames))
+    if len(threads) > 0:
+        for thread in threads:
+            thread.join()
     queue.put(None)
 
 # Static variables for recurrent process_image_data function
@@ -147,7 +170,7 @@ if __name__=="__main__":
 
     count = len(work_df)
 
-    image_dims = (args.img_min_side, args.img_max_side, 3)
+    image_dims = (args.img_min_side, args.img_max_side,3)
     retinanet = RetinaNet.RetinaNetDetector(args.graph_pb,
                                             imageShape=image_dims,
                                             batch_size=args.batch_size)
@@ -194,7 +217,7 @@ if __name__=="__main__":
             vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
             del video_reader
 
-            queue=Queue(maxsize=2)
+            queue=Queue(maxsize=4)
             result_queue=Queue(maxsize=2)
             def image_consumer(q, result_q):
                 with tqdm(total=vid_len, desc="Frames", leave=True) as bar:
@@ -218,11 +241,10 @@ if __name__=="__main__":
                     try:
                         result = result_q.get_nowait()
                     except:
-                        print("Reporter is starved")
                         result = result_q.get()
 
 
-            reader_thread=Process(target=process_video, args=(video_path, retinanet, preprocess_funcs, queue))
+            reader_thread=Process(target=process_video, args=(video_path, preprocess_funcs, queue))
             results_thread=Process(target=result_consumer, args=(result_queue,))
             reader_thread.start()
             results_thread.start()

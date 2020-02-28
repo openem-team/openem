@@ -135,7 +135,7 @@ def uploadMedia(row, args, tator, bar):
         img_file=f"{int(frame):04d}.{args.img_ext}"
     except:
         print(f"Skipping {row}")
-        return
+        return None,None
     img_path=os.path.join(vid_dir, img_file)
     if args.media_type == "pipeline":
         media_id = int(video_id.split('_')[0])
@@ -204,6 +204,9 @@ if __name__=="__main__":
     signal.signal(signal.SIGINT, exit_func)
 
     input_data = pd.read_csv(args.csvfile)
+    if len(input_data) == 0:
+        print("No input data to process")
+        sys.exit(0)
     #For testing big sets try this:
     #input_data = input_data.head(500)
     keys = list(input_data.columns)

@@ -95,7 +95,7 @@ def process_frame(image, preprocess_funcs, cookie, queue):
                 queue.put(args.batch_size)
             finally:
                 current_frames-=args.batch_size
-    
+
 def process_video(video_path, preprocess_funcs, queue):
     video_reader = cv2.VideoCapture(video_path)
     vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -135,6 +135,50 @@ def process_image_data(image_data, preprocess_funcs):
 
     return image_data
 
+def image_consumer(q, result_q,vid_len):
+    with tqdm(total=vid_len, desc="Frames", leave=True) as bar:
+        batch_result = q.get()
+
+        while batch_result is not None:
+            process_batch_result(args, batch_result, result_q)
+            bar.update(batch_result)
+            try:
+                batch_result = q.get_nowait()
+            except:
+                print("GPU is starved")
+                batch_result = q.get()
+        result_q.put(None)
+
+def result_consumer(result_q):
+    result = result_q.get()
+
+    while result is not None:
+        process_retinanet_result(args, result)
+        try:
+            result = result_q.get_nowait()
+        except:
+            result = result_q.get()
+
+def get_videoId_frame(args, image_path):
+    if args.csv_flavor == 'retinanet':
+        # Raw video inputs may look like this:
+        # <section>/4996995_camera_1_2019_07_06-11_10.mp4_290.png
+        video_fname = os.path.basename(image_path)
+        mp4_pos = video_fname.find('.mp4')
+        video_id = video_fname[:mp4_pos]
+        frame_with_ext = video_fname[mp4_pos+5:]
+        frame = int(os.path.splitext(frame_with_ext)[0])
+    elif args.csv_flavor == 'openem':
+        video_id = os.path.basename(os.path.dirname(image_path))
+        frame = int(os.path.splitext(os.path.basename(image))[0])
+    elif args.csv_flavor == 'video':
+        video_id = os.path.splitext(os.path.basename(image_path))[0]
+        frame = None
+    elif args.csv_flavor == 'image':
+        video_id = os.path.splitext(os.path.basename(image_path))[0]
+        frame = 0
+    return video_id, frame
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--graph-pb", required=True)
@@ -143,9 +187,14 @@ if __name__=="__main__":
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--csv-flavor", required=True,
                         help="See format description in top-level help",
-                        choices=["retinanet", "openem", "video"])
+                        choices=["retinanet",
+                                 "openem",
+                                 "video",
+                                 "image"])
     parser.add_argument("--img-base-dir", required=True)
-    parser.add_argument("--img-ext", default="jpg")
+    parser.add_argument("--img-ext",
+                        default="jpg",
+                        help="Only required for OpenEM Flavor")
     parser.add_argument("--img-min-side", required=True, type=int)
     parser.add_argument("--img-max-side", required=True, type=int)
     parser.add_argument("--preprocess-module",
@@ -164,7 +213,7 @@ if __name__=="__main__":
         for idx, row in openem_df.iterrows():
             media_list.append(f"{row.video_id}/{row.frame:04d}.{args.img_ext}")
         work_df = pd.DataFrame(data=media_list)
-    elif args.csv_flavor == "video":
+    elif args.csv_flavor == "video" or args.csv_flavor == "image":
         video_df = pd.read_csv(args.work_csv, names=None)
         count = len(video_df)
         media_list=list(video_df.iloc[:,0])
@@ -196,71 +245,65 @@ if __name__=="__main__":
     results_df=pd.DataFrame(columns=result_cols)
     results_df.to_csv(args.output_csv, index=False)
     print(f"Outputing results to {args.output_csv}")
-    for idx, image in tqdm(enumerate(work_df[0].unique()), desc='Files'):
-        image_path = os.path.join(args.img_base_dir, image)
-        if args.csv_flavor == 'retinanet':
-            # Raw video inputs may look like this:
-            # <section>/4996995_camera_1_2019_07_06-11_10.mp4_290.png
-            video_fname = os.path.basename(image_path)
-            mp4_pos = video_fname.find('.mp4')
-            video_id = video_fname[:mp4_pos]
-            frame_with_ext = video_fname[mp4_pos+5:]
-            frame = int(os.path.splitext(frame_with_ext)[0])
-        elif args.csv_flavor == 'openem':
-            video_id = os.path.basename(os.path.dirname(image_path))
-            frame = int(os.path.splitext(os.path.basename(image))[0])
-        elif args.csv_flavor == 'video':
-            video_id = os.path.splitext(os.path.basename(image_path))[0]
 
-        # Now that we have video_id and frame, we can process them
-        if args.csv_flavor == "video":
+    batch_queue=Queue(maxsize=4)
+    result_queue=Queue(maxsize=2)
+
+    media_files = work_df[0].unique()
+    if args.csv_flavor != "video":
+        # We are iterating over images
+        def image_reader(b_queue):
+            num_images = 0
+            for image in tqdm(media_files, desc='Files'):
+                image_path = os.path.join(args.img_base_dir, image)
+                video_id, frame = get_videoId_frame(args, image_path)
+                image_data = cv2.imread(image_path)
+                cookie = {"batch_info": (video_id, frame)}
+                retinanet.addImage(image_data, cookie)
+                num_images += 1
+                if num_images >= args.batch_size:
+                    b_queue.put(args.batch_size)
+                    num_images -= args.batch_size
+            if num_images > 0:
+                b_queue.put(num_images)
+                num_images = 0
+
+        reader_thread=Process(target=image_reader,
+                              args=(batch_queue,))
+        results_thread=Process(target=result_consumer,
+                               args=(result_queue,))
+        reader_thread.start()
+        results_thread.start()
+
+        # Run the Tensorflow stuff in the main thread
+        image_consumer(batch_queue, result_queue, len(media_files))
+
+        reader_thread.join()
+        results_thread.join()
+
+    else:
+        # For each video spawn up a worker thread combo
+        for video in tqdm(media_files, desc='Files'):
+            image_path = os.path.join(args.img_base_dir, video)
+            video_id, frame = get_videoId_frame(args, image_path)
+            # Now that we have video_id and frame, we can process them
+
             video_path="/tmp/video.mp4"
             shutil.copyfile(image_path, video_path)
             video_reader = cv2.VideoCapture(video_path)
             vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
             del video_reader
 
-            queue=Queue(maxsize=4)
-            result_queue=Queue(maxsize=2)
-            def image_consumer(q, result_q):
-                with tqdm(total=vid_len, desc="Frames", leave=True) as bar:
-                    batch_result = q.get()
-
-                    while batch_result is not None:
-                        process_batch_result(args, batch_result, result_q)
-                        bar.update(batch_result)
-                        try:
-                            batch_result = q.get_nowait()
-                        except:
-                            print("GPU is starved")
-                            batch_result = q.get()
-                    result_q.put(None)
-
-            def result_consumer(result_q):
-                result = result_q.get()
-
-                while result is not None:
-                    process_retinanet_result(args, result)
-                    try:
-                        result = result_q.get_nowait()
-                    except:
-                        result = result_q.get()
-
-
-            reader_thread=Process(target=process_video, args=(video_path, preprocess_funcs, queue))
-            results_thread=Process(target=result_consumer, args=(result_queue,))
+            reader_thread=Process(target=process_video,
+                                  args=(video_path,
+                                        preprocess_funcs, batch_queue))
+            results_thread=Process(target=result_consumer,
+                                   args=(result_queue,))
             reader_thread.start()
             results_thread.start()
 
             # Run the Tensorflow stuff in the main thread
-            image_consumer(queue, result_queue)
+            image_consumer(batch_queue, result_queue, vid_len)
 
             reader_thread.join()
             results_thread.join()
-        else:
-            image_data = cv2.imread(image_path)
-            process_image_data(args,
-                               preprocess_funcs,
-                               video_id,
-                               frame,
-                               image_data)

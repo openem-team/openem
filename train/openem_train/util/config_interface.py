@@ -165,6 +165,15 @@ class ConfigInterface:
         """
         return self.config.getint('FindRuler', 'InitialEpoch')
 
+    def find_ruler_steps_per_epoch(self):
+        """Returns steps per epoch for ruler training if the key exists,
+           otherwise returns a default of 100.
+        """
+        steps_per_epoch = 100
+        if self.config.has_option('FindRuler', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('FindRuler', 'StepsPerEpoch')
+        return steps_per_epoch
+
     def find_ruler_save_masks(self):
         """Returns whether to save output masks during inference.
         """

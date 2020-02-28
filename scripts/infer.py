@@ -111,10 +111,13 @@ def process_video(video_path, preprocess_funcs, queue):
                     thread.join()
                     del threads[idx]
             cookie = {"batch_info": (video_id, frame_num)}
-            thread = threading.Thread(target=process_frame,
-                                      args=(image_data, preprocess_funcs, cookie, queue))
-            thread.start()
-            threads.append(thread)
+            if args.batch_size > 2:
+                thread = threading.Thread(target=process_frame,
+                                          args=(image_data, preprocess_funcs, cookie, queue))
+                thread.start()
+                threads.append(thread)
+            else:
+                process_frame(image_data, preprocess_funcs, cookie, queue)
             frame_num += 1
 
     if len(threads) > 0:

@@ -48,28 +48,31 @@ class Classifier(ImageModel):
                               np.array([-1,-1,-1]),
                               True)
 
-    def __init__(self, model_path, gpu_fraction=1.0):
+    def __init__(self, model_path, gpu_fraction=1.0, **kwargs):
         """ Initialize an image model object
         model_path : str or path-like object
                      Path to the frozen protobuf of the tensorflow graph
         gpu_fraction : float
                        Fraction of GPU allowed to be used by this object.
         """
-        super(Classifier, self).__init__(model_path, gpu_fraction,
-                                       'data:0',
-                                       ['cat_species_1:0',
-                                        'cat_cover_1:0'])
-    def addImage(self, image):
+        super(Classifier, self).__init__(model_path, \
+                                        gpu_fraction=gpu_fraction,
+                                         input_name='data:0',
+                                         output_name=['cat_species_1:0',
+                                        'cat_cover_1:0'],
+                                         **kwargs
+                                       )
+    def addImage(self, image, cookie=None):
         """ Add an image to process in the underlying ImageModel after
             running preprocessing on it specific to this model.
 
         image: np.ndarray the underlying image (not pre-processed) to add
                to the model's current batch
         """
-        return self._addImage(image, self.preprocessor)
+        return self._addImage(image, self.preprocessor, cookie)
 
     def process(self):
-        tensors = super(Classifier, self).process()
+        tensors, cookies = super(Classifier, self).process()
         if tensors is None:
             return tensors
 

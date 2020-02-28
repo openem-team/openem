@@ -25,16 +25,19 @@ class DetectionTest(tf.test.TestCase):
         ]
 
     def test_correctness(self):
-        image_dims=(360,720)
+        image_dims=(360,720,3)
         finder=RetinaNet.RetinaNetDetector(self.pb_file,
-                                           imageShape=image_dims)
+                                           imageShape=image_dims,
+                                           batch_size=len(self.images))
         for idx,image in enumerate(self.images):
             image_data=cv2.imread(os.path.join(self.image_dir,
                                   image))
             finder.addImage(image_data)
 
         # Verify the same thing but in batch mode
-        batch_result = finder.process()
+        raw_result, cookies = finder.process()
+        sizes = [cookie["size"] for cookie in cookies]
+        batch_result = finder.format_results(raw_result, sizes, 0.0)
         self.assertIsNotNone(batch_result)
         self.assertEqual(len(batch_result),len(self.images))
         for idx in range(len(self.images)):

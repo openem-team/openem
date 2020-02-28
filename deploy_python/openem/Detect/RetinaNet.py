@@ -52,7 +52,7 @@ class RetinaNetDetector(ImageModel):
                                                input_name='input_1:0',
                                                output_name='nms/map/TensorArrayStack/TensorArrayGatherV3:0',
                                                **kwargs)
-        self.input_shape[1:3] = imageShape
+        self.input_shape[1:3] = imageShape[:2]
 
         self.image_shape = imageShape
         self.network_aspect = imageShape[1] / imageShape[0]

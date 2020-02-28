@@ -46,13 +46,10 @@ def process_batch_result(args, image_count, result_queue):
         result_queue.put(results)
 
 def process_retinanet_result(args, network_results):
-    raw_results=network_results[0]
-    sizes=[]
-    batch_info=[]
-    for cookie in network_results[1]:
-        sizes.append(cookie["size"])
-        batch_info.append(cookie["batch_info"])
-
+    raw_results = network_results[0]
+    cookies = network_results[1]
+    sizes=[cookie["size"] for cookie in cookies]
+    batch_info=[cookie["batch_info"] for cookie in cookies]
     results=retinanet.format_results(raw_results,
                                      sizes,
                                      threshold=args.keep_threshold)

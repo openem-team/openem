@@ -137,6 +137,7 @@ def uploadMedia(row, args, tator, bar):
         print(f"Skipping {row}")
         return None,None
     img_path=os.path.join(vid_dir, img_file)
+    
     if args.media_type == "pipeline":
         media_id = int(video_id.split('_')[0])
         if media_id in media_list_cache:
@@ -146,11 +147,10 @@ def uploadMedia(row, args, tator, bar):
             media_list_cache[media_id] = result
             return result['id'],result
     elif args.media_type == "image":
-        desired_name = f"{video_id}_{frame}.{args.img_ext}"
-    elif args.media_type == "video":
-        desired_name = f"{video_id}.{args.img_ext}"
-        img_path = os.path.join(args.img_base_dir, desired_name)
-        
+        desired_name = f"{row['video_id']}.{args.img_ext}"
+    else:
+        desired_name = f"{row['video_id']}.{args.img_ext}"
+    
     if desired_name in media_list_cache:
         cache_result = media_list_cache[desired_name] 
         return cache_result['id'], cache_result

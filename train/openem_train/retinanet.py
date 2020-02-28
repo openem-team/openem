@@ -240,6 +240,9 @@ def train(config):
     train_annotations=pd.read_csv(annotations_csv, header=None, names=['vid_id', 'x1','y1','x2','y2', 'species'])
     unique_videos = train_annotations['vid_id'].unique()
     steps_per_epoch = len(unique_videos) / config.detect_batch_size()
+    if not os.path.exists(snapshot_dir):
+        os.makedirs(snapshot_dir)
+
     steps_per_epoch = int(np.floor(steps_per_epoch))
     print("Calculated steps per epoch = {steps_per_epoch}")
     os.makedirs(snapshot_dir, exist_ok=True)

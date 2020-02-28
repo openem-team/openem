@@ -48,7 +48,7 @@ def train(config):
     # Import keras.
     from keras.callbacks import ModelCheckpoint
     from keras.callbacks import TensorBoard
-    from keras.callbacks import LearningRateScheduler
+    from keras.callbacks import ReduceLROnPlateau
     from openem_train.unet.unet import unet_model
     from openem_train.unet.unet_dataset import UnetDataset
     from openem_train.util.utils import find_epoch
@@ -76,18 +76,6 @@ def train(config):
     # Set up dataset interface.
     dataset = UnetDataset(config)
 
-    # Define learning rate schedule.
-    def schedule(epoch):
-        if epoch < 10:
-            return 1e-3
-        if epoch < 25:
-            return 2e-4
-        if epoch < 60:
-            return 1e-4
-        if epoch < 80:
-            return 5e-5
-        return 2e-5
-
     # Set trainable layers.
     for layer in model.layers:
         layer.trainable = True
@@ -111,13 +99,20 @@ def train(config):
         write_graph=False,
         write_images=True)
 
-    lr_sched = LearningRateScheduler(schedule=schedule)
+    lr_sched = ReduceLROnPlateau(
+        monitor='val_loss',
+        factor=0.2,
+        patience=10,
+        min_lr=0,
+    )
 
     # Fit the model.
     model.summary()
+    num_steps = int(config.find_ruler_steps_per_epoch() / 10)
+    num_steps = min(num_steps, len(dataset.test_idx) // config.find_ruler_val_batch_size())
     model.fit_generator(
         dataset.generate(batch_size=config.find_ruler_batch_size()),
-        steps_per_epoch=60,
+        steps_per_epoch=config.find_ruler_steps_per_epoch(),
         epochs=config.find_ruler_num_epochs(),
         verbose=1,
         callbacks=[
@@ -129,7 +124,7 @@ def train(config):
         validation_data=dataset.generate_validation(
             batch_size=config.find_ruler_val_batch_size()
         ),
-        validation_steps=len(dataset.test_idx)//config.find_ruler_val_batch_size(),
+        validation_steps=num_steps,
         initial_epoch=initial_epoch
     )
 

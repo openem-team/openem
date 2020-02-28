@@ -12,7 +12,7 @@ class RulerMaskFinder(ImageModel):
                               np.array([-1,-1,-1]),
                               True)
 
-    def __init__(self, model_path, image_dims):
+    def __init__(self, model_path, image_dims=None):
         super(RulerMaskFinder,self).__init__(model_path, image_dims, optimize=False)
     def addImage(self, image):
         """ Add an image to process in the underlying ImageModel after
@@ -30,10 +30,9 @@ class RulerMaskFinder(ImageModel):
         Returns the mask of the ruler in the size of the network image,
         the user must resize to input image if different.
         """
-        model_masks = super(RulerMaskFinder,self).process()
+        model_masks, image_cookies = super(RulerMaskFinder,self).process()
         if model_masks is None:
             return None
-        model_masks, image_cookes = model_masks
 
         mask_images = []
         num_masks = model_masks.shape[0]

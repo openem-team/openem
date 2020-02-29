@@ -8,12 +8,9 @@ from openem.image import crop
 
 class RulerMaskFinder(ImageModel):
     """ Class for finding ruler masks from raw images """
-    preprocessor=Preprocessor(1.0/128.0,
-                              np.array([-1,-1,-1]),
-                              True)
-
     def __init__(self, model_path, image_dims=None):
         super(RulerMaskFinder,self).__init__(model_path, image_dims, optimize=False)
+        self.preprocessor = Preprocessor(1.0 / 128.0, -np.ones(image_dims[-1]), True)
     def addImage(self, image):
         """ Add an image to process in the underlying ImageModel after
             running preprocessing on it specific to this model.

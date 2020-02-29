@@ -36,7 +36,11 @@ class Preprocessor:
             image = cv2.resize(image, (requiredWidth, requiredHeight))
 
         if self.rgb:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if image.shape[2] == 4:
+                transform = cv2.COLOR_BGRA2RGBA
+            else:
+                transform = cv2.COLOR_BGR2RGB
+            image = cv2.cvtColor(image, transform)
 
         # Convert the image to a floating point value
         image = image.astype(np.float32)

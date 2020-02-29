@@ -97,8 +97,11 @@ class UnetDataset:
         self.train_idx = all_idx[:-split_idx]
         self.test_idx = all_idx[-split_idx:]
 
+        # Store number of channels
+        self.num_channels = self.config.find_ruler_num_channels()
+
     def load_image(self, img_fn):
-        img_data = imread(img_fn)[:, :, :3]
+        img_data = imread(img_fn)[:, :, :self.num_channels]
         img_data = rescale(img_data, 0.5)
         return img_data
 
@@ -106,26 +109,6 @@ class UnetDataset:
         mask_data = imread(mask_fn, as_gray=True)
         mask_data = rescale(mask_data, 0.5)
         return mask_data
-
-    """
-    def load(self, image_files, mask_files):
-        def load_image(img_fn):
-            img_data = imread(img_fn)[:, :, :3]
-            img_data = rescale(img_data, 0.5)
-            return img_data
-
-        def load_mask(mask_fn):
-            mask_data = imread(mask_fn, as_gray=True)
-            mask_data = rescale(mask_data, 0.5)
-            return mask_data
-
-        pool = ThreadPool(processes=8)
-        images = pool.map(load_image, image_files)
-        images = np.array(images)
-        masks = pool.map(load_mask, mask_files)
-        masks = np.array(masks)
-        return images, masks
-    """
 
     def prepare_x(self, cfg: SampleCfg):
         img = self.load_image(self.image_files[cfg.img_idx])

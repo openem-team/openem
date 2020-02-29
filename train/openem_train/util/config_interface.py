@@ -174,6 +174,14 @@ class ConfigInterface:
             steps_per_epoch = self.config.getint('FindRuler', 'StepsPerEpoch')
         return steps_per_epoch
 
+    def find_ruler_num_channels(self):
+        """Returns how many channels to include in model/input.
+        """
+        num_channels = 3
+        if self.config.has_option('FindRuler', 'NumChannels'):
+            num_channels = self.config.getint('FindRuler', 'NumChannels')
+        return num_channels
+
     def find_ruler_save_masks(self):
         """Returns whether to save output masks during inference.
         """

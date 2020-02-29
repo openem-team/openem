@@ -59,8 +59,13 @@ def train(config):
     os.makedirs(tensorboard_dir, exist_ok=True)
 
     # Build the unet model.
+    num_channels = config.find_ruler_num_channels()
     model = unet_model(
-        input_shape=(config.find_ruler_height(), config.find_ruler_width(), 3)
+        input_shape=(
+            config.find_ruler_height(),
+            config.find_ruler_width(),
+            num_channels,
+        )
     )
 
     # If initial epoch is nonzero we load the model from checkpoints 
@@ -157,6 +162,9 @@ def predict(config):
     # Make a dict to store number of masks found per video.
     num_masks = defaultdict(int)
 
+    # Get number of channels.
+    num_channels = config.find_ruler_num_channels()
+
     # Create and initialize the mask finder.
     image_dims = (config.find_ruler_width(), config.find_ruler_height())
     finder = RulerMaskFinder(config.find_ruler_model_path(), image_dims)
@@ -182,7 +190,10 @@ def predict(config):
         print("Finding mask for image {}...".format(img_path))
 
         # Load in image.
-        img = cv2.imread(img_path)
+        if num_channels == 3:
+            img = cv2.imread(img_path)
+        elif num_channels == 4:
+            img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
 
         # Add image to processing queue.
         finder.addImage(img)

@@ -166,7 +166,7 @@ def predict(config):
     num_channels = config.find_ruler_num_channels()
 
     # Create and initialize the mask finder.
-    image_dims = (config.find_ruler_width(), config.find_ruler_height())
+    image_dims = (config.find_ruler_width(), config.find_ruler_height(), num_channels)
     finder = RulerMaskFinder(config.find_ruler_model_path(), image_dims)
 
     # Check if saving masks is enabled.

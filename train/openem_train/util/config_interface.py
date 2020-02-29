@@ -451,7 +451,7 @@ class ConfigInterface:
     def train_imgs(self):
         """Returns list of all training images.
         """
-        patt = os.path.join(self.train_imgs_dir(), '**', '*.jpg')
+        patt = os.path.join(self.train_imgs_dir(), '**', '*.png')
         return glob.glob(patt, recursive=True)
 
     def num_frames_path(self):

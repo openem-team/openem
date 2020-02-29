@@ -56,7 +56,7 @@ def _extract_images(vid, train_imgs_dir):
         ret, img = reader.read()
         if not ret:
             break
-        img_path = os.path.join(img_dir, '{:04}.jpg'.format(frame))
+        img_path = os.path.join(img_dir, '{:04}.png'.format(frame))
         imwrite(img_path, img)
         frame += 1
     current.value += 1

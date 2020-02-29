@@ -30,8 +30,11 @@ from functools import partial
 import pandas as pd
 import scipy.misc
 import skimage
+import numpy as np
 from cv2 import VideoCapture
 from cv2 import imwrite
+from cv2 import imread
+from cv2 import IMREAD_GRAYSCALE
 import progressbar
 
 # Current value for multi-processed loops
@@ -62,6 +65,31 @@ def _extract_images(vid, train_imgs_dir):
     current.value += 1
     return (vid_id, frame)
 
+def _save_delta_in_alpha(vid, train_imgs_dir):
+    """Saves single frame delta of images in alpha channel.
+
+    # Arguments
+        train_imgs_dir: Path to output images.
+    """
+    vid_id, _ = os.path.splitext(os.path.basename(vid))
+    img_dir = os.path.join(train_imgs_dir, vid_id)
+    fnames = os.listdir(os.path.join(train_imgs_dir, img_dir))
+    frames = [int(os.path.splitext(f)[0]) for f in fnames]
+    for frame in frames:
+        if frame == 0:
+            adjacent = '0001.png'
+        else:
+            adjacent = '{:04}.png'.format(frame - 1)
+        adjacent = imread(os.path.join(img_dir, adjacent), IMREAD_GRAYSCALE)
+        image_path = os.path.join(img_dir, '{:04}.png'.format(frame))
+        image = imread(image_path, IMREAD_GRAYSCALE)
+        diff = image.astype(np.float) - adjacent.astype(np.float)
+        diff = (diff + 255.0) / 2.0
+        diff = np.expand_dims(diff.astype(np.uint8), axis=-1)
+        image = imread(image_path)
+        image = np.concatenate((image, diff), axis=2)
+        imwrite(image_path, image)
+    return (vid_id, frame)
 def extract_images(config):
     """Extracts images from all videos.
 
@@ -91,7 +119,23 @@ def extract_images(config):
             pass
         finally:
             bar.update(current.value)
+    ar.get()
 
+    # If we are using 4 channels, store delta in alpha channel.
+    if config.find_ruler_num_channels() == 4:
+        func = partial(_save_delta_in_alpha, train_imgs_dir = config.train_imgs_dir())
+        bar = progressbar.ProgressBar(max_value=len(vid_list),
+                                      redirect_stdout=True,
+                                      redirect_stderr=True)
+        ar = pool.map_async(func, vid_list)
+        vid_frames = None
+        while vid_frames == None:
+            try:
+                vid_frames = ar.get(2)
+            except TimeoutError as te:
+                pass
+            finally:
+                bar.update(current.value)
 
     # Record total number of frames in each video.
     vid_id, frames = list(map(list, zip(*vid_frames)))

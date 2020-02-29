@@ -214,7 +214,7 @@ def predict(config):
             subdir = os.path.basename(os.path.dirname(img_path))
             os.makedirs(os.path.join(mask_dir, subdir), exist_ok=True)
             mask_path = os.path.join(mask_dir, subdir, basename)
-            cv2.imwrite(mask_path, mask * 255)
+            cv2.imwrite(mask_path, mask)
 
         # Initialize the mean mask if necessary.
         if video_id not in mask_avg:

@@ -5,17 +5,19 @@
 
 import argparse
 import logging
+import time
 import sys
 
 import progressbar
 import pytator
 import pandas as pd
 
+import multiprocessing
 # pylint: disable=C0103
 # pylint: disable=W1203
 
 logger = logging.getLogger("make_detection_pairs.py")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 def _intersection_over_union(boxA, boxB):
     """ Computes intersection over union for two bounding boxes.
@@ -85,6 +87,8 @@ def process_media_file(media_element):
     """ Process a media element returning all the box pairs """
     boxes = tator.Localization.filter({"type": args.box_type_id,
                                        "media_id": media_element['id']})
+    if boxes == None:
+        return []
     logger.info(f"{media_element['name']} has {len(boxes)} boxes")
     group_by_frame = {}
     frames = set()
@@ -93,7 +97,6 @@ def process_media_file(media_element):
     media_detail = tator.Media.get(media_element['id'])
     width = media_detail['width']
     height = media_detail['height']
-    print(media_detail)
 
     # Iterate over each box and group by frame
     for box in boxes:
@@ -128,7 +131,10 @@ def process_media_file(media_element):
         states = tator.State.filter({"type": args.state_type_id,
                                      "media_id": media_element['id']})
         if states is None:
+            # This excludes media w/o state types to clarify species.
             logger.error(f"No matching states for {media_element['name']}")
+            pairs=[]
+            state_by_frame = {}
         else:
             state_by_frame = {}
             for state in states:
@@ -166,6 +172,9 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--state-type-id",
                         help="ID to use for species association")
+    parser.add_argument("--parallel-jobs",
+                        type=int,
+                        default=4)
     parser.add_argument("output_csv",
                         help="output file")
 
@@ -191,13 +200,48 @@ if __name__ == "__main__":
     pBar = progressbar.ProgressBar(redirect_stdout=True,
                                    redirect_stderr=True)
 
-    complete_pairs = []
+    df = pd.DataFrame(columns=["first", "second", "frame", "iou", "species", "media"])
+    df.to_csv(args.output_csv, index=False)
+
+    pool = multiprocessing.Pool(processes=args.parallel_jobs)
+    pending = []
     for media in pBar(medias):
         logger.info(f"Processing {media['name']}")
-        pairs_in_media = process_media_file(media)
-        complete_pairs.extend(pairs_in_media)
+        job = pool.apply_async(process_media_file,(media,))
+        pending.append(job)
+        while len(pending) == args.parallel_jobs:
+            for idx,job in enumerate(pending):
+                if job.ready():
+                    pairs_in_media = job.get()
+                    del pending[idx]
+                    df = pd.DataFrame(columns=["first",
+                                               "second",
+                                               "frame",
+                                               "iou",
+                                               "species",
+                                               "media"],
+                                      data=pairs_in_media)
+                    df.to_csv(args.output_csv,
+                              index=False,
+                              header=False,
+                              mode='a')
+            time.sleep(0.250)
 
-    df = pd.DataFrame(columns=["first", "second", "frame", "iou", "species", "media"],
-                      data=complete_pairs)
-    df.to_csv(args.output_csv, index=False)
-    logger.info(f"Found {len(complete_pairs)}")
+    # wait for any pending jobs left over
+    while len(pending) > 0:
+        for idx,job in enumerate(pending):
+            if job.ready():
+                pairs_in_media = job.get()
+                del pending[idx]
+                df = pd.DataFrame(columns=["first",
+                                           "second",
+                                           "frame",
+                                           "iou",
+                                           "species",
+                                           "media"],
+                                  data=pairs_in_media)
+                df.to_csv(args.output_csv,
+                          index=False,
+                          header=False,
+                          mode='a')
+    logger.info(f"Finished")

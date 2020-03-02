@@ -83,44 +83,50 @@ def calculateStats(truth, detections, keep_threshold):
     false_positives = 0
     false_negatives = 0
     double_counts = 0
-
+    image_names = truth['video_id'].unique()
     matches={}
     # Iterate over all detections from inference over keep threshold
     # calculate true and false positives
-    for idx, row in eval_detects.iterrows():
-        matching_truth_df = truth.loc[(truth.video_id == row.video_id) & (truth.frame == row.frame)]
-        if len(matching_truth_df) == 0:
-            false_positives += 1
-        else:
-            got_match = False
-            for truth_idx, truth_row in matching_truth_df.iterrows():
-                truth_box = _rowToBoxDict(truth_row)
-                canidate_box = _rowToBoxDict(row)
-                iou = _intersection_over_union(truth_box, canidate_box)
-                if iou > args.iou_threshold:
-                    got_match = True
-                    if truth_row.name in matches:
-                        double_counts += 1
-                    else:
-                        matches[truth_row.name] = row
-                    break
-
-            if got_match == True:
-                true_positives += 1
-            else:
+    for image_name in tqdm(image_names):
+        img_detection = eval_detects[eval_detects['video_id'] == image_name]
+        img_truth = truth[truth['video_id'] == image_name]
+        for idx, row in img_detection.iterrows():
+            matching_truth_df = img_truth.loc[(img_truth.frame == row.frame)]
+            if len(matching_truth_df) == 0:
                 false_positives += 1
+            else:
+                got_match = False
+                for truth_idx, truth_row in matching_truth_df.iterrows():
+                    truth_box = _rowToBoxDict(truth_row)
+                    canidate_box = _rowToBoxDict(row)
+                    iou = _intersection_over_union(truth_box, canidate_box)
+                    if iou > args.iou_threshold:
+                        got_match = True
+                        if truth_row.name in matches:
+                            double_counts += 1
+                        else:
+                            matches[truth_row.name] = row
+                        break
 
-    counted=[]
-    for idx, row in truth.iterrows():
-        matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
-        boxes_in_truth=len(truth.loc[(truth.video_id == row.video_id) & (truth.frame == row.frame)])
-        boxes_in_detection = len(matching_detection_df)
-        if boxes_in_detection < boxes_in_truth:
-            vid_tag=f"{row.video_id}_{row.frame}"
-            if not vid_tag in counted:
-                counted.append(vid_tag)
-                false_negatives += (boxes_in_truth - boxes_in_detection)
-                print(f"False Negatives {false_negatives} @ {vid_tag}")
+                if got_match == True:
+                    true_positives += 1
+                else:
+                    false_positives += 1
+
+        counted=[]
+        false_negative = 0
+        for idx, row in img_truth.iterrows():
+            if not math.isnan(row['x']):
+                truth_box = _rowToBoxDict(row)
+                match_found = False
+                for idx, det in img_dets.iterrows():
+                    det_box = _rowToBoxDict(det)
+                    iou = _intersection_over_union(truth_box, det_box)
+                    if iou > 0.4:
+                        match_found = True
+                        break
+                if not match_found:
+                    false_negative += 1
 
     precision = true_positives / (true_positives + false_positives)
     recall = true_positives / (true_positives + false_negatives)

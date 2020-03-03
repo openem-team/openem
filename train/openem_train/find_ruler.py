@@ -146,6 +146,7 @@ def predict(config):
     sys.path.append('../python')
     import openem
     from openem.FindRuler import RulerMaskFinder
+    from openem.FindRuler import rulerEndpoints
 
     # Make a dict to contain find ruler results.
     find_ruler_data = {
@@ -199,7 +200,7 @@ def predict(config):
         finder.addImage(img)
 
         # Process the image.
-        image_result = finder.process()
+        image_result = finder.process(False)
         if image_result is None:
             raise RuntimeError(f"Failed to process image {img_path}!")
 
@@ -221,25 +222,31 @@ def predict(config):
             mask_avg[video_id] = np.zeros((h, w));
 
         # Add the mask to the mask average.
-        mask_data = np.copy(mask)
-        mask_data = np.array(mask_data)
-        mask_data = np.reshape(mask_data, (h, w))
-        mask_avg[video_id] += mask_data
+        mask_avg[video_id] += mask
 
     for video_id in mask_avg:
 
         print("Finding ruler endpoints for video {}...".format(video_id))
 
         # Convert mask image from numpy to openem format.
-        mask_vec = mask_avg[video_id].copy()
-        mask_vec = mask_vec / np.max(mask_vec)
-        mask_vec = mask_vec * 255.0
-        mask_vec = mask_vec.reshape(-1).astype(np.uint8).tolist()
-        mask_img = openem.Image()
-        mask_img.FromData(mask_vec, img.Width(), img.Height(), 1);
+        mask_img = mask_avg[video_id].copy()
+        mask_img = mask_img / np.max(mask_img)
+        mask_img = mask_img * 255.0
+        ret, mask_img = cv2.threshold(mask_img,
+                                      127,
+                                      255,
+                                      cv2.THRESH_BINARY)
+        mask_img = cv2.medianBlur(mask_img.astype(np.uint8), 5)
+
+        # If specified, save the mask average.
+        if save_masks:
+            basename = '_mask_avg.png'
+            os.makedirs(os.path.join(mask_dir, video_id), exist_ok=True)
+            mask_path = os.path.join(mask_dir, video_id, basename)
+            cv2.imwrite(mask_path, mask_img)
 
         # Get ruler endpoints from the mask averages.
-        p1, p2 = openem.RulerEndpoints(mask_img)
+        p1, p2 = rulerEndpoints(mask_img)
         x1, y1 = p1
         x2, y2 = p2
         find_ruler_data['video_id'].append(video_id)

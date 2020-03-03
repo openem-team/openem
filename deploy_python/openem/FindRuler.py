@@ -20,7 +20,7 @@ class RulerMaskFinder(ImageModel):
         """
         return self._addImage(image, self.preprocessor)
 
-    def process(self):
+    def process(self, postprocess=True):
         """ Runs the base ImageModel and does a high-pass filter only allowing
             matches greater than 127 to make it into the resultant mask
 
@@ -36,12 +36,15 @@ class RulerMaskFinder(ImageModel):
         for idx in range(num_masks):
             # Tensorflow output is 0 to 1
             scaled_image = model_masks[idx] * 255
-            ret, mask_image = cv2.threshold(scaled_image,
-                                            127,
-                                            255,
-                                            cv2.THRESH_BINARY)
-            blurred_image = cv2.medianBlur(mask_image,5)
-            mask_images.append(blurred_image)
+            if postprocess:
+                ret, mask_image = cv2.threshold(scaled_image,
+                                                127,
+                                                255,
+                                                cv2.THRESH_BINARY)
+                blurred_image = cv2.medianBlur(mask_image,5)
+                mask_images.append(blurred_image)
+            else:
+                mask_images.append(scaled_image)
 
         return np.array(mask_images)
 

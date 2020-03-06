@@ -129,12 +129,13 @@ def calculateStats(truth, detections, keep_threshold):
                         break
                 if not match_found:
                     false_negatives += 1
-    tp = true_positives
-    true_positives -= double_counts
+                    
+    all_true_positives = true_positives
+    true_positives -=  double_counts
     precision = true_positives / (true_positives + false_positives)
     recall = true_positives / (true_positives + false_negatives)
     
-    return (precision, recall, double_counts / tp)
+    return (precision, recall, double_counts / all_true_positives)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)

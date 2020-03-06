@@ -23,6 +23,8 @@ import argparse
 import pandas as pd
 import progressbar
 import numpy as np
+from tqdm import tqdm
+import math
 
 def _rowToBoxDict(row):
     """ Converts a row from a csv to a dictionary """
@@ -98,15 +100,16 @@ def calculateStats(truth, detections, keep_threshold):
                 got_match = False
                 for truth_idx, truth_row in matching_truth_df.iterrows():
                     truth_box = _rowToBoxDict(truth_row)
-                    canidate_box = _rowToBoxDict(row)
-                    iou = _intersection_over_union(truth_box, canidate_box)
-                    if iou > args.iou_threshold:
-                        got_match = True
-                        if truth_row.name in matches:
-                            double_counts += 1
-                        else:
-                            matches[truth_row.name] = row
-                        break
+                    if not math.isnan(truth_box['x']):
+                        canidate_box = _rowToBoxDict(row)
+                        iou = _intersection_over_union(truth_box, canidate_box)
+                        if iou > args.iou_threshold:
+                            got_match = True
+                            if truth_row.name in matches:
+                                double_counts += 1
+                            else:
+                                matches[truth_row.name] = row
+                            break
 
                 if got_match == True:
                     true_positives += 1
@@ -114,23 +117,24 @@ def calculateStats(truth, detections, keep_threshold):
                     false_positives += 1
 
         counted=[]
-        false_negative = 0
         for idx, row in img_truth.iterrows():
             if not math.isnan(row['x']):
                 truth_box = _rowToBoxDict(row)
                 match_found = False
-                for idx, det in img_dets.iterrows():
+                for idx, det in img_detection.iterrows():
                     det_box = _rowToBoxDict(det)
                     iou = _intersection_over_union(truth_box, det_box)
                     if iou > 0.4:
                         match_found = True
                         break
                 if not match_found:
-                    false_negative += 1
-
+                    false_negatives += 1
+    tp = true_positives
+    true_positives -= double_counts
     precision = true_positives / (true_positives + false_positives)
     recall = true_positives / (true_positives + false_negatives)
-    return (precision, recall, double_counts / true_positives)
+    
+    return (precision, recall, double_counts / tp)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)

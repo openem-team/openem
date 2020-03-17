@@ -91,8 +91,8 @@ class UnetDataset:
         ]
 
         # Load in the masks and images.
-        #self.images, self.masks = self.load(image_files, mask_files)
         all_idx = list(range(len(self.image_files)))
+        random.shuffle(all_idx)
         split_idx = int(len(all_idx) * 0.9)
         self.train_idx = all_idx[:-split_idx]
         self.test_idx = all_idx[-split_idx:]

@@ -82,11 +82,16 @@ def prep(config):
         png_image_file = os.path.join(config.train_rois_dir(),
                                       row.video_id,
                                       f"{row.frame:04d}.png")
+        jpeg_image_file = os.path.join(config.train_rois_dir(),
+                                      row.video_id,
+                                      f"{row.frame:04d}.jpeg")
 
         if os.path.exists(jpg_image_file):
             image_file = jpg_image_file
         elif os.path.exists(png_image_file):
             image_file = png_image_file
+        elif os.path.exists(jpeg_image_file):
+            image_file = jpeg_image_file
 
         img_data = cv2.imread(image_file)
 
@@ -165,9 +170,10 @@ def prep(config):
                'y1': coords_box0[1],
                'x2': coords_box1[0],
                'y2': coords_box1[1]}
-
-        retinanet_df = retinanet_df.append(pd.DataFrame(columns=retinanet_cols,
-                                                        data=[datum]))
+        
+        if datum['x1'] < datum['x2'] and datum['y1'] < datum['y2']:
+            retinanet_df = retinanet_df.append(pd.DataFrame(columns=retinanet_cols,
+                                                            data=[datum]))
 
     retinanet_df.to_csv(retinanet_csv, index=False, header=False)
 

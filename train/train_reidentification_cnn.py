@@ -172,6 +172,7 @@ if __name__ == "__main__":
 
     x = model.output
     x = GlobalAveragePooling2D()(x)
+    x = Dropout(0.2)(x)
     x = Dense(
         args.feature_vector_length,
         activation="linear",

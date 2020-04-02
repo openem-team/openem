@@ -27,7 +27,7 @@ from keras.constraints import min_max_norm
 from keras.applications.resnet50 import ResNet50
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
-from keras.callbacks import LearningRateScheduler
+from keras.callbacks import ReduceLROnPlateau
 from keras import backend as K
 
 def euclidean(vecs):
@@ -60,7 +60,7 @@ def generator(batch_queue):
     """
     while True:
         yield batch_queue.get(True, None)
-            
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train appearance feature extraction CNN " +
@@ -126,6 +126,18 @@ if __name__ == "__main__":
         help="Directory to use for tensorboard outputs.",
         type=str,
     )
+
+    # Parameters for LR scheduler
+    parser.add_argument('--lr-monitor', default='loss', help='Quantity to be monitored')
+    parser.add_argument('--lr-factor', default=0.1, type=float, help='Factor by which the learning rate will be reduced. new_lr = lr * factor')
+    parser.add_argument('--lr-patience', default=3, type=int, help="number of epochs that produced the monitored quantity with no improvement after which training will be stopped. Validation quantities may not be produced for every epoch, if the validation frequency (model.fit(validation_freq=5)) is greater than one.")
+    parser.add_argument('--lr-verbose', default=1, choices=[1,2], help='update messages')
+    parser.add_argument('--lr-mode', default='min', choices=['min','max','auto'],
+                         help="In min mode, lr will be reduced when the quantity monitored has stopped decreasing; in max mode it will be reduced when the quantity monitored has stopped increasing; in auto mode, the direction is automatically inferred from the name of the monitored quantity.")
+    parser.add_argument('--lr-min-delta', default=0.01, help="threshold for measuring the new optimum, to only focus on significant changes.", type=float)
+    parser.add_argument('--lr-cooldown', default=0, help="number of epochs to wait before resuming normal operation after lr has been reduced.", type=float)
+    parser.add_argument('--lr-min-lr', default=1e-8, help="lower bound on the learning rate.", type=float)
+
     args = parser.parse_args()
     get_session()
 
@@ -173,22 +185,22 @@ if __name__ == "__main__":
         x = Dropout(dropout)(x)
     model = Model(inputs=model.input, outputs=x)
 
-    # Set all layers to trainable 
+    # Set all layers to trainable
     for layer in model.layers:
         layer.trainable = True
     model.summary()
-   
+
     # Set up siamese network
     input0 = Input(shape=img_shape)
     input1 = Input(shape=img_shape)
     output0 = model(input0)
     output1 = model(input1)
     distance = Lambda(
-        euclidean, 
+        euclidean,
         output_shape=euclidean_shape
     )([output0, output1])
-    out = Dense(1, 
-        activation="sigmoid", 
+    out = Dense(1,
+        activation="sigmoid",
         bias_initializer=Constant(value=-10.0)
     )(distance)
     s_model = Model(inputs=[input0, input1], outputs=out)
@@ -229,7 +241,16 @@ if __name__ == "__main__":
         rate_init=args.rate_init,
         epochs_per_order=args.epochs_per_order
     )
-    lr_sched = LearningRateScheduler(schedule=scheduler)
+
+    lr_scheduler = ReduceLROnPlateau(
+        monitor=args.lr_monitor,
+        factor=args.lr_factor,
+        patience=args.lr_patience,
+        verbose=args.lr_verbose,
+        mode=args.lr_mode,
+        min_delta=args.lr_min_delta,
+        cooldown=args.lr_cooldown,
+        min_lr=args.lr_min_lr)
 
     # Fit the model.
     s_model.fit_generator(
@@ -241,9 +262,8 @@ if __name__ == "__main__":
             checkpoint_best,
             checkpoint_periodic,
             tensorboard,
-            lr_sched
+            lr_scheduler
         ],
         validation_data=generator(validate_queue),
         validation_steps=args.val_steps_per_epoch
     )
-

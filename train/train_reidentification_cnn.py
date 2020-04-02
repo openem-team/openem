@@ -170,19 +170,13 @@ if __name__ == "__main__":
     # Create model
     model = ResNet50(include_top=False, input_shape=img_shape)
 
-    # Add top three layers again.
     x = model.output
     x = GlobalAveragePooling2D()(x)
-    sizes = [4096, 4096, args.feature_vector_length]
-    dropouts = [0.2, 0.1, 0.0]
-    for size, dropout in zip(sizes, dropouts):
-        x = Dense(
-            size,
-            activation="linear",
-            kernel_initializer="he_normal",
-        )(x)
-        x = LeakyReLU(alpha=0.1)(x)
-        x = Dropout(dropout)(x)
+    x = Dense(
+        args.feature_vector_length,
+        activation="linear",
+        kernel_initializer="he_normal")(x)
+    x = LeakyReLU(alpha=0.1)(x)
     model = Model(inputs=model.input, outputs=x)
 
     # Set all layers to trainable

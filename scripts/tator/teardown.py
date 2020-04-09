@@ -23,6 +23,8 @@ if __name__ == '__main__':
     img_ext = pipeline_args.get('img_ext', None)
     media_type = pipeline_args.get('media_type', None)
     image_ext = pipeline_args.get('img_ext', None)
+    species_attr_name = pipeline_args.get('species_attr_name','Species')
+    confidence_attr_name = pipeline_args.get('confidence_attr_name','Confidence')
 
     args = ["python3",
             "/scripts/uploadToTator.py",
@@ -34,6 +36,8 @@ if __name__ == '__main__':
             "--media-type-id", str(0),
             '--media-type', media_type,
             '--img-ext', image_ext,
+            '--species-attr-name', species_attr_name,
+            '--confidence-attr-name', confidence_attr_name,
             '--train-ini', '/work/network/train.ini',
             '/work/results.csv']
     cmd = " ".join(args)

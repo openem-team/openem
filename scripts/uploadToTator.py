@@ -22,7 +22,7 @@ def exit_func(_,__):
     os._exit(0)
 
 detect_count = 0
-def process_box(row, args, tator, species_names, truth_data, bar):
+def process_box(row, args, tator, species_names, truth_data, bar, default_obj_fields):
     global detect_count
     detect_count += 1
     bar.update(detect_count)
@@ -42,6 +42,7 @@ def process_box(row, args, tator, species_names, truth_data, bar):
                                    tator,
                                    args.localization_type_id,
                                    media_element,
+                                   default_obj_fields,
                                    frame=int(row['frame']),
                                    x=float(row['x']),
                                    y=float(row['y']),
@@ -50,10 +51,11 @@ def process_box(row, args, tator, species_names, truth_data, bar):
                                    confidence=None,
                                    species=species_names[species_id_0])
     return obj
+
 def process_line(args, tator, species_names, row):
     print("ERROR: Line mode --- Not supported")
 
-def process_detect(row, args, tator, species_names, truth_data, bar):
+def process_detect(row, args, tator, species_names, truth_data, bar, default_obj_fields):
     global detect_count
     detect_count += 1
     bar.update(detect_count)
@@ -74,7 +76,7 @@ def process_detect(row, args, tator, species_names, truth_data, bar):
     obj = None
     if media_element and args.localization_type_id:
         species_id_0 = int(float(row['det_species'])-1)
-        confidence = float(row['det_conf'])
+        confidence = float(row['det_conf'].split(':')[species_id_0])
         add=True
         if args.threshold:
             if confidence < args.threshold:
@@ -84,6 +86,7 @@ def process_detect(row, args, tator, species_names, truth_data, bar):
                                    tator,
                                    args.localization_type_id,
                                    media_element,
+                                   default_obj_fields,
                                    frame=int(row['frame']),
                                    x=float(row['x']),
                                    y=float(row['y']),
@@ -97,6 +100,7 @@ def make_localization_obj(args,
                           tator,
                           box_type,
                           media_el,
+                          default_obj_fields
                           frame,
                           x,y,width,height,
                           confidence,
@@ -106,8 +110,16 @@ def make_localization_obj(args,
          "x" : x / media_el['width'],
          "y": y / media_el['height'],
          "width": width / media_el['width'],
-         "height": height / media_el['height'],
-         args.species_keyname: species}
+         "height": height / media_el['height']
+         }
+    
+    #default_schema = tator.LocalizationType.byTypeId(box_type)
+    #default_schema_columns = [(elem.get('name'),elem.get('default')) for elem in default_schema.get('columns')]
+    for col in default_obj_fields:
+        obj.update({col[0] : col[1]})
+
+    obj.update({args.species_attr_name : species})
+
     if confidence:
         obj.update({"Confidence": confidence})
     if args.media_type != "image":
@@ -192,6 +204,8 @@ if __name__=="__main__":
                         type=str,
                         choices=["pipeline", "image","video"],
                         default="image")
+    parser.add_argument("--species-attr-name", type=str, default="Species")
+    parser.add_argument("--confidence-attr-name", type=str, default="Confidence")
     parser.add_argument("--localization-type-id", type=int)
     parser.add_argument("--section", help="Section name to apply")
     parser.add_argument("--train-ini", help="If uploading boxes, this is required to convert species id to a string")
@@ -256,6 +270,10 @@ if __name__=="__main__":
     input_data = input_data.assign(media_element = media_info[1])
 
     print("Generating localizations...")
+    
+    obj_fields = tator.LocalizationType.byTypeId(args.localization_type_id)
+    default_obj_fields = [(elem.get('name'),elem.get('default')) for elem in obj_fields.get('columns')]
+
     unique_media = input_data['media_id'].unique()
     print(unique_media)
     bar = progressbar.ProgressBar(redirect_stdout=True,
@@ -270,7 +288,8 @@ if __name__=="__main__":
                                                tator,
                                                species_names,
                                                truth_data,
-                                               bar2),
+                                               bar2,
+                                               default_obj_fields),
                                          raw=False,
                                          axis=1)
         bar2.finish()

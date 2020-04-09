@@ -100,7 +100,7 @@ def make_localization_obj(args,
                           tator,
                           box_type,
                           media_el,
-                          default_obj_fields
+                          default_obj_fields,
                           frame,
                           x,y,width,height,
                           confidence,

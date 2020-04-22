@@ -59,9 +59,15 @@ class ModelData:
 
     def mean_image(self):
         """ Returns mean image.
+            Will use {data_dir}/mean_image.png if supplied, else
+            will use imagenet means.
         """
-        path = os.path.join(self.data_dir, "mean_image.png")
-        return cv2.imread(path).astype(np.float)
+        try:
+            path = os.path.join(self.data_dir, "mean_image.png")
+            return cv2.imread(path).astype(np.float)
+        except:
+            # This is in BGR
+            return np.array([103.939, 116.779, 123.68 ])
 
     def save_mean_image(self, mean_img):
         """ Saves mean image to file.

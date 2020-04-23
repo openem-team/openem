@@ -270,7 +270,7 @@ class ModelData:
         # Create the index mapping and cumulative indices.
         dir_idx_list = []
         idx_list = []
-        tdata_list = [TrackData(d) for d in self.track_dirs()]
+        tdata_list = [TrackData(os.path.join(self.data_dir,d)) for d in self.track_dirs()]
         for dir_idx, track_data in enumerate(tdata_list):
             num_img = track_data.num_detection_images()
             dir_idx_list += [dir_idx for _ in range(num_img)]

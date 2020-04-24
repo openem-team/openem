@@ -6,8 +6,8 @@ import json
 Connects to tator and generates a training folder (model_dir) with the following contents:
 
 .. code-block:: bash
-    
-    track_dirs.txt - A list of directories containing tracks 
+
+    track_dirs.txt - A list of directories containing tracks
     tracks - folder for tracks
        |
        00001 - Track 1 folder
@@ -24,7 +24,7 @@ Connects to tator and generates a training folder (model_dir) with the following
 
    tracks/00001
         ...
-   tracks/0000N 
+   tracks/0000N
 """
 import cv2
 import os
@@ -77,6 +77,10 @@ if __name__ == "__main__":
             print(f"Skipping bad track, {track['id']}")
             continue
 
+        if track['attributes']['Match'].find("Unknown") >= 0:
+            print(f"Skipping unknown track, {track['id']}")
+            continue
+
         # Create a folder based on the database id number
         this_track_dir=os.path.join(tracks_dir, f"{track_id:09d}")
         os.makedirs(this_track_dir, exist_ok=True)
@@ -86,12 +90,11 @@ if __name__ == "__main__":
         with open(os.path.join(this_track_dir, "track.json"), 'w') as fp:
             json.dump(track, fp)
         localization_ids = track['association']['localizations']
-        detections=[tator.Localization.get(lid) for lid in localization_ids]
-        
-        if len(detections) > 2:
+
+        if len(localization_ids) > 2:
             print(f"Track {track['id']} is more than a pair")
             continue
-        elif len(detections) < 2:
+        elif len(localization_ids) < 2:
             print(f"Track {track['id']} is less than a pair")
             continue
 
@@ -124,12 +127,11 @@ if __name__ == "__main__":
     print("Saving pairing data...")
     model_data.save_cnn_validate(
         np.transpose([
-            index0[:validate_stop], 
+            index0[:validate_stop],
             index1[:validate_stop]]),
         np.expand_dims(label[:validate_stop], axis=1))
     model_data.save_cnn_training(
         np.transpose([
-            index0[validate_stop:], 
+            index0[validate_stop:],
             index1[validate_stop:]]),
         np.expand_dims(label[validate_stop:], axis=1))
-

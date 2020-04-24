@@ -50,6 +50,7 @@ if __name__ == "__main__":
                         default=0.1,
                         help="Fraction of data to be stored in a separate file for " + "validation.")
     parser.add_argument("--max_frame_diff", type=int, default=-1)
+    parser.add_argument("--box-size", type=int, default=512)
     parser.add_argument("model_dir",
         help="Path to model directory.",
         default=os.getcwd())
@@ -108,7 +109,8 @@ if __name__ == "__main__":
                 continue
 
             for d_idx,detection_bgr in enumerate(detection_bgr_list):
-                track_data.save_detection_image(detection_bgr, d_idx)
+                box = cv2.resize(detection_bgr, (args.box_size, args.box_size))
+                track_data.save_detection_image(box, d_idx)
         # we always start at 0 for each track to the lookup in model_data.py can work
         index0.append(0+offset)
         index1.append(1+offset)

@@ -50,7 +50,7 @@ if __name__ == "__main__":
                         default=0.1,
                         help="Fraction of data to be stored in a separate file for " + "validation.")
     parser.add_argument("--max_frame_diff", type=int, default=-1)
-    parser.add_argument("--box-size", type=int, default=512)
+    parser.add_argument("--box-size", type=int, default=224)
     parser.add_argument("model_dir",
         help="Path to model directory.",
         default=os.getcwd())

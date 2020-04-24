@@ -66,8 +66,8 @@ class ModelData:
             path = os.path.join(self.data_dir, "mean_image.png")
             return cv2.imread(path).astype(np.float)
         except:
-            # This is in BGR
-            return np.array([[103.939, 116.779, 123.68 ]])
+            # This is in BGR imagnet net mean
+            return np.full((224,224,3),[103.939, 116.779, 123.68 ])
 
     def save_mean_image(self, mean_img):
         """ Saves mean image to file.

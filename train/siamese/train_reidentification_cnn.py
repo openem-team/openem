@@ -29,6 +29,7 @@ from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
 from keras.callbacks import ReduceLROnPlateau
 from keras import backend as K
+import math
 
 def euclidean(vecs):
     """ Returns the euclidean distance between vectors.
@@ -102,13 +103,13 @@ if __name__ == "__main__":
         help="Initial learning rate.")
     parser.add_argument("--steps_per_epoch",
         type=int,
-        default=5000,
+        default=None,
         help="Number of steps per epoch, determined automatically if not set.")
     parser.add_argument(
         '--val_steps_per_epoch',
         help="Number of validation steps per epoch.",
         type=int,
-        default=500
+        default=None
     )
     parser.add_argument("--epochs_per_order",
         type=float,
@@ -247,10 +248,23 @@ if __name__ == "__main__":
         cooldown=args.lr_cooldown,
         min_lr=args.lr_min_lr)
 
+
+    steps_per_epoch = args.steps_per_epoch
+    val_steps_per_epoch = args.val_steps_per_epoch
+
+    if steps_per_epoch is None:
+        data = model_data.cnn_training()
+        steps_per_epoch = math.floor(data['index'].shape[0]/args.batch_size)
+        print(f"Steps per epoch = {steps_per_epoch} = math.floor({data['index'].shape[0]}/{args.batch_size})")
+    if val_steps_per_epoch is None:
+        data = model_data.cnn_validate()
+        val_steps_per_epoch = math.floor(data['index'].shape[0]/args.batch_size)
+        print(f"Val steps per epoch = {val_steps_per_epoch} = math.floor({data['index'].shape[0]}/{args.batch_size})")
+
     # Fit the model.
     s_model.fit_generator(
         generator(train_queue),
-        steps_per_epoch=args.steps_per_epoch,
+        steps_per_epoch=steps_per_epoch,
         epochs=args.num_epochs,
         verbose=1,
         callbacks=[
@@ -260,5 +274,5 @@ if __name__ == "__main__":
             lr_scheduler
         ],
         validation_data=generator(validate_queue),
-        validation_steps=args.val_steps_per_epoch
+        validation_steps=val_steps_per_epoch
     )

@@ -28,7 +28,7 @@ RUN apt-get install -y --no-install-recommends docker-ce \
             docker-ce-cli containerd.io && rm -fr /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir --upgrade pip
-RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 pytator>=0.0.4 docker>=4.2.0
+RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 pytator>=0.0.4 docker>=4.2.0 tables>=3.6.1 natsort>=7.0.1
 % elif multiArch.arch == "aarch64":
 
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -115,7 +115,7 @@ RUN rm -fr protobuf_build
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3-pandas python3-tqdm  && \
+    python3-pandas python3-tqdm && \
     rm -fr /var/lib/apt/lists/*
 
 % endif

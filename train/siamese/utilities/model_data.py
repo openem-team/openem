@@ -67,7 +67,7 @@ class ModelData:
             return cv2.imread(path).astype(np.float)
         except:
             # This is in BGR
-            return np.array([103.939, 116.779, 123.68 ])
+            return np.array([[103.939, 116.779, 123.68 ]])
 
     def save_mean_image(self, mean_img):
         """ Saves mean image to file.

@@ -70,6 +70,35 @@ A canonoical Tator workflow has three parts: setup, execution, and teardown.
 More advanced workflows can replace the execution stage with multiple stages
 using the directed acylcic graph capabilities of argo.
 
+Project setup
+^^^^^^^^^^^^^
+
+A project for using this workflow has a media type (either a video type or
+an image type) represented by a ``<media_type_id>``. The project also has a
+localization box type represented by ``<box_type_id>``. The
+``<media_type_id>>`` has the following required attributes:
+
+.. glossary::
+
+   Object Detector Processed
+     A string attribute type that is set to the date time when the object
+     detector finishes processing the media file.
+
+The ``<box_type_id>`` requires the the following attributes:
+
+.. glossary::
+
+   Species
+     A string representing the name for an object class. If 'Species' is not
+     an appropriate name for class, this can be customized via the
+     ``species_attr_name`` key in the pipeline argument object to the
+     teardown stage. It defaults to 'Species' if not specified.
+
+   Confidence
+     A float attribute representing the score of the detection. If 'Confidence'
+     is not a desired name, it can be customized via the
+     ``confidence_attr_name`` key in the pipeline argument object to the
+     teardown stage. It defaults to 'Confidence' if not specified.
 Acquiring media
 ^^^^^^^^^^^^^^^
 

@@ -96,7 +96,7 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": <type_id>, \"media_type\": \"pipeline\", \"img_ext\": \"mp4\"}"
+        value: "{\"type_id\": <box_type_id>, \"media_type\": \"pipeline\", \"img_ext\": \"mp4\"}"
       volumeMounts:
       - name: workdir
         mountPath: /work

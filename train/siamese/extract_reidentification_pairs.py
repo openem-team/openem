@@ -103,22 +103,32 @@ if __name__ == "__main__":
             print(f"Skipping already downloaded track {track_id}")
         else:
             # From downloading we put each track as to images
-            code,detection_bgr_list = tator.StateGraphic.get_bgr(track_id)
+            forceScale=f"{args.box_size}x{args.box_size}"
+            code,detection_bgr_list = tator.StateGraphic.get_bgr(track_id,
+                                                                 forceScale=forceScale)
             if code != 200:
                 print("Failed to get track graphic!")
                 continue
 
             for d_idx,detection_bgr in enumerate(detection_bgr_list):
-                box = cv2.resize(detection_bgr, (args.box_size, args.box_size))
                 track_data.save_detection_image(box, d_idx)
-        # we always start at 0 for each track to the lookup in model_data.py can work
-        index0.append(0+offset)
-        index1.append(1+offset)
-        if track['attributes']['Match'].find("Yes") >= 0:
+
+        # We only consider Whole or partial matches as label 0
+        # Different part matches are discarded (Bad or Unknown) were
+        # previously excluded above.
+        if track['attributes']['Match'].find("Yes (Whole)") >= 0:
             label.append(0)
+        elif track['attributes']['Match'].find("Yes (Partial)") >= 0:
+            label.append(0)
+        elif track['attributes']['Match'].find("Yes") >= 0:
+            continue
         else:
             label.append(1)
 
+        # We always start at 0 for each track to the lookup in
+        # model_data.py can work
+        index0.append(0+offset)
+        index1.append(1+offset)
         track_dirs_fp.write(os.path.join("tracks", f"{track_id:09d}")+'\n')
         offset += 2
     num_neg = np.sum(label)

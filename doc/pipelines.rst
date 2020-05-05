@@ -99,6 +99,7 @@ The ``<box_type_id>`` requires the the following attributes:
      is not a desired name, it can be customized via the
      ``confidence_attr_name`` key in the pipeline argument object to the
      teardown stage. It defaults to 'Confidence' if not specified.
+
 Acquiring media
 ^^^^^^^^^^^^^^^
 

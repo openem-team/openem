@@ -102,6 +102,8 @@ class ImageModel:
             # Load graph off of disk into a graph definition
             graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(graph_file.read())
+            #for node in graph_def.node:
+            #   print(f"{node.name}")
 
             if optimize:
                 if type(output_name) == list:

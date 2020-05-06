@@ -111,7 +111,7 @@ if __name__ == "__main__":
                 continue
 
             for d_idx,detection_bgr in enumerate(detection_bgr_list):
-                track_data.save_detection_image(box, d_idx)
+                track_data.save_detection_image(detection_bgr, d_idx)
 
         # We only consider Whole or partial matches as label 0
         # Different part matches are discarded (Bad or Unknown) were
@@ -121,6 +121,7 @@ if __name__ == "__main__":
         elif track['attributes']['Match'].find("Yes (Partial)") >= 0:
             label.append(0)
         elif track['attributes']['Match'].find("Yes") >= 0:
+            print(f"Skipping {track['id']} which is different parts")
             continue
         else:
             label.append(1)

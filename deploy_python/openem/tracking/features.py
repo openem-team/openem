@@ -52,8 +52,18 @@ class FeaturesComparator:
             # Load graph off of disk into a graph definition
             graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(graph_file.read())
+            user_args = {"minimum_segment_size": 32}
+
             graph_def = optimizeGraph(graph_def,
-                                          ['import/dense_2/Sigmoid:0']) # don't optimize this away!
+                                          ['model_1_1/leaky_re_lu_1/LeakyRelu',
+                                           'model_1/leaky_re_lu_1/LeakyRelu',
+                                           'dense_2/Sigmoid'],
+                                      user_trt_args=user_args
+                                          )
+            #for node in graph_def.node:
+            #    print(f"{node.name}")
+            #    for attr in node.attr:
+            #        print(f"\t{attr}")
             return_elements = ['input_2:0', 'input_3:0', 'dense_2/Sigmoid:0']
             tensors = tf.import_graph_def(
                 graph_def,

@@ -172,4 +172,4 @@ if __name__=="__main__":
             tator.Track.new({"type": args.tracklet_type_id,
                              "media_ids": [int(media_id)],
                              "localization_ids": tracklet,
-                             "Species": "Fish"})
+                             "Species": "Tracklet"})

@@ -302,7 +302,7 @@ if __name__=="__main__":
             current_batch=list(raw_objects[start_idx:start_idx+upload_batch])
             try:
                 before=time.time()
-                tator.Localization.addMany(current_batch)
+                tator.Localization.new(current_batch)
                 after=time.time()
                 print(f"Duration={(after-before)*1000}ms")
             except:

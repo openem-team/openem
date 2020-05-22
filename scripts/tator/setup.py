@@ -61,5 +61,8 @@ if __name__ == '__main__':
         data={'media': media_filepath}
         print(f"Downloading {media['name']} to {media_filepath}")
         tator.Media.downloadFile(media, media_filepath)
+        if not os.path.exists(media_filepath):
+            print("File did not download!")
+            sys.exit(255)
         work_frame=pd.DataFrame(columns=cols, data=[data])
         work_frame.to_csv(work_filepath, index=False, header=False, mode='a')

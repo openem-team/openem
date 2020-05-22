@@ -29,6 +29,7 @@ RUN apt-get install -y --no-install-recommends docker-ce \
             docker-ce-cli containerd.io && rm -fr /var/lib/apt/lists/*
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip
+RUN echo "force"
 RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 pytator>=0.0.21 docker>=4.2.0 tables>=3.6.1 natsort>=7.0.1
 % elif multiArch.arch == "aarch64":
 

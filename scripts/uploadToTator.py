@@ -67,9 +67,9 @@ def process_detect(row, args, tator, species_names, truth_data, bar, default_obj
             return
         else:
             pass
-        
+
     media_element = row['media_element']
-    
+
     if media_element == None:
         print("ERROR: Could not find media element!")
 
@@ -112,7 +112,7 @@ def make_localization_obj(args,
          "width": width / media_el['width'],
          "height": height / media_el['height']
          }
-    
+
     #default_schema = tator.LocalizationType.byTypeId(box_type)
     #default_schema_columns = [(elem.get('name'),elem.get('default')) for elem in default_schema.get('columns')]
     for col in default_obj_fields:
@@ -139,7 +139,7 @@ def uploadMedia(row, args, tator, bar):
 
     global media_list_cache
     global media_count
-    
+
     media_count += 1
     bar.update(media_count)
 
@@ -149,7 +149,7 @@ def uploadMedia(row, args, tator, bar):
         print(f"Skipping {row}")
         return None,None
     img_path=os.path.join(vid_dir, img_file)
-    
+
     if args.media_type == "pipeline":
         media_id = int(video_id.split('_')[0])
         if media_id in media_list_cache:
@@ -162,9 +162,9 @@ def uploadMedia(row, args, tator, bar):
         desired_name = f"{row['video_id']}.{args.img_ext}"
     else:
         desired_name = f"{row['video_id']}.{args.img_ext}"
-    
+
     if desired_name in media_list_cache:
-        cache_result = media_list_cache[desired_name] 
+        cache_result = media_list_cache[desired_name]
         return cache_result['id'], cache_result
     else:
         print(f"{time.time()}: {desired_name}: Not In Cache")
@@ -270,9 +270,9 @@ if __name__=="__main__":
     input_data = input_data.assign(media_element = media_info[1])
 
     print("Generating localizations...")
-    
-    obj_fields = tator.LocalizationType.byTypeId(args.localization_type_id)
-    default_obj_fields = [(elem.get('name'),elem.get('default')) for elem in obj_fields.get('columns')]
+
+    obj_fields = tator.LocalizationType.filter({"type":args.localization_type_id})[0]
+    default_obj_fields = [(elem.get('name'),elem.get('default')) for elem in obj_fields.get('attribute_types')]
 
     unique_media = input_data['media_id'].unique()
     print(unique_media)
@@ -307,7 +307,7 @@ if __name__=="__main__":
                 print(f"Duration={(after-before)*1000}ms")
             except:
                 traceback.print_exc(file=sys.stdout)
-                
+
         # When complete for a given media update the sentinel value
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaVideo"})
         tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaImage"})

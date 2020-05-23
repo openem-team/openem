@@ -76,7 +76,10 @@ def process_detect(row, args, tator, species_names, truth_data, bar, default_obj
     obj = None
     if media_element and args.localization_type_id:
         species_id_0 = int(float(row['det_species'])-1)
-        confidence = float(row['det_conf'].split(':')[species_id_0])
+        if type(row['det_conf']) is str:
+            confidence = float(row['det_conf'].split(':')[species_id_0])
+        else:
+            confidence = row['det_conf']
         add=True
         if args.threshold:
             if confidence < args.threshold:

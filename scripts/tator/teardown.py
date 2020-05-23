@@ -25,6 +25,10 @@ if __name__ == '__main__':
     image_ext = pipeline_args.get('img_ext', None)
     species_attr_name = pipeline_args.get('species_attr_name','Species')
     confidence_attr_name = pipeline_args.get('confidence_attr_name','Confidence')
+    optional_args=[]
+    version_number = pipeline_args.get('version_number', None)
+    if version_number:
+        optional_args.extend(['--version-number', str(version_number)])
 
     args = ["python3",
             "/scripts/uploadToTator.py",
@@ -35,6 +39,7 @@ if __name__ == '__main__':
             "--localization-type-id", str(box_type_id),
             "--media-type-id", str(0),
             '--media-type', media_type,
+            *optional_args,
             '--img-ext', image_ext,
             '--species-attr-name', species_attr_name,
             '--confidence-attr-name', confidence_attr_name,

@@ -22,7 +22,14 @@ def exit_func(_,__):
     os._exit(0)
 
 detect_count = 0
-def process_box(row, args, tator, species_names, truth_data, bar, default_obj_fields):
+def process_box(row,
+                args,
+                tator,
+                version_id,
+                species_names,
+                truth_data,
+                bar,
+                default_obj_fields):
     global detect_count
     detect_count += 1
     bar.update(detect_count)
@@ -40,6 +47,7 @@ def process_box(row, args, tator, species_names, truth_data, bar, default_obj_fi
         if add:
             obj = make_localization_obj(args,
                                    tator,
+                                   version_id,
                                    args.localization_type_id,
                                    media_element,
                                    default_obj_fields,
@@ -55,7 +63,14 @@ def process_box(row, args, tator, species_names, truth_data, bar, default_obj_fi
 def process_line(args, tator, species_names, row):
     print("ERROR: Line mode --- Not supported")
 
-def process_detect(row, args, tator, species_names, truth_data, bar, default_obj_fields):
+def process_detect(row,
+                   args,
+                   tator,
+                   version_id,
+                   species_names,
+                   truth_data,
+                   bar,
+                   default_obj_fields):
     global detect_count
     detect_count += 1
     bar.update(detect_count)
@@ -87,6 +102,7 @@ def process_detect(row, args, tator, species_names, truth_data, bar, default_obj
         if add:
             obj = make_localization_obj(args,
                                    tator,
+                                   version_id,
                                    args.localization_type_id,
                                    media_element,
                                    default_obj_fields,
@@ -101,6 +117,7 @@ def process_detect(row, args, tator, species_names, truth_data, bar, default_obj
 
 def make_localization_obj(args,
                           tator,
+                          version_id,
                           box_type,
                           media_el,
                           default_obj_fields,
@@ -115,6 +132,10 @@ def make_localization_obj(args,
          "width": width / media_el['width'],
          "height": height / media_el['height']
          }
+
+    if version_id:
+        obj.update({"version": version_id})
+
 
     #default_schema = tator.LocalizationType.byTypeId(box_type)
     #default_schema_columns = [(elem.get('name'),elem.get('default')) for elem in default_schema.get('columns')]
@@ -215,8 +236,17 @@ if __name__=="__main__":
     parser.add_argument("--threshold", type=float, help="Discard boxes less than this value")
     parser.add_argument("--truth-data", type=str, help="Path to annotations.csv to exclude non-truth data")
     parser.add_argument("--species-keyname", type=str,default="Species")
+    parser.add_argument("--version-number", type=int)
     args = parser.parse_args()
     tator = pytator.Tator(args.url, args.token, args.project)
+
+    # convert supplied version number to version id
+    version_id = None
+    if args.version_number:
+        project_versions = tator.Version.all()
+        for obj in project_versions:
+            if obj['number'] == args.version_number:
+                version_id = obj['id']
 
     signal.signal(signal.SIGINT, exit_func)
 
@@ -289,6 +319,7 @@ if __name__=="__main__":
         localizations = media_data.apply(function_map[mode],
                                          args=(args,
                                                tator,
+                                               version_id,
                                                species_names,
                                                truth_data,
                                                bar2,

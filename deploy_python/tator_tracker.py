@@ -169,7 +169,8 @@ if __name__=="__main__":
         print(f"{len(tracklets)} Tracklets found")
         pprint(tracklets)
         for tracklet in tracklets:
-            tator.Track.new({"type": args.tracklet_type_id,
-                             "media_ids": [int(media_id)],
-                             "localization_ids": tracklet,
-                             "Species": "Tracklet"})
+            tator.Track.new([{"type": args.tracklet_type_id,
+                              "media_ids": [int(media_id)],
+                              "localization_ids": tracklet,
+                              "Species": "Tracklet",
+                              "version": 24}])

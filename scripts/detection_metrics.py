@@ -152,8 +152,19 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
                 if boxes_in_detection < boxes_in_truth:
                     vid_tag=f"{row.video_id}_{row.frame}"
                     if not vid_tag in counted:
+                        # If this image hasn't been processed yet, check its detections against matches
                         counted.append(vid_tag)
-                        false_negatives += (boxes_in_truth - boxes_in_detection)
+                        for _, truth_row in boxes_in_truth.iterrows():
+                            # Check each truth box and see if it has a det match, if not its a FN
+                            match_found = False
+                            truth_box = _rowToBoxDict(truth_row)
+                            for _,det_row in boxes_in_detection.iterrows():
+                                det_box = _rowToBoxDict(det_row)
+                                if _intersection_over_union(truth_box, det_box) > args.iou_threshold:
+                                    match_found = True
+                                    break
+                            if match_found is False:
+                                false_negatives += 1
 
             # Precision is not by species (yet)
             precision = true_positives / (true_positives + false_positives)
@@ -173,7 +184,17 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
                 vid_tag=f"{row.video_id}_{row.frame}"
                 if not vid_tag in counted:
                     counted.append(vid_tag)
-                    false_negatives += (boxes_in_truth - boxes_in_detection)
+                    for _, truth_row in boxes_in_truth.iterrows():
+                        # Check each truth box and see if it has a det match, if not its a FN
+                        match_found = False
+                        truth_box = _rowToBoxDict(truth_row)
+                        for _,det_row in boxes_in_detection.iterrows():
+                            det_box = _rowToBoxDict(det_row)
+                            if _intersection_over_union(truth_box, det_box) > args.iou_threshold:
+                                match_found = True
+                                break
+                        if match_found is False:
+                            false_negatives += 1
 
         precision = true_positives / (true_positives + false_positives)
         recall = true_positives / (true_positives + false_negatives)

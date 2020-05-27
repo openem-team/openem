@@ -116,6 +116,12 @@ def process_video(video_path, preprocess_funcs, queue):
                                           args=(image_data, preprocess_funcs, cookie, queue))
                 thread.start()
                 threads.append(thread)
+                # Gate if we get a ton o' threads
+                while len(threads) >= args.batch_size*2:
+                    for idx,t in enumerate(threads):
+                        if t.is_alive() == False:
+                            t.join()
+                            del threads[idx]
             else:
                 process_frame(image_data, preprocess_funcs, cookie, queue)
             frame_num += 1

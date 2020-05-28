@@ -10,6 +10,9 @@ openem_image: Dockerfile.gen
 openem_lite: inference.gen
 	cd .. && docker build -t cvisionai/openem_lite:$(USER) -f config/inference.gen . || exit 255
 
+openem_cpu: cpu.gen
+	cd .. && docker build -t cvisionai/openem_cpu:$(USER) -f config/cpu.gen . || exit 255
+
 ${BUILD_TOOLS}/makocc.py:
 	cd .. && git submodule update --init
 
@@ -32,6 +35,9 @@ else
 inference.gen: inference.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
 	./../externals/build_tools/makocc.py -o $@ $<
 endif
+
+cpu.gen: cpu.mako ${BUILD_TOOLS}/makocc.py ${BUILD_TOOLS}/version.py
+	./../externals/build_tools/makocc.py -o $@ $<
 
 ifeq ($(work_dir), )
 extra_mounts=
@@ -63,6 +69,10 @@ endif
 
 inference_bash:
 	$(docker_cmd) --name $(openem_container_name) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_lite:$(USER)
+
+inference_cpu:
+	docker run --name $(container_name)_cpu --rm -ti --shm-size=1g -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_cpu:$(USER)
+
 
 publish_lite:
 	docker tag cvisionai/openem_lite:$(USER) cvisionai/openem_lite:latest

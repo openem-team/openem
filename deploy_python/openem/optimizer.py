@@ -5,7 +5,11 @@ Defaults to using TensorRT, if not available, will revert to passing through
 the original graph. This allows for code to run on platforms without tensorrt.
 """
 
+import tensorflow as tf
 def optimizeGraph(graph_def, output_nodes, user_trt_args=None):
+    if tf.test.is_gpu_available(cuda_only=True) is False:
+        print("No GPU available to optimize for")
+        return graph_def
     try:
         from tensorflow.python.compiler.tensorrt import trt_convert as trt
         tensor_rt_args={'input_graph_def':graph_def,

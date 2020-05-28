@@ -111,7 +111,7 @@ class ImageModel:
             #for node in graph_def.node:
             #   print(f"{node.name}")
 
-            if optimize:
+            if optimize and not cpu_only:
                 if type(output_name) == list:
                     sensitive_nodes = output_name
                 else:

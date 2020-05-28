@@ -147,24 +147,23 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
             false_negatives=0
             for idx, row in species_df.iterrows():
                 matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
-                boxes_in_truth=len(species_df.loc[(species_df.video_id == row.video_id) & (species_df.frame == row.frame)])
-                boxes_in_detection = len(matching_detection_df)
-                if boxes_in_detection < boxes_in_truth:
-                    vid_tag=f"{row.video_id}_{row.frame}"
-                    if not vid_tag in counted:
-                        # If this image hasn't been processed yet, check its detections against matches
-                        counted.append(vid_tag)
-                        for _, truth_row in boxes_in_truth.iterrows():
-                            # Check each truth box and see if it has a det match, if not its a FN
-                            match_found = False
-                            truth_box = _rowToBoxDict(truth_row)
-                            for _,det_row in boxes_in_detection.iterrows():
-                                det_box = _rowToBoxDict(det_row)
-                                if _intersection_over_union(truth_box, det_box) > args.iou_threshold:
-                                    match_found = True
-                                    break
-                            if match_found is False:
-                                false_negatives += 1
+                boxes_in_truth=species_df.loc[(species_df.video_id == row.video_id) & (species_df.frame == row.frame)]
+                boxes_in_detection = matching_detection_df
+                vid_tag=f"{row.video_id}_{row.frame}_{species}"
+                if not vid_tag in counted:
+                    # If this image hasn't been processed yet, check its detections against matches
+                    counted.append(vid_tag)
+                    for _, truth_row in boxes_in_truth.iterrows():
+                        # Check each truth box and see if it has a det match, if not its a FN
+                        match_found = False
+                        truth_box = _rowToBoxDict(truth_row)
+                        for _,det_row in boxes_in_detection.iterrows():
+                            det_box = _rowToBoxDict(det_row)
+                            if _intersection_over_union(truth_box, det_box) > args.iou_threshold:
+                                match_found = True
+                                break
+                        if match_found is False:
+                            false_negatives += 1
 
             # Precision is not by species (yet)
             precision = true_positives / (true_positives + false_positives)
@@ -178,23 +177,22 @@ def calculateStats(truth, detections, keep_threshold, recall_by_species):
     else:
         for idx, row in truth.iterrows():
             matching_detection_df = eval_detects.loc[(eval_detects.video_id == row.video_id) & (eval_detects.frame == row.frame)]
-            boxes_in_truth=len(truth.loc[(truth.video_id == row.video_id) & (truth.frame == row.frame)])
-            boxes_in_detection = len(matching_detection_df)
-            if boxes_in_detection < boxes_in_truth:
-                vid_tag=f"{row.video_id}_{row.frame}"
-                if not vid_tag in counted:
-                    counted.append(vid_tag)
-                    for _, truth_row in boxes_in_truth.iterrows():
-                        # Check each truth box and see if it has a det match, if not its a FN
-                        match_found = False
-                        truth_box = _rowToBoxDict(truth_row)
-                        for _,det_row in boxes_in_detection.iterrows():
-                            det_box = _rowToBoxDict(det_row)
-                            if _intersection_over_union(truth_box, det_box) > args.iou_threshold:
-                                match_found = True
-                                break
-                        if match_found is False:
-                            false_negatives += 1
+            boxes_in_truth=truth.loc[(truth.video_id == row.video_id) & (truth.frame == row.frame)]
+            boxes_in_detection = matching_detection_df           
+            vid_tag=f"{row.video_id}_{row.frame}"
+            if not vid_tag in counted:
+                counted.append(vid_tag)
+                for _, truth_row in boxes_in_truth.iterrows():
+                    # Check each truth box and see if it has a det match, if not its a FN
+                    match_found = False
+                    truth_box = _rowToBoxDict(truth_row)
+                    for _,det_row in boxes_in_detection.iterrows():
+                        det_box = _rowToBoxDict(det_row)
+                        if _intersection_over_union(truth_box, det_box) > args.iou_threshold:
+                            match_found = True
+                            break
+                    if match_found is False:
+                        false_negatives += 1
 
         precision = true_positives / (true_positives + false_positives)
         recall = true_positives / (true_positives + false_negatives)

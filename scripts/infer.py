@@ -206,8 +206,13 @@ if __name__=="__main__":
     parser.add_argument("--preprocess-module",
                         nargs="+",
                         help="Module name that contains preprocessing function(s) to call on the image prior to insertion into the network")
+    parser.add_argument("--cpu-only",
+                        action="store_true")
     parser.add_argument("work_csv", help="CSV with file per row")
     args = parser.parse_args()
+
+    if args.cpu_only == True:
+        print("Enabling CPU-only inference")
 
     if args.csv_flavor == "retinanet":
         # We only care about the first column
@@ -231,7 +236,8 @@ if __name__=="__main__":
     image_dims = (args.img_min_side, args.img_max_side,3)
     retinanet = RetinaNet.RetinaNetDetector(args.graph_pb,
                                             imageShape=image_dims,
-                                            batch_size=args.batch_size)
+                                            batch_size=args.batch_size,
+                                            cpu_only=args.cpu_only)
 
 
     preprocess_funcs=[]

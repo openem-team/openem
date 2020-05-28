@@ -68,7 +68,8 @@ class ImageModel:
                  output_name = 'output_node0:0',
                  optimize = True,
                  optimizer_args = None,
-                 batch_size = 1):
+                 batch_size = 1,
+                 cpu_only=False):
         """ Initialize an image model object
         model_path : str or path-like object
                      Path to the frozen protobuf of the tensorflow graph
@@ -87,15 +88,20 @@ class ImageModel:
                       order specified in this function as a list.
         batch_size : int
                      Maximum number of images to process as a batch
+        cpu_only: bool
+                  If true will only use CPU for inference
         """
 
         self.gpu_pid = os.getpid()
         self.batch_size = batch_size
 
         # Create session first with requested gpu_fraction parameter
-        config = tf.compat.v1.ConfigProto()
-        config.gpu_options.allow_growth = True
-        config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
+        if cpu_only is True:
+            config = tf.compat.v1.ConfigProto(device_count = {'GPU' : 0})
+        else:
+            config = tf.compat.v1.ConfigProto()
+            config.gpu_options.allow_growth = True
+            config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
         self.tf_session = tf.compat.v1.Session(config=config)
 
         with tf.io.gfile.GFile(model_path, 'rb') as graph_file:

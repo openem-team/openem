@@ -129,8 +129,8 @@ def make_localization_obj(args,
          "media_id": media_el['id'],
          "x" : x / media_el['width'],
          "y": y / media_el['height'],
-         "width": width / media_el['width'],
-         "height": height / media_el['height']
+         "width": min(1.0,width / media_el['width']),
+         "height": min(1.0,height / media_el['height'])
          }
 
     if version_id:
@@ -302,10 +302,8 @@ if __name__=="__main__":
     input_data = input_data.assign(media_id = media_info[0])
     input_data = input_data.assign(media_element = media_info[1])
 
+    default_obj_fields=[] # not requried anymore
     print("Generating localizations...")
-
-    obj_fields = tator.LocalizationType.filter({"type":args.localization_type_id})[0]
-    default_obj_fields = [(elem.get('name'),elem.get('default')) for elem in obj_fields.get('attribute_types')]
 
     unique_media = input_data['media_id'].unique()
     print(unique_media)
@@ -336,7 +334,10 @@ if __name__=="__main__":
             current_batch=list(raw_objects[start_idx:start_idx+upload_batch])
             try:
                 before=time.time()
-                tator.Localization.new(current_batch)
+                code,resp = tator.Localization.new(current_batch)
+                if code >= 300 or code < 200:
+                    print("Failed batch upload.")
+                    sys.exit(-1)
                 after=time.time()
                 print(f"Duration={(after-before)*1000}ms")
             except:

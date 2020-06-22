@@ -7,11 +7,11 @@ and curation project. Part of the media mangement is executing algorithms or
 of a Tator workflow. Currently Retinanet-based Detection is supported for
 inference within a workflow.
 
-Using the Reference Workflow
-****************************
+Using the Reference Detection Workflow
+**************************************
 
 The reference workflow can be used by modifying the
-`scripts/tator/workflow.yaml` to match those of the given project.
+`scripts/tator/detection_workflow.yaml` to match those of the given project.
 
 Generating a data image
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -43,7 +43,7 @@ requirements of `uploadToTator.py`:
 Using the reference workflow definition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A reference workflow.yaml is in the repository which can be modified to
+A reference workflow yaml is in the repository which can be modified to
 indicate project-specific requirements. `img_max_side`, `img_min_side`,
 `batch_size`, and `keep_threshold` map to the arguments in `infer.py` directly.
 
@@ -52,7 +52,7 @@ using tensor-rt enabled hardware.
 
 Nominally the only parameters required to change are the `TATOR_PIPELINE_ARGS` for each stage of the workflow.
 
-.. literalinclude:: ../scripts/tator/workflow.yaml
+.. literalinclude:: ../scripts/tator/detection_workflow.yaml
    :linenos:
    :language: yaml
    :emphasize-lines: 48, 74, 99

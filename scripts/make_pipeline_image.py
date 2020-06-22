@@ -25,7 +25,7 @@ if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--graph-pb", required=True)
-    parser.add_argument("--train-ini", required=True)
+    parser.add_argument("--train-ini", required=False)
     parser.add_argument("--publish", action="store_true")
     parser.add_argument("image_tag")
     args = parser.parse_args()
@@ -34,7 +34,11 @@ if __name__=="__main__":
     with open(os.path.join(temp_dir, "Dockerfile"), 'w') as docker_file:
         docker_file.write(DOCKER_FILE_TEMPLATE)
     shutil.copy(args.graph_pb, os.path.join(temp_dir, "graph.pb"))
-    shutil.copy(args.train_ini, os.path.join(temp_dir, "train.ini"))
+    if args.train_ini:
+        shutil.copy(args.train_ini, os.path.join(temp_dir, "train.ini"))
+    else:
+        with open(os.path.join(temp_dir, "train.ini"), 'w') as f:
+            f.write("")
     #print(temp_dir)
     cargs=['docker',
           'build',

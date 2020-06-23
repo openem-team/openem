@@ -52,6 +52,9 @@ if __name__=="__main__":
         lookup = {"type": args.detection_type_id,
                   "media_id" : media_id}
         localizations = tator.Localization.filter(lookup)
+        if len(localizations) == 0:
+            print(f"No localizations present in media {media_file}")
+            continue
         print(f"Processing {len(localizations)} detections")
         # Group by localizations by frame
         for lid, local in enumerate(localizations):
@@ -117,4 +120,6 @@ if __name__=="__main__":
                    "localization_ids": tracklet,
                    "Species": "Tracklet",
                    "version": version_id} for tracklet in tracklets.values()]
+        with open(f"/work/{media_id}.json", "w") as f:
+            json.dump(new_objs,f)
         tator.Track.new(new_objs)

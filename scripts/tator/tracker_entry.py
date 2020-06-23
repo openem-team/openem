@@ -19,8 +19,8 @@ if __name__=="__main__":
     tracklet_type_id = pipeline_args.get('tracklet_type_id', None)
     version_number = pipeline_args.get('version_number', None)
     batch_size = pipeline_args.get('batch_size', 1)
-    all_files=[os.listdir('/work')]
-    media_files=[os.path.join('/work',x) for x in all_media if x.endswith('.mp4')]
+    all_files=os.listdir('/work')
+    media_files=[os.path.join('/work',x) for x in all_files if x.endswith('.mp4')]
 
     args = ['python3', '/scripts/tator_tracker.py',
             '--url', os.getenv("TATOR_API_SERVICE"),

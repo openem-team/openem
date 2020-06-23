@@ -9,7 +9,7 @@ setuptools.setup(
     author_email='info@cvisionai.com',
     maintainer='CVision AI',
     maintainer_email='info@cvisionai.com',
-    packages=['openem', 'openem.Detect'],
+    packages=['openem', 'openem.Detect','openem.tracking'],
     # Don't require keras_retina net as that is only for
     # optional detector model, and not on pypi
     install_requires=reqs.readlines(),

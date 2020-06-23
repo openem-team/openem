@@ -74,6 +74,10 @@ inference_cpu:
 	docker run --name $(container_name)_cpu --rm -ti --shm-size=1g -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_cpu:$(USER)
 
 
+publish_experimental_lite:
+	docker tag cvisionai/openem_lite:$(USER) cvisionai/openem_lite:experimental
+	docker push cvisionai/openem_lite:experimental
+
 publish_lite:
 	docker tag cvisionai/openem_lite:$(USER) cvisionai/openem_lite:latest
 	docker push cvisionai/openem_lite:latest

@@ -45,8 +45,8 @@ if __name__=="__main__":
     #extractor=FeaturesExtractor(args.model_file)
     comparator=FeaturesComparator(args.model_file)
 
-    localizations_by_frame = {}
     for media_file in args.media_files:
+        localizations_by_frame = {}
         comps=os.path.splitext(os.path.basename(media_file))[0]
         media_id=comps.split('_')[0]
         lookup = {"type": args.detection_type_id,

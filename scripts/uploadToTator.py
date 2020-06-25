@@ -344,5 +344,5 @@ if __name__=="__main__":
                 traceback.print_exc(file=sys.stdout)
 
         # When complete for a given media update the sentinel value
-        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaVideo"})
-        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}, "resourcetype": "EntityMediaImage"})
+        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}})
+        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}})

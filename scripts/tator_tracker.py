@@ -123,3 +123,4 @@ if __name__=="__main__":
         with open(f"/work/{media_id}.json", "w") as f:
             json.dump(new_objs,f)
         tator.Track.new(new_objs)
+        tator.Media.update(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})

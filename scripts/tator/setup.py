@@ -9,6 +9,7 @@ import json
 import pandas as pd
 import requests
 import time
+import math
 
 if __name__ == '__main__':
     media_ids = os.getenv('TATOR_MEDIA_IDS')
@@ -53,9 +54,18 @@ if __name__ == '__main__':
     work_frame=pd.DataFrame(columns=cols)
     work_frame.to_csv(work_filepath, index=False)
 
+    media_elements=[]
+    count=0
+    chunk=100
+    for _ in range(math.ceil(len(media_ids)/chunk)):
+        chunk_ids=media_ids[count:count+chunk]
+        str_ids = [str(x) for x in chunk_ids]
+        media_elements.extend(tator.Media.filter({"media_id":
+                                                  ','.join(str_ids)}))
+        count+=chunk
+        
     print(f"Starting on {work_filepath}")
-    for media_id in media_ids:
-        media = tator.Media.get(media_id)
+    for media_id,media in zip(media_ids,media_elements):
         media_unique_name = f"{media['id']}_{media['name']}"
         media_filepath = os.path.join(work_dir,media_unique_name)
         data={'media': media_filepath}

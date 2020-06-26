@@ -96,40 +96,45 @@ def process_frame(image, preprocess_funcs, cookie, queue):
             finally:
                 current_frames-=args.batch_size
 
-def process_video(video_path, preprocess_funcs, queue):
-    video_reader = cv2.VideoCapture(video_path)
-    vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
-    count = vid_len
-    frame_num = 0
-    threads = []
-    ok = True
-    while ok:
-        ok, image_data = video_reader.read()
-        if ok:
-            for idx,thread in enumerate(threads):
-                if thread.is_alive() == False:
-                    thread.join()
-                    del threads[idx]
-            cookie = {"batch_info": (video_id, frame_num)}
-            if args.batch_size > 2:
-                thread = threading.Thread(target=process_frame,
-                                          args=(image_data, preprocess_funcs, cookie, queue))
-                thread.start()
-                threads.append(thread)
-                # Gate if we get a ton o' threads
-                while len(threads) >= args.batch_size*2:
-                    for idx,t in enumerate(threads):
-                        if t.is_alive() == False:
-                            t.join()
-                            del threads[idx]
-            else:
-                process_frame(image_data, preprocess_funcs, cookie, queue)
-            frame_num += 1
+def process_video(video_q, preprocess_funcs, queue):
+    video_tuple = video_q.get()
+    while video_tuple != None:
+        video_path, video_id = video_tuple
+        video_reader = cv2.VideoCapture(video_path)
+        vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
+        count = vid_len
+        frame_num = 0
+        threads = []
+        ok = True
+        while ok:
+            ok, image_data = video_reader.read()
+            if ok:
+                for idx,thread in enumerate(threads):
+                    if thread.is_alive() == False:
+                        thread.join()
+                        del threads[idx]
+                cookie = {"batch_info": (video_id, frame_num)}
+                if args.batch_size > 2:
+                    thread = threading.Thread(target=process_frame,
+                                              args=(image_data, preprocess_funcs, cookie, queue))
+                    thread.start()
+                    threads.append(thread)
+                    # Gate if we get a ton o' threads
+                    while len(threads) >= args.batch_size*2:
+                        for idx,t in enumerate(threads):
+                            if t.is_alive() == False:
+                                t.join()
+                                del threads[idx]
+                else:
+                    process_frame(image_data, preprocess_funcs, cookie, queue)
+                frame_num += 1
 
-    if len(threads) > 0:
-        for thread in threads:
-            thread.join()
-    queue.put(None)
+        if len(threads) > 0:
+            for thread in threads:
+                thread.join()
+        queue.put(None)
+        video_tuple = video_q.get()
+    print("Exiting process video")
 
 # Static variables for recurrent process_image_data function
 def process_image_data(image_data, preprocess_funcs):
@@ -144,7 +149,7 @@ def process_image_data(image_data, preprocess_funcs):
 def image_consumer(q, result_q,vid_len):
     with tqdm(total=vid_len, desc="Frames", leave=True) as bar:
         batch_result = q.get()
-
+        print(f"Initial batch size = {batch_result}")
         while batch_result is not None:
             process_batch_result(args, batch_result, result_q)
             bar.update(batch_result)
@@ -156,6 +161,7 @@ def image_consumer(q, result_q,vid_len):
         result_q.put(None)
 
 def result_consumer(result_q):
+    print("starting results")
     result = result_q.get()
 
     while result is not None:
@@ -164,7 +170,23 @@ def result_consumer(result_q):
             result = result_q.get_nowait()
         except:
             result = result_q.get()
+    print("Exiting results")
 
+def result_consumer_v2(name_q,result_q):
+    print("starting results")
+    name = name_q.get()
+    while name is not None:
+        print(f"Results for {name}")
+        result = result_q.get()
+        while result is not None:
+            process_retinanet_result(args, result)
+            try:
+                result = result_q.get_nowait()
+            except:
+                result = result_q.get()
+        name = name_q.get()
+    print("Exiting results")
+    
 def get_videoId_frame(args, image_path):
     if args.csv_flavor == 'retinanet':
         # Raw video inputs may look like this:
@@ -260,7 +282,8 @@ if __name__=="__main__":
 
     batch_queue=Queue(maxsize=4)
     result_queue=Queue(maxsize=2)
-
+    name_queue=Queue(maxsize=2)
+    name_res_queue=Queue(maxsize=2)
     media_files = work_df[0].unique()
     if args.csv_flavor != "video":
         # We are iterating over images
@@ -295,28 +318,41 @@ if __name__=="__main__":
         results_thread.join()
 
     else:
+        reader_thread=Process(target=process_video,
+                              args=(name_queue,
+                                    preprocess_funcs, batch_queue))
+        results_thread=threading.Thread(target=result_consumer_v2,
+                               args=(name_res_queue,result_queue,))
+        print(f"Made new Process Objects")
+        reader_thread.start()
+        print("Launched video Reader")
+        results_thread.start()
+        print("Started all Threads")
         # For each video spawn up a worker thread combo
         for video in tqdm(media_files, desc='Files'):
+            print(f"Processing {video}")
             image_path = os.path.join(args.img_base_dir, video)
             video_id, frame = get_videoId_frame(args, image_path)
             # Now that we have video_id and frame, we can process them
 
-            video_path="/tmp/video.mp4"
-            shutil.copyfile(image_path, video_path)
+            #print(f"Starting Copy")
+            #video_path="/tmp/video.mp4"
+            #shutil.copyfile(image_path, video_path)
+            #print(f"Finished copy")
+            video_path=image_path
             video_reader = cv2.VideoCapture(video_path)
             vid_len = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
             del video_reader
 
-            reader_thread=Process(target=process_video,
-                                  args=(video_path,
-                                        preprocess_funcs, batch_queue))
-            results_thread=Process(target=result_consumer,
-                                   args=(result_queue,))
-            reader_thread.start()
-            results_thread.start()
-
+            name_queue.put((video_path,video_id))
+            name_res_queue.put(video_path)
             # Run the Tensorflow stuff in the main thread
             image_consumer(batch_queue, result_queue, vid_len)
+            print("Consumer Exited")
 
-            reader_thread.join()
-            results_thread.join()
+        name_queue.put(None)
+        name_res_queue.put(None)
+        reader_thread.join()
+        print("Joining reader thread")
+        results_thread.join()
+        print("Joining results thread")

@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
 
 """ Script to generate detection pairs based on a configurable frame
-    delta and IOU threshold """
+    delta and IOU threshold
+
+After generating one can do something like the following to generate a
+sample of 10000 pairs to use as the upload_pairs.py script input
+
+   >>> import pandas as pd
+   >>> pairs = pd.read_csv('pairs.csv')
+   >>> sampled=pairs.sample(n=10000)
+   >>> sampled.to_csv('sampled.csv', index=False)
+
+Care should be taken to make sure a sampled set is a blend of positives and
+negatives. IoU of a pair may be able to be used to determine this:
+
+   >>> likely_not_matches = pairs.loc[pairs.iou < 0.50]
+
+"""
 
 import argparse
 import logging

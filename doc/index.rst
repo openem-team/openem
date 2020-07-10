@@ -36,6 +36,7 @@ Watch the video below to see a video of OpenEM in action:
    FAQS
    api/deployment
    pipelines
+   tracking
 
 Change Log
 ============

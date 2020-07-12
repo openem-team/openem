@@ -73,14 +73,15 @@ def process_media_file(media_element):
 
 
     for end_frame,tracklet_ends in group_by_end.items():
-        for tracklet_2 in tracklet_ends:
+        for tracklet_l in tracklet_ends:
             for start_frame,tracklet_starts in group_by_start.items():
-                for tracklet_1 in tracklet_starts:
+                for tracklet_r in tracklet_starts:
                     frame_delta = start_frame - end_frame
                     if frame_delta > 0 and  frame_delta < args.max_frame_diff:
+                        #print(f"1: {tracklet_l['id']}, 2: {tracklet_r['id']}, s={start_frame}, f={end_frame}, d={frame_delta}")
                         # Explode out localizations in each pair
-                        pairs.append({"first": ":".join([str(x) for x in tracklet_1['localizations']]),
-                                      "second": ":".join([str(x) for x in tracklet_2['localizations']]),
+                        pairs.append({"first": tracklet_l['id'],
+                                      "second": tracklet_r['id'],
                                       "media": media_element['id'],
                                       "frame_delta": frame_delta})
 
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     parser.add_argument("--media-id", help="Individual media")
     parser.add_argument("--max-frame-diff", help="Only generate pairs with a maximum frame delta",
                         type=int,
-                        default=32)
+                        default=64)
     parser.add_argument("--tracklet-type-id",
                         help="Tracklet Type ID from database",
                         required=True)
@@ -142,6 +143,7 @@ if __name__ == "__main__":
                     del pending[idx]
                     df = pd.DataFrame(columns=["first",
                                                "second",
+                                               "frame_delta",
                                                "media"],
                                       data=pairs_in_media)
                     df.to_csv(args.output_csv,

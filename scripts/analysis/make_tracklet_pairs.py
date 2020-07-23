@@ -77,7 +77,8 @@ def process_media_file(media_element):
             for start_frame,tracklet_starts in group_by_start.items():
                 for tracklet_r in tracklet_starts:
                     frame_delta = start_frame - end_frame
-                    if frame_delta > 0 and  frame_delta < args.max_frame_diff:
+                    minimum_length = min(len(tracklet_r['localizations']), len(tracklet_l['localizations']))
+                    if frame_delta > 0 and  frame_delta <= args.max_frame_diff and minimum_length >= frame_delta:
                         #print(f"1: {tracklet_l['id']}, 2: {tracklet_r['id']}, s={start_frame}, f={end_frame}, d={frame_delta}")
                         # Explode out localizations in each pair
                         pairs.append({"first": tracklet_l['id'],
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("--media-id", help="Individual media")
     parser.add_argument("--max-frame-diff", help="Only generate pairs with a maximum frame delta",
                         type=int,
-                        default=64)
+                        default=4)
     parser.add_argument("--tracklet-type-id",
                         help="Tracklet Type ID from database",
                         required=True)

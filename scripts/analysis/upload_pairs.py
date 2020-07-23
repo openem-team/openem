@@ -22,12 +22,17 @@ def upload_pair(pair, progress_bar, results):
     global count
     count += 1
     progress_bar.update(count)
+    iou = float(pair.iou)
+    match = "Unknown"
+    if args.iou_match and iou > args.iou_match:
+        match = "Yes (Whole)"
     obj = {"localization_ids" : [pair['first'], pair['second']],
            "type": args.state_type_id,
            "media_ids" : [pair['media']],
            "Species" : pair.species,
-           "IoU" : float(pair.iou),
-           "Match": "Unknown"
+           "IoU" : iou,
+           "Match": match,
+           "modified": True
     }
     if args.version_id:
         obj.update({"version": args.version_id})
@@ -42,6 +47,10 @@ if __name__ == "__main__":
     parser.add_argument("--version-id",
                         help="ID for the version to upload",
                         type=int)
+    parser.add_argument("--iou-match",
+                        help="""If supplied will assume an IoU greater than this
+                              is a match""",
+                        type=float)
     parser.add_argument("pairs_csv",
                         help="output file")
 

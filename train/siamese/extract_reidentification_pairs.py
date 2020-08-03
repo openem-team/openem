@@ -90,7 +90,7 @@ if __name__ == "__main__":
         # Output track info
         with open(os.path.join(this_track_dir, "track.json"), 'w') as fp:
             json.dump(track, fp)
-        localization_ids = track['association']['localizations']
+        localization_ids = track['localizations']
 
         if len(localization_ids) > 2:
             print(f"Track {track['id']} is more than a pair")

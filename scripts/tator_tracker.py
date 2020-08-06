@@ -86,19 +86,19 @@ if __name__=="__main__":
             frame+=1
 
         track_ids = renumber_track_ids(track_ids)
+        weights_strategy = HybridWeights(comparator,
+            None,
+            None,
+            media_shape,
+            15,
+            0.0,
+            args.batch_size)
         # Generate localization bgr based on grouped localizations
         detections, track_ids, pairs, weights, is_cut, constraints = join_tracklets(
             detections,
             track_ids,
             1,
-            comparator,
-            None,
-            None,
-            media_shape[1],
-            media_shape[0],
-            15,
-            0.0,
-            args.batch_size)
+            weights_strategy)
 
         # Now we make new track objects based on the result
         # from the graph solver

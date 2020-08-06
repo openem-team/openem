@@ -92,7 +92,7 @@ class HybridWeights:
         self.single_frame_bias = single_frame_bias
         self.batch_size = batch_size
 
-def compute(tracklets,pairs):
+    def compute(self, tracklets,pairs):
         """ CNN/RNN hybrid strategy """
         timesteps = 24
         weights = [0.0 for _ in pairs]

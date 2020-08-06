@@ -14,6 +14,8 @@ The current release also includes a training library for all OpenEM
 functionality. The library is distributed as a native Windows library and
 as a Docker image.
 
+**Documentation** is hosted at [read the docs](https://openem.readthedocs.io/en/latest/).
+
 Click the image below to see a video of OpenEM in action:
 
 [![OpenEM detection example](https://img.youtube.com/vi/EZ1Xyg_mnhM/0.jpg)](https://youtu.be/EZ1Xyg_mnhM)
@@ -27,14 +29,6 @@ The docker image can be obtained with:
 ```shell
 docker pull cvisionai/openem:latest
 ```
-
-### Contents
-
-* [Building](doc/build.md)
-* [Tutorial](doc/tutorial.md)
-* [Data Collection Guidelines](doc/data_collection.md)
-* [Annotation Guidelines](doc/annotation.md)
-* [Library reference](https://jrtcppv.bitbucket.io)
 
 [Releases]: https://github.com/openem-team/openem/releases
 

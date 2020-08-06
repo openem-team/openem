@@ -5,6 +5,7 @@ import math
 import progressbar
 
 class HybridWeights:
+    """ Method uses CNN / RNN based on number of detections present """
     def __init__(self,
                  det_comparator,
                  track_comparator,
@@ -135,3 +136,65 @@ class HybridWeights:
                 weights[g_idx] = res
 
         return weights
+
+
+class IoUWeights:
+    """ Calculate edge weight based on IoU """
+    def __init__(self):
+        pass
+
+    def _intersection_over_union(boxA, boxB):
+    """ Computes intersection over union for two bounding boxes.
+        Inputs:
+        boxA -- First box. Must be a dict containing x, y, width, height.
+        boxB -- Second box. Must be a dict containing x, y, width, height.
+        Return:
+        Intersection over union.
+    """
+    # determine the (x, y)-coordinates of the intersection rectangle
+    xA = max(int(boxA["x"]), int(boxB["x"]))
+    yA = max(int(boxA["y"]), int(boxB["y"]))
+    xB = min(int(boxA["x"]) + int(boxA["width"]),
+             int(boxB["x"]) + int(boxB["width"]))
+    yB = min(int(boxA["y"]) + int(boxA["height"]),
+             int(boxB["y"]) + int(boxB["height"]))
+
+    # compute the area of intersection rectangle
+    interX = xB - xA + 1
+    interY = yB - yA + 1
+    if interX < 0 or interY < 0:
+        iou = 0.0
+    else:
+        interArea = float((xB - xA + 1) * (yB - yA + 1))
+        # compute the area of both the prediction and ground-truth
+        # rectangles
+        boxAArea = int(boxA["width"]) * int(boxA["height"])
+        boxBArea = int(boxB["width"]) * int(boxB["height"])
+
+        # compute the intersection over union by taking the intersection
+        # area and dividing it by the sum of prediction + ground-truth
+        # areas - the interesection area
+        if float(boxAArea + boxBArea - interArea) <= 0.0:
+            return 0.00
+        try:
+            iou = interArea / float(boxAArea + boxBArea - interArea)
+        except Exception as e:
+            print(e)
+            print("interArea: {}".format(interArea))
+            print("Union: {}".format(float(boxAArea + boxBArea - interArea)))
+        # return the intersection over union value
+    return iou
+
+    def compute(self, tracklets, pairs):
+        weights = [0.0 for _ in pairs]
+        for weight_idx, (t0, t1) in bar(enumerate(pairs)):
+            # Pick the last of the 1st tracklet
+            # and the first of the 2nd tracklet
+            d0 = tracklets[t0][-1]
+            d1 = tracklets[t1][0]
+            iou = _intersection_over_union(d0, d1)
+            if iou != 0:
+                weights[weight_idx] = np.log((1.0-iou) / iou)
+            else:
+                weights[weight_idx] = 0xFFFFFFFF
+            

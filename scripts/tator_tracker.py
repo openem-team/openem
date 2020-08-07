@@ -93,13 +93,14 @@ if __name__=="__main__":
         #    15,
         #    0.0,
         #    args.batch_size)
-        weights_strategy = IoUWeights()
+        weights_strategy = IoUWeights(media_shape)
         # Generate localization bgr based on grouped localizations
-        detections, track_ids, pairs, weights, is_cut, constraints = join_tracklets(
-            detections,
-            track_ids,
-            1,
-            weights_strategy)
+        for x in [1,2,4,8,16,32,64]:
+            detections, track_ids, pairs, weights, is_cut, constraints = join_tracklets(
+                detections,
+                track_ids,
+                x,
+                weights_strategy)
 
         # Now we make new track objects based on the result
         # from the graph solver

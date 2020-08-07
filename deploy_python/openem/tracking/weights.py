@@ -140,7 +140,7 @@ class HybridWeights:
 
 class IoUWeights:
     """ Calculate edge weight based on IoU """
-    def __init__(self, vid_dims, threshold=0.50):
+    def __init__(self, vid_dims, threshold=0.20):
         self.vid_dims = vid_dims
         self.threshold = threshold
     def _intersection_over_union(self,boxA, boxB):

@@ -86,13 +86,14 @@ if __name__=="__main__":
             frame+=1
 
         track_ids = renumber_track_ids(track_ids)
-        weights_strategy = HybridWeights(comparator,
-            None,
-            None,
-            media_shape,
-            15,
-            0.0,
-            args.batch_size)
+        #weights_strategy = HybridWeights(comparator,
+        #    None,
+        #    None,
+        #    media_shape,
+        #    15,
+        #    0.0,
+        #    args.batch_size)
+        weights_strategy = IoUWeights()
         # Generate localization bgr based on grouped localizations
         detections, track_ids, pairs, weights, is_cut, constraints = join_tracklets(
             detections,

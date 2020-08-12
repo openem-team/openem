@@ -140,7 +140,7 @@ class HybridWeights:
 
 class IoUWeights:
     """ Calculate edge weight based on IoU """
-    def __init__(self, vid_dims, threshold=0.20):
+    def __init__(self, vid_dims, threshold=0.10):
         self.vid_dims = vid_dims
         self.threshold = threshold
     def _intersection_over_union(self,boxA, boxB):
@@ -207,7 +207,103 @@ class IoUWeights:
             if iou > self.threshold:
                 # threshold to 1.0 translates to 0 to 1000000
                 weights[weight_idx] = math.pow(1000000,iou)
-                print(f"{iou} --> {weights[weight_idx]}")
+            else:
+                weights[weight_idx] = -1000000
+        return weights
+
+def track_vel(track):
+    track.sort(key=lambda x:x['frame'])
+    track_len = track[-1]['frame'] - track[0]['frame']
+
+    if 'orig_x' in track[0]:
+        f_cx = track[0]['orig_x'] + (track[0]['orig_w']/2)
+        f_cy = track[0]['orig_y'] + (track[0]['orig_h']/2)
+    else:
+        f_cx = track[0]['x'] + (track[0]['width']/2)
+        f_cy = track[0]['y'] + (track[0]['height']/2)
+
+    if 'orig_x' in track[-1]:
+        l_cx = track[-1]['orig_x'] + (track[-1]['orig_w']/2)
+        l_cy = track[-1]['orig_y'] + (track[-1]['orig_h']/2)
+    else:
+        l_cx = track[-1]['x'] + (track[-1]['width']/2)
+        l_cy = track[-1]['y'] + (track[-1]['height']/2)
+
+    print(f"{track[0]['frame']}: {f_cx},{f_cy} to {l_cx,l_cy}")
+    x_vel = (l_cx-f_cx)  / track_len
+    y_vel = (l_cy - f_cy) / track_len
+    magnitude=math.sqrt(math.pow(x_vel,2)+math.pow(y_vel,2))
+    if magnitude <= 0.00001:
+        magnitude = 0
+        angle = 0
+        x_vel = 0
+        y_vel = 0
+    else:
+        angle = math.atan2(y_vel, x_vel)
+    return (angle, magnitude,[x_vel,y_vel])
+
+class IoUMotionWeights(IoUWeights):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def size_similarity(self, track1, track2):
+        if 'orig_h' in track1[-1]:
+            area_1 = track1[-1]['orig_w'] * track1[-1]['orig_h']
+        else:
+            area_1 = track1[-1]['width'] * track1[-1]['height']
+        if 'orig_w' in track2[0]:
+            area_2 = track2[0]['orig_w'] * track2[0]['orig_h']
+        else:
+            area_2 = track2[0]['width'] * track2[0]['height']
+        return 1.0 - (abs(area_1-area_2)/area_2)
+
+    def motion_similarity(self,track1,track2):
+        if len(track1) < 4 or len(track2) < 4:
+            return 0.0
+
+        track1.sort(key=lambda r:r['frame'])
+        track2.sort(key=lambda r:r['frame'])
+        frame = 0
+        for t in track1:
+            if t['frame'] < frame:
+                print("Out of order detections")
+            else:
+                frame = t['frame']
+
+        track1_vel = track_vel(track1)
+        track2_vel = track_vel(track2)
+
+        angle_diff = math.atan2(math.sin(track1_vel[0]-track2_vel[0]),math.cos(track1_vel[0]-track2_vel[0]))
+        angle_diff /= math.pi * 2
+        if angle_diff >= 0.25:
+            score = -1.0
+        elif angle_diff >= 0.05:
+            score = 1.0 - angle_diff
+        else:
+            score = 1.0
+        print(f"{track1_vel}, {track2_vel}: Angle_diff = {angle_diff}. Velocity score = {score}")
+        return score
+    def compute(self, tracklets, pairs):
+        weights = [0.0 for _ in pairs]
+        for weight_idx, (t0, t1) in enumerate(pairs):
+            # Pick the last of the 1st tracklet
+            # and the first of the 2nd tracklet
+            tracklets[t0].sort(key=lambda x:x['frame'])
+            tracklets[t1].sort(key=lambda x:x['frame'])
+            d0 = tracklets[t0][-1]
+            d1 = tracklets[t1][0]
+            iou = self._intersection_over_union(d0, d1)
+            iou = min(iou,1.0)
+            if iou > self.threshold:
+                motion = self.motion_similarity(tracklets[t0],tracklets[t1])
+                size = self.size_similarity(tracklets[t0], tracklets[t1])
+                # threshold to 1.0 translates to 0 to 1000000
+                if motion >= 0:
+                    weights[weight_idx] = math.pow(1000000,(iou*0.25)+(motion*0.50)+(size*0.25))
+                else:
+                    # If motion is rejected, discard the edge
+                    weights[weight_idx] = -1000000
+                print(f"m:{motion} i:{iou} s:{size} -> {weights[weight_idx]}")
             else:
                 weights[weight_idx] = -1000000
         return weights

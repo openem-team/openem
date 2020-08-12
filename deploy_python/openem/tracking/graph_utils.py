@@ -59,7 +59,8 @@ def _find_edge_pairs(tracklets, max_frame_diff):
     for tid1, start in enumerate(start_frames):
         diffs = start - stop_frames
         max_diffs = np.clip(length_based_max_diffs, 0, length_based_max_diffs[tid1])
-        tid0 = np.argwhere(np.logical_and(diffs > 0, diffs <= max_diffs))
+        # TODO: Make this parameterized from strategy
+        tid0 = np.argwhere(np.logical_and(diffs > 0, diffs <= max_frame_diff)) #diffs <= max_diffs))
         pairs += [(t[0], tid1) for t in tid0]
     return pairs
 
@@ -122,4 +123,3 @@ def join_tracklets(
     new_dets, new_ids = _tracklets_to_ids(tracklets, arg)
     print(f"{datetime.now()}: Iteration complete!")
     return (new_dets, new_ids, pairs, weights, is_cut, constraints)
-

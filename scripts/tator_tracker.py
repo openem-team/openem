@@ -124,8 +124,6 @@ def trim_tracklets(detections, track_ids, max_length):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     pytator.tator.cli_parser(parser)
-    parser.add_argument("--model-file", type=str, required=True)
-    parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--detection-type-id", type=int, required=True)
     parser.add_argument("--tracklet-type-id", type=int, required=True)
     parser.add_argument("--version-number", type=int)
@@ -133,6 +131,12 @@ if __name__=="__main__":
     parser.add_argument("--strategy-config", type=str)
     parser.add_argument('media_files', type=str, nargs='+')
     args = parser.parse_args()
+
+    # Weight methods
+    methods = ['hybrid', 'iou', 'iou-motion']
+
+    # Weight methods that require the video
+    visual_methods = ['hybrid']
 
     tator = pytator.Tator(args.url, args.token, args.project)
     version_id = None
@@ -161,7 +165,9 @@ if __name__=="__main__":
         strategy = default_strategy
 
     if strategy['method'] == 'hybrid':
-        comparator=FeaturesComparator(args.model_file)
+        model_file = strategy['args']['model_file']
+        batch_size = strategy['args'].get('batch_size', 4)
+        comparator=FeaturesComparator(model_file)
         #extractor=FeaturesExtractor(args.model_file)
 
     print("Strategy: ")
@@ -185,31 +191,38 @@ if __name__=="__main__":
             else:
                 localizations_by_frame[frame] = [local]
 
-        # TODO extract appearance here instead
-        # TODO optimize for non video processing tracking
-        # methods (e.g. IoU only with motion)
-        vid=cv2.VideoCapture(media_file)
-        ok=True
-        frame = 0
-        media_shape = None
         detections=[]
         track_ids=[]
         track_id=1
-        fps = vid.get(cv2.CAP_PROP_FPS)
-        while ok:
-            ok,frame_bgr = vid.read()
-            if media_shape is None:
-                media_shape = frame_bgr.shape
-            if frame in localizations_by_frame:
-                for l in localizations_by_frame[frame]:
-                    if strategy['method'] == 'hybrid':
-                        l['bgr'] = crop_localization(frame_bgr, l)
-                    if l['attributes']['Confidence'] < 0.50:
-                        continue
-                    detections.append(l)
+
+        media = tator.Media.get(media_id)
+        media_shape = (media['height'], media['width'])
+        fps = media['fps']
+
+        if strategy['method'] in visual_methods:
+            vid=cv2.VideoCapture(media_file)
+            ok=True
+            frame = 0
+            while ok:
+                ok,frame_bgr = vid.read()
+                if frame in localizations_by_frame:
+                    for l in localizations_by_frame[frame]:
+                        if strategy['method'] == 'hybrid':
+                            l['bgr'] = crop_localization(frame_bgr, l)
+                        if l['attributes']['Confidence'] < 0.50:
+                            continue
+                        detections.append(l)
+                        track_ids.append(track_id)
+                        track_id += 1
+                frame+=1
+        else:
+            # The method is analytical on the detections coordinates
+            # and does not require processing the video
+            for frame,detections in localizations_by_frame.items():
+                for det in detections:
+                    detections.append(det)
                     track_ids.append(track_id)
-                    track_id += 1
-            frame+=1
+                    track_ids += 1
 
         track_ids = renumber_track_ids(track_ids)
 
@@ -220,7 +233,7 @@ if __name__=="__main__":
                                              media_shape,
                                              fps,
                                              0.0,
-                                             args.batch_size)
+                                             batch_size)
         elif strategy['method'] == 'iou':
             weights_strategy = IoUWeights(media_shape, **strategy['args'])
         elif strategy['method'] == 'iou-motion':

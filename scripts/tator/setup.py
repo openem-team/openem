@@ -25,7 +25,10 @@ if __name__ == '__main__':
     else:
         pipeline_args = {}
     tator=pytator.Tator(rest_svc, token, project_id)
-    
+
+    if not os.path.exists(work_dir):
+        os.mkdir(work_dir)
+
     work_filepath=os.path.join(work_dir, "work.csv")
     try:
         os.remove(work_filepath)
@@ -34,23 +37,25 @@ if __name__ == '__main__':
 
     # Download the network coefficients
     # Image stores coeffients in "/network" folder
-    client=docker.from_env()
-    image=client.images.pull(pipeline_args['data_image'])
-    container=client.containers.create(pipeline_args['data_image'])
-    bits, stats = container.get_archive("/network")
-    network_tar = os.path.join(work_dir, "network.tar") 
-    with open(network_tar, 'wb') as tar_file:
-        for chunk in bits:
-            tar_file.write(chunk)
+    if 'data_image' in pipeline_args:
+        client=docker.from_env()
+        image=client.images.get(pipeline_args['data_image'])
+        container=client.containers.create(pipeline_args['data_image'])
+        bits, stats = container.get_archive("/network")
+        network_tar = os.path.join(work_dir, "network.tar")
+        with open(network_tar, 'wb') as tar_file:
+            for chunk in bits:
+                tar_file.write(chunk)
 
-    with tarfile.TarFile(network_tar) as tar_file:
-        print(tar_file.getmembers())
-        tar_file.extract("network/graph.pb", work_dir)
-        tar_file.extract("network/train.ini", work_dir)
+        with tarfile.TarFile(network_tar) as tar_file:
+            print(tar_file.getmembers())
+            tar_file.extract("network/graph.pb", work_dir)
+            tar_file.extract("network/train.ini", work_dir)
 
-    container.remove()
+        container.remove()
+
     # First write CSV header
-    cols=['media']
+    cols=['media','media_id']
     work_frame=pd.DataFrame(columns=cols)
     work_frame.to_csv(work_filepath, index=False)
 
@@ -63,12 +68,12 @@ if __name__ == '__main__':
         media_elements.extend(tator.Media.filter({"media_id":
                                                   ','.join(str_ids)}))
         count+=chunk
-        
+
     print(f"Starting on {work_filepath}")
     for media_id,media in zip(media_ids,media_elements):
         media_unique_name = f"{media['id']}_{media['name']}"
         media_filepath = os.path.join(work_dir,media_unique_name)
-        data={'media': media_filepath}
+        data={'media': media_filepath, 'media_id': media_id}
         print(f"Downloading {media['name']} to {media_filepath}")
         tator.Media.downloadFile(media, media_filepath)
         if not os.path.exists(media_filepath):

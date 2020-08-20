@@ -371,7 +371,7 @@ def process_media(
 
     media = tator_api.get_media(id=media_id)
 
-    # Grab the first localization type that is a box. It's assumed that this project
+    # Grab the localization type that is a box. It's assumed that this project
     # has been set up to only have one localization box type (that will be the detections)
     detection_type_id = None
     box_type_counts = 0
@@ -537,7 +537,7 @@ def parse_args():
     parser = tator.get_parser()
     parser.add_argument('--url', type=str, help='URL to rest service.')
     parser.add_argument('--media', type=int, help='Media ID of video to create tracks.')
-    parser.add_argument('--csv', type=int, help='.csv file with local_media_file, media_id')
+    parser.add_argument('--csv', type=str, help='.csv file with local_media_file, media_id')
     parser.add_argument('--gid', type=str, help='Group ID for sending progress.')
     parser.add_argument('--uid', type=str, help='Job ID for sending progress.')
     parser.add_argument('--max-coast-age', type=int, help='Maximum track coast age', default=5)

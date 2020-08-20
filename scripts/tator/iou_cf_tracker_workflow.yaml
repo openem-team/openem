@@ -1,0 +1,76 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: track-detections-iou-cf-
+spec:
+  entrypoint: pipeline
+  arguments:
+    parameters:
+    - name: media_ids
+    - name: rest_url
+    - name: rest_token
+    - name: project_id
+  ttlStrategy:
+    secondsAfterSuccess: 300
+    secondsAfterFailure: 86400
+  volumeClaimTemplates:
+  - metadata:
+      name: workdir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: nfs-client
+      resources:
+        requests:
+          storage: 20Gi
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+  templates:
+  - name: pipeline
+    steps:
+    - - name: setup
+        template: setup
+    - - name: worker
+        template: worker
+  - name: setup
+    container:
+      image: cvisionai/openem_lite:redact
+      resources:
+        limits:
+          cpu: 250m
+          memory: 1024Mi
+      env:
+      - name: TATOR_MEDIA_IDS
+        value: "{{workflow.parameters.media_ids}}"
+      - name: TATOR_API_SERVICE
+        value: "{{workflow.parameters.rest_url}}"
+      - name: TATOR_AUTH_TOKEN
+        value: "{{workflow.parameters.rest_token}}"
+      - name: TATOR_PROJECT_ID
+        value: "{{workflow.parameters.project_id}}"
+      - name: TATOR_WORK_DIR
+        value: "/work"
+      volumeMounts:
+      - name: workdir
+        mountPath: /work
+      - name: dockersock
+        mountPath: /var/run/docker.sock
+      command: [python3]
+      args: ["/scripts/tator/setup.py"]
+  - name: worker
+    container:
+      image: cvisionai/openem_lite:redact
+      imagePullPolicy: Always
+      command: [python3]
+      args: ["/scripts/iou_correlation_filter_tracker.py",
+             "--url", "{{workflow.parameters.rest_url}}",
+             "--token", "{{workflow.parameters.rest_token}}",
+             "--csv", "/work/work.csv",
+             "--gid", "{{workflow.parameters.gid}}",
+             "--uid", "{{workflow.parameters.uid}}",
+             "--max-coast-age", "5",
+             "--association-threshold", "0.1"]
+      volumeMounts:
+      - name: workdir
+        mountPath: /work

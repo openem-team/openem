@@ -39,7 +39,10 @@ if __name__ == '__main__':
     # Image stores coeffients in "/network" folder
     if 'data_image' in pipeline_args:
         client=docker.from_env()
-        image=client.images.get(pipeline_args['data_image'])
+        try:
+           image=client.images.pull(pipeline_args['data_image'])
+        except:
+           image=client.images.get(pipeline_args['data_image']) 
         container=client.containers.create(pipeline_args['data_image'])
         bits, stats = container.get_archive("/network")
         network_tar = os.path.join(work_dir, "network.tar")

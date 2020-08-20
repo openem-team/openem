@@ -15,7 +15,7 @@ if __name__=="__main__":
             "--token", os.getenv("TATOR_AUTH_TOKEN"),
             "--csv", work_csv_file,
             "--max-coast-age", "5",
-            "--association-threshold", "0.4"]
+            "--association-threshold", "0.1"]
 
     cmd = " ".join(args)
     print(f"Track Command = '{cmd}'")

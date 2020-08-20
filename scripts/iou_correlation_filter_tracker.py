@@ -189,19 +189,36 @@ class Track():
 
             # Update the tracker with the current image and see if tracking is successful
             ret, roi = self.tracker.update(current_image)
-            if ret:
-                # Create the new detection for this coasted frame and add it
-                # to the detection list
-                new_detection = Detection(
-                    frame=frame,
-                    x=roi[0],
-                    y=roi[1],
-                    width=roi[2],
-                    height=roi[3],
-                    det_id=None)
-                self.detection_list.append(new_detection)
 
-            else:
+            create_new_detection = False
+
+            if ret:
+                # First verify the dimensions are ok / make sense
+                image_width = current_image.shape[1]
+                image_height = current_image.shape[0]
+                logger.info(f"Frame: {frame} tracker update - image (w,h) {image_width} {image_height} roi (x,y,w,h) {roi}")
+                x = roi[0]
+                y = roi[1]
+                width = roi[2]
+                height = roi[3]
+                dimensions_ok = width > 0 and height > 0 and width <= image_width and height <= image_height and x < image_width and y < image_height
+
+                if dimensions_ok:
+                    # Create the new detection for this coasted frame and add it
+                    # to the detection list
+                    x = 0 if x < 0 else x
+                    y = 0 if y < 0 else y
+                    new_detection = Detection(
+                        frame=frame,
+                        x=x,
+                        y=y,
+                        width=width,
+                        height=height,
+                        det_id=None)
+                    self.detection_list.append(new_detection)
+                    create_new_detection = True
+
+            if not create_new_detection:
                 # Uh oh, tracker failed with the update. This track is now dead.
                 self.coast_age = self.max_coast_age
 
@@ -496,8 +513,8 @@ def process_media(
                 x = 0.0 if det.x < 0 else det.x / media.width
                 y = 0.0 if det.y < 0 else det.y / media.height
 
-                width = det.width - det.x if det.x + det.width > media.width else det.width
-                height = det.height - det.y if det.y + det.height > media.height else det.height
+                width = det.width - x if x + det.width > media.width else det.width
+                height = det.height - y if y + det.height > media.height else det.height
                 width = width / media.width
                 height = height / media.height
 

@@ -36,6 +36,7 @@ spec:
   - name: setup
     container:
       image: cvisionai/openem_lite:redact
+      imagePullPolicy: Always
       resources:
         limits:
           cpu: 250m

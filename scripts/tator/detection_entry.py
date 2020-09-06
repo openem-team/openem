@@ -35,6 +35,9 @@ if __name__=="__main__":
             '--batch-size', str(batch_size),
             '/work/work.csv' ]
 
+    if pipeline_args.get('cpu_only',False):
+        args.insert(len(args)-1,'--cpu_only')
+
     cmd = " ".join(args)
     print(f"Inference Command = '{cmd}'")
     p=subprocess.Popen(args)

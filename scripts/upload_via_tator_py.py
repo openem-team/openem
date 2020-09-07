@@ -88,8 +88,8 @@ def main():
             x = 0.0 if det.x < 0 else det.x / media.width
             y = 0.0 if det.y < 0 else det.y / media.height
 
-            width = det.w - det.x if det.x + det.w > media.width else det.w
-            height = det.h - det.y if det.y + det.h > media.height else det.h
+            width = media.width - det.x if det.x + det.w > media.width else det.w
+            height = media.height - det.y if det.y + det.h > media.height else det.h
             width = width / media.width
             height = height / media.height
 

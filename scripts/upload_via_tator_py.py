@@ -83,6 +83,7 @@ def main():
         det_df = input_data[input_data.video_id == local_media_name]
         print(f"...Number of detections to upload: {len(det_df)}")
 
+        dets = []
         for idx, det in det_df.iterrows():
 
             x = 0.0 if det.x < 0 else det.x / media.width
@@ -107,9 +108,12 @@ def main():
                 height=height,
                 **attributes)
 
-            response = tator_api.create_localization_list(
-                project=media.project,
-                localization_spec=[detection_spec])
+            dets.append(detection_spec)
+            
+        created_ids = []
+        for response in tator.util.chunked_create(api.create_localization_list, project=media.project,
+                                                localization_spec=dets):
+            created_ids += response.id
 
     print("fin.")
 

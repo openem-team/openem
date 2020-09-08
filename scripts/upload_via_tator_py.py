@@ -109,9 +109,9 @@ def main():
                 **attributes)
 
             dets.append(detection_spec)
-            
+
         created_ids = []
-        for response in tator.util.chunked_create(api.create_localization_list, project=media.project,
+        for response in tator.util.chunked_create(tator_api.create_localization_list, project=media.project,
                                                 localization_spec=dets):
             created_ids += response.id
 

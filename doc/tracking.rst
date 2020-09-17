@@ -18,19 +18,28 @@ each be a tracklet containing 1 detection.
 
 Each stage of the loop executes a graph-based algorithm that solves which
 tracklets to join based on the weights associated with each edge in the graph.
-More than 2 edges can be joined in 1 iteration of the graph reduction.
-There are an infinite number of ways to calculate weights of each edge. The
-ones supported in openEM are the following:
+More than 2 edges can be joined in 1 iteration of the graph edge contraction.
+There are an infinite number of ways to calculate weights of each edge. OpenEM
+supports edge weight methods using ML/AI or traditional computational  methods.
 
 Recursive graph solving overview
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-<TBD> Discuss graph solving algorithm. Discuss how iteration a bit. Define
-weights.
 
-Simple IOU
+.. figure:: https://user-images.githubusercontent.com/47112112/93521707-72d27c00-f8fe-11ea-8e10-cf77ab76e5de.png
+
+   The graph edge contraction above shows the contraction of four tracks into
+   one via iterative contraction. The weights of the graph are qualatatively
+   shown as the width of the line connecting each graph edge.
+
+
+
+Simple IoU
 ^^^^^^^^^^
-<TBD>
+
+.. figure:: https://upload.wikimedia.org/wikipedia/commons/c/c7/Intersection_over_Union_-_visual_equation.png
+
+   Graphical depiction of intersection over union (IoU). Adrian Rosebrock / CC BY-SA (https://creativecommons.org/licenses/by-sa/4.0)
 
 Directional
 ^^^^^^^^^^^

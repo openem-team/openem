@@ -28,6 +28,13 @@ Versions 0.1.3 and later of OpenEM do not have a hard requirement of using
 the supplied docker image. It is possible to install the openem deployment
 library outside of docker. 
 
+```shell
+$> cd deploy_python
+$> pip3 install .
+$> python3
+%python3> import openem
+```
+
 ## Legacy Image (with C++ inference library) 
 The docker image has only been built on Ubuntu 18.04 LTS. If you simply want
 to use the docker image you can get the latest release with:

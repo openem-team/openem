@@ -14,13 +14,33 @@ FROM nvcr.io/nvidia/l4t-base:r32.3.1
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libsm6 libxext6 \
-    libxrender-dev python3-pip && \
+    libxrender-dev python3-pip software-properties-common \
+    libboost-python-dev && \
     rm -fr /var/lib/apt/lists/*
 
 % if multiArch.arch == "x86_64":
-RUN pip3 install --no-cache-dir --upgrade pip
-RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2
+
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+RUN add-apt-repository "deb [arch=amd64] \
+      https://download.docker.com/linux/ubuntu \
+      $(lsb_release -cs) \
+      stable"
+RUN apt-get install -y --no-install-recommends docker-ce \
+            docker-ce-cli containerd.io && rm -fr /var/lib/apt/lists/*
+
+RUN python3 -m pip install --no-cache-dir --upgrade pip
+RUN echo "force 0.1.4"
+RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 pytator>=0.1.4 docker>=4.2.0 tables>=3.6.1 natsort>=7.0.1
 % elif multiArch.arch == "aarch64":
+
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+RUN add-apt-repository "deb [arch=arm64] \
+      https://download.docker.com/linux/ubuntu \
+      $(lsb_release -cs) \
+      stable"
+RUN apt-get install -y --no-install-recommends docker-ce \
+            docker-ce-cli containerd.io && rm -fr /var/lib/apt/lists/*
+
 # ARM64 needs to have tensorflow installed
 # https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html
 # Release notes for version info to tie x86 container to jetpack release:
@@ -97,10 +117,19 @@ RUN rm -fr protobuf_build
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3-pandas python3-tqdm  && \
+    python3-pandas python3-tqdm && \
     rm -fr /var/lib/apt/lists/*
 
 % endif
+
+# Graph solver
+WORKDIR /
+RUN git clone https://github.com/cvisionai/graph.git && git -C graph checkout 35dc69c9ab25639
+RUN mkdir -p /graph/build
+WORKDIR /graph/build
+RUN cmake ..
+RUN make
+RUN make -j8 install
 
 COPY deploy_python /openem
 WORKDIR /openem

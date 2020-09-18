@@ -13,8 +13,7 @@ class SSDDetector(ImageModel):
     preprocessor=Preprocessor(1.0,
                               np.array([-103.939,-116.779,-123.68]),
                               False)
-    _imageSizes = None
-    def addImage(self, image):
+    def addImage(self, image, cookie=None):
         """ Add an image to process in the underlying ImageModel after
             running preprocessing on it specific to this model.
 
@@ -22,10 +21,10 @@ class SSDDetector(ImageModel):
                    add to the model's current batch.
 
         """
-        if self._imageSizes is None:
-            self._imageSizes = []
-        self._imageSizes.append(image.shape)
-        return self._addImage(image, self.preprocessor)
+        if cookie is None:
+            cookie = {}
+        cookie.update({"size": image.shape})
+        return self._addImage(image, self.preprocessor, cookie)
 
     def process(self):
         """ Runs network to find fish in batched images by performing object
@@ -33,14 +32,14 @@ class SSDDetector(ImageModel):
 
         Returns a list of Detection (or None if batch is empty)
         """
-        batch_result = super(SSDDetector, self).process()
+        batch_result, cookies = super(SSDDetector, self).process()
         if batch_result is None:
             return batch_result
 
         batch_detections=[]
         # Split out the tensor into bounding bboxes per image
         for image_idx,image_result in enumerate(batch_result):
-            image_dims=self._imageSizes[image_idx]
+            image_dims=cookies[image_idx]["size"]
             pred_stop = 4
             conf_stop = image_result.shape[1] - 8
             anc_stop = conf_stop + 4
@@ -77,8 +76,7 @@ class SSDDetector(ImageModel):
             detections.sort(key=get_confidence, reverse=True)
 
             batch_detections.append(detections)
-        # Clean up scale factors and return the list
-        self._imageSizes = None
+
         return batch_detections
 def decodeBoxes(loc, anchors, variances, img_size):
     """ Decodes bounding box from network output

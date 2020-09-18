@@ -48,6 +48,13 @@ class ConfigInterface:
                 raise ValueError(msg)
         self._num_classes = len(self._species) + 1
 
+    def tensorboard_port(self):
+        """ Returns the backbone for retinanet to use """
+        if self.config.has_option('Tensorboard', 'Port'):
+            return self.config.get('Tensorboard', 'Port')
+        else:
+            return 10000
+
     def model_dir(self):
         """Gets model directory.
         """
@@ -157,6 +164,37 @@ class ConfigInterface:
         """Returns initial epoch for find ruler training.
         """
         return self.config.getint('FindRuler', 'InitialEpoch')
+
+    def find_ruler_steps_per_epoch(self):
+        """Returns steps per epoch for ruler training if the key exists,
+           otherwise returns a default of 100.
+        """
+        steps_per_epoch = 100
+        if self.config.has_option('FindRuler', 'StepsPerEpoch'):
+            steps_per_epoch = self.config.getint('FindRuler', 'StepsPerEpoch')
+        return steps_per_epoch
+
+    def find_ruler_num_channels(self):
+        """Returns how many channels to include in model/input.
+        """
+        num_channels = 3
+        if self.config.has_option('FindRuler', 'NumChannels'):
+            num_channels = self.config.getint('FindRuler', 'NumChannels')
+        return num_channels
+
+    def find_ruler_save_masks(self):
+        """Returns whether to save output masks during inference.
+        """
+        save_masks = False
+        if self.config.has_option('FindRuler', 'SaveMasks'):
+            save_masks = self.config.getboolean('FindRuler', 'SaveMasks')
+        return save_masks
+
+    def detect_patience(self):
+        try:
+            return self.config.getint('Detect', 'LR_Patience')
+        except:
+            return None
 
     def detect_width(self):
         """Returns width of ROI used for detection.
@@ -405,10 +443,15 @@ class ConfigInterface:
         """
         return os.path.join(self.work_dir(), 'train_dets')
 
+    def predict_masks_dir(self):
+        """Returns path to generated mask images directory.
+        """
+        return os.path.join(self.work_dir(), 'predict_masks')
+
     def train_imgs(self):
         """Returns list of all training images.
         """
-        patt = os.path.join(self.train_imgs_dir(), '**', '*.jpg')
+        patt = os.path.join(self.train_imgs_dir(), '**', '*.png')
         return glob.glob(patt, recursive=True)
 
     def num_frames_path(self):

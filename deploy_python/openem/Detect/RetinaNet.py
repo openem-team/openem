@@ -6,6 +6,7 @@ from openem.models import ImageModel
 
 import cv2
 import math
+import copy
 
 from openem.Detect import Detection
 from openem.image import force_aspect
@@ -35,7 +36,7 @@ class RetinaNetPreprocessor:
         return resized_image
 
 class RetinaNetDetector(ImageModel):
-    def __init__(self, modelPath, meanImage=None, gpuFraction=1.0, imageShape=(360,720)):
+    def __init__(self, modelPath, meanImage=None, gpuFraction=1.0, imageShape=(360,720), **kwargs):
         """ Initialize the RetinaNet Detector model
         modelPath: str
                    path-like object to frozen pb graph
@@ -46,10 +47,12 @@ class RetinaNetDetector(ImageModel):
                    (height, width) of the image to feed into the detector network.
         """
         super(RetinaNetDetector,self).__init__(modelPath,
-                                               gpuFraction,
-                                               'input_1:0',
-                                               'nms/map/TensorArrayStack/TensorArrayGatherV3:0')
-        self.input_shape[1:3] = imageShape
+                                               image_dims=imageShape,
+                                               gpu_fraction=gpuFraction,
+                                               input_name='input_1:0',
+                                               output_name='nms/map/TensorArrayStack/TensorArrayGatherV3:0',
+                                               **kwargs)
+        self.input_shape[1:3] = imageShape[:2]
 
         self.image_shape = imageShape
         self.network_aspect = imageShape[1] / imageShape[0]
@@ -61,32 +64,30 @@ class RetinaNetDetector(ImageModel):
         else:
             self.preprocessor=RetinaNetPreprocessor(meanImage=None)
 
-        self._imageSizes = None
-
-    def addImage(self, image):
-        if self._imageSizes is None:
-            self._imageSizes = []
-
+    def addImage(self, image, cookie=None):
         # Determine the actual shape of the image as it goes into the network
         # To account for padding to aspect ratio
         img_height = image.shape[0]
         img_width = image.shape[1]
         img_aspect = img_width / img_height
         if math.isclose(img_aspect, self.network_aspect):
-            self._imageSizes.append(image.shape)
+            img_size = image.shape[:2]
         elif img_aspect < self.network_aspect:
             #Image is boxer than we want
             new_width = round(img_height * self.network_aspect)
-            self._imageSizes.append((img_height, new_width))
+            img_size = (img_height, new_width)
         else:
             new_height = round(img_width / self.network_aspect)
-            self._imageSizes.append((new_height,img_width))
+            img_size = (new_height,img_width)
+
+        if cookie is None:
+            cookie = {}
+        cookie.update({"size": img_size})
         return super(RetinaNetDetector, self)._addImage(image,
-                                                        self.preprocessor)
+                                                        self.preprocessor,
+                                                        cookie)
 
-    def process(self, threshold=0.0, **kwargs):
-        detections = super(RetinaNetDetector,self).process()
-
+    def format_results(self, detections, sizes, threshold, **kwargs):
         # clip to image shape
         detections[:, :, 0] = np.maximum(0, detections[:, :, 0])
         detections[:, :, 1] = np.maximum(0, detections[:, :, 1])
@@ -98,8 +99,8 @@ class RetinaNetDetector(ImageModel):
             # correct boxes for image scale
             # Keep in mind there is a shift here potentially to force
             # an aspect ratio.
-            h_scale = self.image_shape[0] / self._imageSizes[idx][0]
-            w_scale = self.image_shape[1] / self._imageSizes[idx][1]
+            h_scale = self.image_shape[0] / sizes[idx][0]
+            w_scale = self.image_shape[1] / sizes[idx][1]
 
             detections[idx, :, 0] /= w_scale
             detections[idx, :, 1] /= h_scale
@@ -125,10 +126,10 @@ class RetinaNetDetector(ImageModel):
             image_detections=[]
             for detection in detections[img_idx, ...]:
                 label = int(detection[4])
-                confidence = float(detection[5+label])
-                if confidence > threshold:
+                max_confidence = detection[5+label]
+                if max_confidence >= threshold:
                     detection = Detection(location=detection[:4].tolist(),
-                                          confidence=confidence,
+                                          confidence=detection[5:].tolist(),
                                           # OpenEM uses 1-based indexing
                                           species=label+1,
                                           frame=this_frame,
@@ -136,5 +137,4 @@ class RetinaNetDetector(ImageModel):
                     image_detections.append(detection)
             results.append(image_detections)
 
-        self._imageSizes = None
         return results

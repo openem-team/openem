@@ -237,10 +237,16 @@ def train(config):
     else:
         print("Detected Species.csv in training dir")
 
-    train_annotations=pd.read_csv(annotations_csv)
-    steps_per_epoch = len(train_annotations) / config.detect_batch_size()
+    train_annotations=pd.read_csv(annotations_csv, header=None, names=['vid_id', 'x1','y1','x2','y2', 'species'])
+    unique_videos = train_annotations['vid_id'].unique()
+    steps_per_epoch = len(unique_videos) / config.detect_batch_size()
+    if not os.path.exists(snapshot_dir):
+        os.makedirs(snapshot_dir)
+
     steps_per_epoch = int(np.floor(steps_per_epoch))
     print("Calculated steps per epoch = {steps_per_epoch}")
+    os.makedirs(snapshot_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
     args = ['python',
             '/keras_retinanet/scripts/train.py',
             '--train-img-dir',
@@ -262,6 +268,11 @@ def train(config):
         args.extend(['--backbone',
                      backbone])
 
+    patience = config.detect_patience()
+    if patience:
+        args.extend(['--lr-patience',
+                     str(patience)])
+
     args.extend(['csv',
                  annotations_csv,
                  species_csv])
@@ -279,6 +290,21 @@ def train(config):
 
     cmd = " ".join(args)
     print(f"Command = {cmd}")
+    p=subprocess.Popen(args)
+    p.wait()
+    return p.returncode
+
+def tensorboard(config):
+    work_dir = config.work_dir()
+    retinanet_dir = os.path.join(work_dir, "retinanet")
+    log_dir = os.path.join(retinanet_dir, "train_log")
+    port = config.tensorboard_port()
+
+    args=['tensorboard',
+          '--logdir',
+          log_dir,
+          '--port',
+          str(port)]
     p=subprocess.Popen(args)
     p.wait()
     return p.returncode

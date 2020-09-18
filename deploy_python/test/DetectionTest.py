@@ -25,7 +25,7 @@ class DetectionTest(tf.test.TestCase):
         ]
 
     def test_correctness(self):
-        finder=SSDDetector(self.pb_file)
+        finder=SSDDetector(self.pb_file, batch_size=len(self.images))
         for idx,image in enumerate(self.images):
             image_data=cv2.imread(os.path.join(self.ruler_dir,
                                   image))

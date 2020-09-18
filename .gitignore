@@ -5,3 +5,4 @@ config/inference.gen
 config/arm_packages/*
 *~
 \#*\#
+*.swp

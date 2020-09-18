@@ -49,6 +49,7 @@ def main():
         "retinanet_split: Split file into train/validation. (Retinanet)\n"
         "retinanet_train: Train algorithm to detect fish. (Retinanet)\n"
         "retinanet_predict: Predict fish locations for extracted ROIs. (R)\n"
+        "retinanet_tboard: Run tensorboard for retinanet training \n"
         "extract_dets: Use predicted fish locations to extract detections.\n"
         "classify_train: Train algorithm to classify fish.\n"
         "classify_predict: Predict fish species for extracted detections.\n"
@@ -100,6 +101,10 @@ def main():
     if args.task == 'retinanet_predict':
         from openem_train import retinanet
         retinanet.predict(config)
+
+    if args.task == "retinanet_tboard":
+        from openem_train import retinanet
+        retinanet.tensorboard(config)
 
     if args.task == 'extract_dets':
         from openem_train import preprocess

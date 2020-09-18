@@ -75,7 +75,7 @@ class ClassifyTest(tf.test.TestCase):
                      np.array([4.0183782e-05, 2.6267747e-04, 9.9969721e-01])]
 
     def test_correctness(self):
-        finder=Classifier(self.pb_file)
+        finder=Classifier(self.pb_file, batch_size=len(self.images))
         for idx,image in enumerate(self.images):
             image_data=cv2.imread(os.path.join(self.ruler_dir,
                                   image))

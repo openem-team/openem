@@ -23,6 +23,7 @@ import sys
 from collections import defaultdict
 import pandas as pd
 import numpy as np
+import cv2
 
 def _save_model(config, model):
     """Loads best weights and converts to protobuf file.
@@ -47,7 +48,7 @@ def train(config):
     # Import keras.
     from keras.callbacks import ModelCheckpoint
     from keras.callbacks import TensorBoard
-    from keras.callbacks import LearningRateScheduler
+    from keras.callbacks import ReduceLROnPlateau
     from openem_train.unet.unet import unet_model
     from openem_train.unet.unet_dataset import UnetDataset
     from openem_train.util.utils import find_epoch
@@ -58,8 +59,13 @@ def train(config):
     os.makedirs(tensorboard_dir, exist_ok=True)
 
     # Build the unet model.
+    num_channels = config.find_ruler_num_channels()
     model = unet_model(
-        input_shape=(config.find_ruler_height(), config.find_ruler_width(), 3)
+        input_shape=(
+            config.find_ruler_height(),
+            config.find_ruler_width(),
+            num_channels,
+        )
     )
 
     # If initial epoch is nonzero we load the model from checkpoints 
@@ -74,18 +80,6 @@ def train(config):
 
     # Set up dataset interface.
     dataset = UnetDataset(config)
-
-    # Define learning rate schedule.
-    def schedule(epoch):
-        if epoch < 10:
-            return 1e-3
-        if epoch < 25:
-            return 2e-4
-        if epoch < 60:
-            return 1e-4
-        if epoch < 80:
-            return 5e-5
-        return 2e-5
 
     # Set trainable layers.
     for layer in model.layers:
@@ -110,13 +104,20 @@ def train(config):
         write_graph=False,
         write_images=True)
 
-    lr_sched = LearningRateScheduler(schedule=schedule)
+    lr_sched = ReduceLROnPlateau(
+        monitor='val_loss',
+        factor=0.2,
+        patience=10,
+        min_lr=0,
+    )
 
     # Fit the model.
     model.summary()
+    num_steps = int(config.find_ruler_steps_per_epoch() / 10)
+    num_steps = min(num_steps, len(dataset.test_idx) // config.find_ruler_val_batch_size())
     model.fit_generator(
         dataset.generate(batch_size=config.find_ruler_batch_size()),
-        steps_per_epoch=60,
+        steps_per_epoch=config.find_ruler_steps_per_epoch(),
         epochs=config.find_ruler_num_epochs(),
         verbose=1,
         callbacks=[
@@ -128,7 +129,7 @@ def train(config):
         validation_data=dataset.generate_validation(
             batch_size=config.find_ruler_val_batch_size()
         ),
-        validation_steps=len(dataset.test_idx)//config.find_ruler_val_batch_size(),
+        validation_steps=num_steps,
         initial_epoch=initial_epoch
     )
 
@@ -144,6 +145,8 @@ def predict(config):
     # Import deployment library.
     sys.path.append('../python')
     import openem
+    from openem.FindRuler import RulerMaskFinder
+    from openem.FindRuler import rulerEndpoints
 
     # Make a dict to contain find ruler results.
     find_ruler_data = {
@@ -160,11 +163,18 @@ def predict(config):
     # Make a dict to store number of masks found per video.
     num_masks = defaultdict(int)
 
+    # Get number of channels.
+    num_channels = config.find_ruler_num_channels()
+
     # Create and initialize the mask finder.
-    mask_finder = openem.RulerMaskFinder()
-    status = mask_finder.Init(config.find_ruler_model_path())
-    if not status == openem.kSuccess:
-        raise IOError("Failed to initialize ruler mask finder!")
+    image_dims = (config.find_ruler_width(), config.find_ruler_height(), num_channels)
+    finder = RulerMaskFinder(config.find_ruler_model_path(), image_dims)
+
+    # Check if saving masks is enabled.
+    save_masks = config.find_ruler_save_masks()
+    if save_masks:
+        mask_dir = config.predict_masks_dir()
+        os.makedirs(mask_dir, exist_ok=True)
 
     for img_path in config.train_imgs():
 
@@ -181,50 +191,62 @@ def predict(config):
         print("Finding mask for image {}...".format(img_path))
 
         # Load in image.
-        img = openem.Image()
-        status = img.FromFile(img_path)
-        if not status == openem.kSuccess:
-            continue
+        if num_channels == 3:
+            img = cv2.imread(img_path)
+        elif num_channels == 4:
+            img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
 
         # Add image to processing queue.
-        status = mask_finder.AddImage(img)
-        if not status == openem.kSuccess:
-            raise RuntimeError("Failed to add image {} for processing!".format(img_path))
+        finder.addImage(img)
 
-        # Process the loaded image.
-        masks = openem.VectorImage()
-        status = mask_finder.Process(masks)
-        if not status == openem.kSuccess:
-            raise RuntimeError("Failed to process image {}!".format(img_path))
+        # Process the image.
+        image_result = finder.process(False)
+        if image_result is None:
+            raise RuntimeError(f"Failed to process image {img_path}!")
 
         # Resize the mask back to the same size as the image.
-        mask = masks[0]
-        mask.Resize(img.Width(), img.Height())
+        mask = image_result[0]
+        h, w, _ = img.shape
+        mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_AREA)
+
+        # If specified, save the generated mask.
+        if save_masks:
+            basename = os.path.basename(img_path)
+            subdir = os.path.basename(os.path.dirname(img_path))
+            os.makedirs(os.path.join(mask_dir, subdir), exist_ok=True)
+            mask_path = os.path.join(mask_dir, subdir, basename)
+            cv2.imwrite(mask_path, mask)
 
         # Initialize the mean mask if necessary.
         if video_id not in mask_avg:
-            mask_avg[video_id] = np.zeros((img.Height(), img.Width()));
+            mask_avg[video_id] = np.zeros((h, w));
 
         # Add the mask to the mask average.
-        mask_data = mask.DataCopy()
-        mask_data = np.array(mask_data)
-        mask_data = np.reshape(mask_data, (img.Height(), img.Width()))
-        mask_avg[video_id] += mask_data
+        mask_avg[video_id] += mask
 
     for video_id in mask_avg:
 
         print("Finding ruler endpoints for video {}...".format(video_id))
 
         # Convert mask image from numpy to openem format.
-        mask_vec = mask_avg[video_id].copy()
-        mask_vec = mask_vec / np.max(mask_vec)
-        mask_vec = mask_vec * 255.0
-        mask_vec = mask_vec.reshape(-1).astype(np.uint8).tolist()
-        mask_img = openem.Image()
-        mask_img.FromData(mask_vec, img.Width(), img.Height(), 1);
+        mask_img = mask_avg[video_id].copy()
+        mask_img = mask_img / np.max(mask_img)
+        mask_img = mask_img * 255.0
+        ret, mask_img = cv2.threshold(mask_img,
+                                      127,
+                                      255,
+                                      cv2.THRESH_BINARY)
+        mask_img = cv2.medianBlur(mask_img.astype(np.uint8), 5)
+
+        # If specified, save the mask average.
+        if save_masks:
+            basename = '_mask_avg.png'
+            os.makedirs(os.path.join(mask_dir, video_id), exist_ok=True)
+            mask_path = os.path.join(mask_dir, video_id, basename)
+            cv2.imwrite(mask_path, mask_img)
 
         # Get ruler endpoints from the mask averages.
-        p1, p2 = openem.RulerEndpoints(mask_img)
+        p1, p2 = rulerEndpoints(mask_img)
         x1, y1 = p1
         x2, y2 = p2
         find_ruler_data['video_id'].append(video_id)

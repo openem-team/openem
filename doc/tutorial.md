@@ -317,7 +317,7 @@ python3 scripts/make_pr_graph.py --output pr.png pr-curve.npy
 Advanced usage of detection_metrics.py includes changing sweep parameters of keep threshold, and changing the iou threshold for determining a true positive. 
 `detection_metrics.py --help` can be utilized to explore this use-cases.
 
-![blurred_species](https://user-images.githubusercontent.com/47112112/93623201-57be4580-f9ac-11ea-94bf-65f4b1a2524b.png = 400px)
+![blurred_species](https://user-images.githubusercontent.com/47112112/93623201-57be4580-f9ac-11ea-94bf-65f4b1a2524b.png)
 
 The notebook file in `scripts/jupyter/species_graph.ipynb` can be used as a foundation to generate interative precision-recall graphs.
 

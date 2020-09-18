@@ -38,6 +38,13 @@ Watch the video below to see a video of OpenEM in action:
    pipelines
    tracking
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Legacy Documentation (<=0.1.2):
+
+   legacy_tutorial
+   build/docker/legacy_build.md
+
 Change Log
 ============
 

@@ -339,45 +339,6 @@ class TrackManager():
 
         self.tracklets = []
 
-class SendProgress():
-    """ #TODO
-    """
-
-    def __init__(
-            self,
-            tator_api,
-            gid,
-            uid,
-            media):
-        """ #TODO
-        """
-        self.tator_api = tator_api
-        self.gid = gid
-        self.uid = uid
-        self.media = media
-
-    def send_progress(
-            self,
-            state: str,
-            msg: str,
-            progress: float):
-        """ #TODO
-        """
-        if self.gid is None or self.uid is None:
-            return
-
-        self.tator_api.progress(self.media.project, [{
-            'gid': self.gid,
-            'uid': self.uid,
-            'job_type': 'algorithm',
-            'media_ids': str(self.media.id),
-            'sections': self.media.attributes['tator_user_sections'],
-            'name': self.media.name,
-            'state': state,
-            'message': msg,
-            'progress': progress,
-        }])
-
 def process_media(
         args,
         tator_api,
@@ -408,21 +369,12 @@ def process_media(
     state_types = tator_api.get_state_type_list(project=media.project)
     state_type_id = state_types[0].id
 
-    progress = SendProgress(
-        tator_api=tator_api,
-        gid=args.gid,
-        uid=args.uid,
-        media=media)
-
-    progress.send_progress(state="started", msg="Collecting detections", progress=10)
-
     # Gather all the detections in the given media
     detections = tator_api.get_localization_list(project=media.project, media_id=[media.id])
 
     # If there are no detections, then just get out of here.
     if len(detections) == 0:
         msg = "No detections in media"
-        progress.send_progress(state="finished", msg=msg, progress=100)
         logger.info(msg)
         return
 
@@ -542,9 +494,6 @@ def process_media(
             media_ids=[media.id])
         tator_api.create_state_list(project=media.project, state_spec=[state_spec])
 
-    # Create the list of detections
-    progress.send_progress(state="finished", msg="Finished creating tracks!", progress=100)
-
 def parse_args():
     """ Get the arguments passed into this script.
 
@@ -555,8 +504,8 @@ def parse_args():
     parser.add_argument('--url', type=str, help='URL to rest service.')
     parser.add_argument('--media', type=int, help='Media ID of video to create tracks.')
     parser.add_argument('--csv', type=str, help='.csv file with local_media_file, media_id')
-    parser.add_argument('--gid', type=str, help='Group ID for sending progress.')
-    parser.add_argument('--uid', type=str, help='Job ID for sending progress.')
+    parser.add_argument('--gid', type=str, help='Group Jobs ID')
+    parser.add_argument('--uid', type=str, help='Job ID')
     parser.add_argument('--max-coast-age', type=int, help='Maximum track coast age', default=5)
     parser.add_argument('--association-threshold', type=float, help='Passing association threshold', default=0.4)
     return parser.parse_args()

@@ -5,7 +5,9 @@ import argparse
 import logging
 import os
 import sys
+import time
 import urllib.parse
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -16,6 +18,277 @@ import tator
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class FrameBuffer():
+    """
+    """
+
+    def __init__(
+            self,
+            tator_api,
+            media_id: int,
+            media_num_frames: int,
+            moving_forward: bool,
+            work_folder: str,
+            buffer_size: int) -> None:
+        """ Constructor
+        """
+
+        self.tator_api = tator_api
+        self.media_id = media_id
+        self.media_num_frames = media_num_frames - 2 #TODO Need to revisit once 2 frame bug is gone
+        self.moving_forward = moving_forward
+        self.buffer_size = buffer_size
+        self.work_folder = work_folder
+
+        # Frames will be indexed by frame number. Each entry will be the 3 channel np matrix
+        # that can be directly used by opencv, etc.
+        self.frame_buffer = {}
+
+    def get_frame(self, frame: int) -> np.ndarray:
+        """ Returns image to process from cv2.imread
+        """
+
+        # Have we already read the frame we care about?
+        if frame not in self.frame_buffer:
+
+            # Nope, looks like we need to refresh the buffer.
+            # If we are moving backwards in the media, then we should jump further back.
+            start_frame = frame
+            if not self.moving_forward:
+                start_frame = frame - self.buffer_size
+                start_frame = 0 if start_frame < 0 else start_frame
+
+            self._refresh_frame_buffer(start_frame=start_frame)
+
+            # Check again, if frame is still not in the frame buffer after refreshing,
+            # we've got a problem. And bounce out.
+            if frame not in self.frame_buffer:
+                raise ValueError("Problem refreshing frame buffer")
+
+        return self.frame_buffer[frame]
+
+    def _refresh_frame_buffer(
+            self,
+            start_frame: int) -> None:
+        """ Refreshes the frame buffer by getting a video clip and reading the video's frames
+
+        Postcondition(s):
+            self.frame_buffer is set with numpy arrays, indexed by frame number
+        """
+
+        logger.info(f"Refreshing frame buffer. Start frame {start_frame}")
+        start_time = time.time()
+
+        # Request the video clip and download it
+        last_frame = start_frame + self.buffer_size
+        last_frame = self.media_num_frames if last_frame > self.media_num_frames else last_frame
+        clip = self.tator_api.get_clip(
+            self.media_id,
+            frame_ranges=[f"{start_frame}:{last_frame}"])
+        temporary_file = clip.file
+        save_path =  os.path.join(self.work_folder, temporary_file.name)
+        for progress in tator.util.download_temporary_file(self.tator_api,
+                                                           temporary_file,
+                                                           save_path):
+            continue
+
+        # Create a list of frame numbers associated with the video clip
+        frame_list = []
+        for start_frame, end_frame in zip(clip.segment_start_frames, clip.segment_end_frames):
+            frame_list.extend(list(range(start_frame, end_frame + 1)))
+        logger.info(f"Frame buffer contains frames: {frame_list[0]} to {frame_list[-1]}")
+
+        # With the video downloaded, process the video and save the imagery into the buffer
+        self.frame_buffer = {}
+        reader = cv2.VideoCapture(save_path)
+        while reader.isOpened():
+            ok, frame = reader.read()
+            if not ok:
+                break
+            self.frame_buffer[frame_list.pop(0)] = frame.copy()
+        reader.release()
+        os.remove(save_path)
+
+        end_time = time.time()
+        logger.info(f"Refresh took {end_time - start_time} seconds.")
+
+def extend_track(
+        tator_api: tator.api,
+        media_id: int,
+        state_id: int,
+        start_localization_id: int,
+        direction: str,
+        work_folder: str,
+        max_coast_frames: int=0) -> None:
+    """ Extends the track using the given track's detection using a visual tracker
+
+    :param tator_api: Connection to Tator REST API
+    :param media_id: Media ID associated with the track
+    :param state_id: State/track ID to extend
+    :param start_localization_id: Localization/detection to start the track extension with.
+        The attributes of this detection will be copied over to subsequent detections
+        created during the extension process.
+    :param direction: 'forward'|'backward'
+    :param max_coast_frames: Number of coasted frames allowed if the tracker fails to
+                             track in the given frame.
+
+    This function will ignore existing detections.
+
+    The track extension will stop once the maximum number of coast frames has been hit
+    or if the start/end of the video havs been reached.
+
+    """
+
+    # Make sure the provided direction makes sense
+    if direction.lower() == 'forward':
+        moving_forward = True
+    elif direction.lower() == 'backward':
+        moving_forward = False
+    else:
+        raise ValueError("Invalid direction provided.")
+
+    # Initialize the visual tracker with the start detection
+    media = tator_api.get_media(id=media_id)
+
+    # Frame buffer that handles grabbing images from the video
+    frame_buffer = FrameBuffer(
+        tator_api=tator_api,
+        media_id=media.id,
+        media_num_frames=media.num_frames,
+        moving_forward=moving_forward,
+        work_folder=work_folder,
+        buffer_size=300)
+
+    start_detection = tator_api.get_localization(id=start_localization_id)
+    current_frame = start_detection.frame
+    image = frame_buffer.get_frame(frame=current_frame)
+    media_width = image.shape[1]
+    media_height = image.shape[0]
+
+    logger.info(f"media (width, height) {media_width} {media_height}")
+    logger.info(f"start_detection")
+    logger.info(f"{start_detection}")
+
+    roi = (
+        start_detection.x * media_width,
+        start_detection.y * media_height,
+        start_detection.width * media_width,
+        start_detection.height * media_height)
+
+    tracker = cv2.TrackerCSRT_create()
+    ret = tracker.init(image, roi)
+
+    # If the tracker fails to create for some reason, then bounce out of this routine.
+    if not ret:
+        log_msg = f'Tracker init failed. '
+        log_msg += f'Localization: {start_detection} State: {track} Media: {media}'
+        logger.warning(log_msg)
+        return
+    else:
+        previous_roi = roi
+        previous_roi_image = image.copy()
+
+    # Loop over the frames and attempt to continually track
+    coasting = False
+    new_detections = []
+    max_number_of_frames = -1 # This will force the tracker to continuously track
+    frame_count = 0
+
+    while True:
+
+        # For now, only process the a certain amount of frames
+        if frame_count == max_number_of_frames:
+            break
+        frame_count += 1
+
+        # Get the frame number in the right extension direction
+        current_frame = current_frame + 1 if moving_forward else current_frame - 1
+
+        # Stop processing if the tracker is operating outside of the valid frame range
+        if current_frame < 0 or current_frame >= media.num_frames - 2:
+            break
+
+        # Grab the image
+        start = time.time()
+        image = frame_buffer.get_frame(frame=current_frame)
+        end = time.time()
+        logger.info(f"Processing frame: {current_frame} ({end-start} seconds to retrieve image)")
+
+        start = time.time()
+        if coasting:
+            # Track coasted the last frame. Re-create the visual tracker using
+            # the last known good track result before attempting to track this frame.
+            logging.info("...coasted")
+            tracker = cv2.TrackerCSRT_create()
+            ret = tracker.init(previous_roi_image, previous_roi)
+
+            if not ret:
+                break
+
+        # Run the tracker with the current frame image
+        ret, roi = tracker.update(image)
+
+        end = time.time()
+        logger.info(f"Processing frame: {current_frame} ({end-start} seconds to track)")
+
+        if ret:
+            # Tracker was successful, save off the new detection position/time info
+            # Also save off the image in-case the tracker coasts the next frame
+            coasting = False
+            previous_roi = roi
+            previous_roi_image = image.copy()
+
+            new_detections.append(
+                SimpleNamespace(
+                    frame=current_frame,
+                    x=roi[0],
+                    y=roi[1],
+                    width=roi[2],
+                    height=roi[3]))
+
+        else:
+            # Tracker was not successful and the track is coasting now.
+            # If the maximum number of coast frames is reached, we're done
+            # trying to track.
+            coast_frames = coast_frames + 1 if coasting else 1
+            coasting = True
+
+            if coast_frames == max_coast_frames:
+                break
+
+    # Finally, create the new localizations and add them to the state
+    localizations = []
+    for det in new_detections:
+
+        x = 0.0 if det.x < 0 else det.x / media_width
+        y = 0.0 if det.y < 0 else det.y / media_height
+
+        width = media_width - det.x if det.x + det.width > media_width else det.width
+        height = media_height - det.y if det.y + det.height > media_height else det.height
+        width = width / media_width
+        height = height / media_height
+
+        detection_spec = dict(
+            media_id=start_detection.media,
+            type=start_detection.meta,
+            frame=det.frame,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            **start_detection.attributes)
+
+        localizations.append(detection_spec)
+
+    created_ids = []
+    for response in tator.util.chunked_create(
+            tator_api.create_localization_list,
+            media.project,
+            localization_spec=localizations):
+        created_ids += response.id
+
+    tator_api.update_state(id=state_id, state_update={'localization_ids_add': created_ids})
 
 def calculate_iou(
         boxA: tuple,
@@ -111,10 +384,25 @@ class Track():
         # when using this constructor
         Track.new_track_id += 1
 
+        # Keep track of the start and end detections. If there are duplicates in a given frame,
+        # it'll just be one of the detections in the frame.
+        self.start_detection_list_index = 0
+        self.start_detection_frame = detection.frame
+        self.last_detection_list_index = 0
+        self.last_detection_frame = detection.frame
+
     def associate_detection(self, detection: Detection) -> None:
         """ Associates the given detection to this track
         """
         self.detection_list.append(detection)
+
+        if self.start_detection_frame > detection.frame:
+            self.start_detection_list_index = len(self.detection_list) - 1
+            self.start_detection_frame = detection.frame
+
+        if self.last_detection_frame < detection.frame:
+            self.last_detection_list_index = len(self.detection_list) - 1
+            self.last_detection_frame = detection.frame
 
     def score_detection_association(self, detection: Detection) -> float:
         """ Returns an association score of 1.0 to 0.0 between the detection and track
@@ -343,7 +631,8 @@ def process_media(
         args,
         tator_api,
         media_id,
-        local_video_file_path: str=''):
+        local_video_file_path: str='',
+        state_label: str=None) -> None:
     """ Process single media
     """
 
@@ -454,11 +743,13 @@ def process_media(
     # Loop through each of the tracks.
     #   Create the coasted detections if there are any.
     #   Create the track
+    state_id_list = []
     for track in track_mgr.final_track_list:
 
         # Loop over the detections and grab the IDs to associate with the new track
         # If needed, create a localization for coasted detections
         detection_ids = []
+
         for det in track.detection_list:
             if det.id is None:
                 # Have to create a detection for this coasted frame
@@ -492,7 +783,37 @@ def process_media(
             frame=track.detection_list[0].frame,
             localization_ids=detection_ids,
             media_ids=[media.id])
-        tator_api.create_state_list(project=media.project, state_spec=[state_spec])
+
+        logger.info(f"******** state_label: {state_label}")
+        if state_label:
+            state_spec['Label'] = state_label
+        
+        logger.info(f"{state_spec}")
+        response = tator_api.create_state_list(project=media.project, state_spec=[state_spec])
+        state_id_list.append(
+            {'state_id': response.id[0],
+             'start_localization_id': track.detection_list[track.start_detection_list_index].id,
+             'end_localization_id': track.detection_list[track.last_detection_list_index].id})
+
+    # Loop through each of the tracks, and attempt to extend the track both backwards
+    # and forwards using a visual tracker. This isn't going to attempt to merge and will
+    # likely result in overlapping tracks as a result
+    for state_data in state_id_list:
+        extend_track(
+            tator_api=tator_api,
+            media_id=media.id,
+            state_id=state_data['state_id'],
+            start_localization_id=state_data['start_localization_id'],
+            direction='backward',
+            work_folder='/work')
+            
+        extend_track(
+            tator_api=tator_api,
+            media_id=media.id,
+            state_id=state_data['state_id'],
+            start_localization_id=state_data['end_localization_id'],
+            direction='forward',
+            work_folder='/work')
 
 def parse_args():
     """ Get the arguments passed into this script.
@@ -508,6 +829,7 @@ def parse_args():
     parser.add_argument('--uid', type=str, help='Job ID')
     parser.add_argument('--max-coast-age', type=int, help='Maximum track coast age', default=5)
     parser.add_argument('--association-threshold', type=float, help='Passing association threshold', default=0.4)
+    parser.add_argument('--state-label', type=str, help='Label to apply to the track')
     return parser.parse_args()
 
 def main():
@@ -528,17 +850,20 @@ def main():
         process_media(
             args=args,
             tator_api=tator_api,
-            media_id=args.media)
+            media_id=args.media,
+            state_label=args.state_label)
 
     else:
         # Was provided a .csv file that contains a list of local video files to process
         medias_df = pd.read_csv(args.csv)
+        logger.info(list(medias_df.columns))
         for row_idx, row in medias_df.iterrows():
             process_media(
                 args=args,
                 tator_api=tator_api,
                 media_id=row['media_id'],
-                local_video_file_path=row['media'])
+                local_video_file_path=row['media'],
+                state_label=args.state_label)
 
 if __name__ == '__main__':
     main()

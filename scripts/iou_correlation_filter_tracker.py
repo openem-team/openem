@@ -120,15 +120,14 @@ def extend_track(
         start_localization_id: int,
         direction: str,
         work_folder: str,
-        max_coast_frames: int=0) -> None:
+        max_coast_frames: int=0,
+        max_extend_frames: int=100) -> None:
     """ Extends the track using the given track's detection using a visual tracker
 
     :param tator_api: Connection to Tator REST API
     :param media_id: Media ID associated with the track
     :param state_id: State/track ID to extend
     :param start_localization_id: Localization/detection to start the track extension with.
-        The attributes of this detection will be copied over to subsequent detections
-        created during the extension process.
     :param direction: 'forward'|'backward'
     :param max_coast_frames: Number of coasted frames allowed if the tracker fails to
                              track in the given frame.
@@ -166,9 +165,9 @@ def extend_track(
     media_width = image.shape[1]
     media_height = image.shape[0]
 
-    logger.info(f"media (width, height) {media_width} {media_height}")
-    logger.info(f"start_detection")
-    logger.info(f"{start_detection}")
+    logger.info(f"Extending track (state_id): {state_id} {direction} (max frames: {max_extend_frames})")
+    logger.info(f"  media (width, height) {media_width} {media_height}")
+    logger.info(f"  start_detection (frame) {start_detection.frame}")
 
     roi = (
         start_detection.x * media_width,
@@ -176,7 +175,7 @@ def extend_track(
         start_detection.width * media_width,
         start_detection.height * media_height)
 
-    tracker = cv2.TrackerCSRT_create()
+    tracker = cv2.TrackerKCF_create()
     ret = tracker.init(image, roi)
 
     # If the tracker fails to create for some reason, then bounce out of this routine.
@@ -191,14 +190,14 @@ def extend_track(
 
     # Loop over the frames and attempt to continually track
     coasting = False
+    coast_frames = 0
     new_detections = []
-    max_number_of_frames = -1 # This will force the tracker to continuously track
     frame_count = 0
 
     while True:
 
         # For now, only process the a certain amount of frames
-        if frame_count == max_number_of_frames:
+        if frame_count == max_extend_frames:
             break
         frame_count += 1
 
@@ -213,14 +212,14 @@ def extend_track(
         start = time.time()
         image = frame_buffer.get_frame(frame=current_frame)
         end = time.time()
-        logger.info(f"Processing frame: {current_frame} ({end-start} seconds to retrieve image)")
+        #logger.info(f"Processing frame: {current_frame} ({end-start} seconds to retrieve image)")
 
         start = time.time()
         if coasting:
             # Track coasted the last frame. Re-create the visual tracker using
             # the last known good track result before attempting to track this frame.
             logging.info("...coasted")
-            tracker = cv2.TrackerCSRT_create()
+            tracker = cv2.TrackerKCF_create()
             ret = tracker.init(previous_roi_image, previous_roi)
 
             if not ret:
@@ -230,7 +229,7 @@ def extend_track(
         ret, roi = tracker.update(image)
 
         end = time.time()
-        logger.info(f"Processing frame: {current_frame} ({end-start} seconds to track)")
+        #logger.info(f"Processing frame: {current_frame} ({end-start} seconds to track)")
 
         if ret:
             # Tracker was successful, save off the new detection position/time info
@@ -249,13 +248,13 @@ def extend_track(
 
         else:
             # Tracker was not successful and the track is coasting now.
-            # If the maximum number of coast frames is reached, we're done
-            # trying to track.
             coast_frames = coast_frames + 1 if coasting else 1
             coasting = True
 
-            if coast_frames == max_coast_frames:
-                break
+        # If the maximum number of coast frames is reached, we're done
+        # trying to track.
+        if coasting and coast_frames >= max_coast_frames:
+            break
 
     # Finally, create the new localizations and add them to the state
     localizations = []
@@ -276,8 +275,7 @@ def extend_track(
             x=x,
             y=y,
             width=width,
-            height=height,
-            **start_detection.attributes)
+            height=height)
 
         localizations.append(detection_spec)
 
@@ -471,8 +469,16 @@ class Track():
             if self.last_tracker_frame != frame - 1:
                 # Didn't use the tracker last frame, so we got to create a new one
                 # and initialize it with the last frame.
-                self.tracker = cv2.TrackerCSRT_create()
+                self.tracker = cv2.TrackerKCF_create()
                 roi = [last_detection.x, last_detection.y, last_detection.width, last_detection.height]
+
+                # Test, expand the ROI before feeding it into the tracker. This might yield
+                # in better tracking
+                roi[0] = max(0, roi[0] - roi[2]*0.2)
+                roi[1] = max(0, roi[1] - roi[3]*0.2)
+                roi[2] = min(previous_image.shape[1], roi[2] + roi[2]*0.4)
+                roi[3] = min(previous_image.shape[0], roi[3] + roi[3]*0.4)
+
                 self.tracker.init(previous_image, tuple(roi))
 
             # Update the tracker with the current image and see if tracking is successful
@@ -484,7 +490,7 @@ class Track():
                 # First verify the dimensions are ok / make sense
                 image_width = current_image.shape[1]
                 image_height = current_image.shape[0]
-                logger.info(f"Frame: {frame} tracker update - image (w,h) {image_width} {image_height} roi (x,y,w,h) {roi}")
+                logger.info(f"Frame: {frame} tracker update - track {self.track_id} image (w,h) {image_width} {image_height} roi (x,y,w,h) {roi}")
                 x = roi[0]
                 y = roi[1]
                 width = roi[2]
@@ -503,18 +509,20 @@ class Track():
                         width=width,
                         height=height,
                         det_id=None)
-                    self.detection_list.append(new_detection)
+                    self.associate_detection(new_detection)
                     create_new_detection = True
 
             if not create_new_detection:
                 # Uh oh, tracker failed with the update. This track is now dead.
                 self.coast_age = self.max_coast_age
+                logger.info(f"Frame: {frame} tracker update - track {self.track_id} dead")
 
             self.last_tracker_frame = frame
 
         else:
             # Track didn't coast, just reset the coast age.
             self.coast_age = 0
+            logger.info(f"Frame: {frame} tracker update - track {self.track_id} not coasting")
 
 class TrackManager():
 
@@ -609,15 +617,17 @@ class TrackManager():
         """
 
         for tracklet in self.tracklets:
-
+            logger.info(f"[Frame {frame}] - Updating tracklet - {tracklet.track_id}")
             tracklet.update(
                 frame=frame,
                 current_image=current_image,
                 previous_image=previous_image)
 
             if tracklet.is_dead():
+                logger.info(f"[Frame {frame}] - Promoting tracklet to track - {tracklet.track_id}")
                 self.final_track_list.append(tracklet)
-                self.tracklets.remove(tracklet)
+
+        self.tracklets = [tracklet for tracklet in self.tracklets if not tracklet.is_dead()]
 
     def promote_tracklets_to_tracks(self) -> None:
         """ Forces moving all current tracklets to the final track list
@@ -631,6 +641,7 @@ def process_media(
         args,
         tator_api,
         media_id,
+        extend_tracks: bool=False,
         local_video_file_path: str='',
         state_label: str=None) -> None:
     """ Process single media
@@ -691,6 +702,9 @@ def process_media(
     # Perform tracking with the detections as we cycle through the frames.
     max_coast_age = args.max_coast_age
     passing_association_score_threshold = args.association_threshold
+
+    logger.info(f"Tracking parameters: {max_coast_age} {passing_association_score_threshold}")
+
     track_mgr = TrackManager(
         track_class=Track,
         association_score_threshold=passing_association_score_threshold,
@@ -784,10 +798,9 @@ def process_media(
             localization_ids=detection_ids,
             media_ids=[media.id])
 
-        logger.info(f"******** state_label: {state_label}")
         if state_label:
             state_spec['Label'] = state_label
-        
+
         logger.info(f"{state_spec}")
         response = tator_api.create_state_list(project=media.project, state_spec=[state_spec])
         state_id_list.append(
@@ -798,22 +811,23 @@ def process_media(
     # Loop through each of the tracks, and attempt to extend the track both backwards
     # and forwards using a visual tracker. This isn't going to attempt to merge and will
     # likely result in overlapping tracks as a result
-    for state_data in state_id_list:
-        extend_track(
-            tator_api=tator_api,
-            media_id=media.id,
-            state_id=state_data['state_id'],
-            start_localization_id=state_data['start_localization_id'],
-            direction='backward',
-            work_folder='/work')
-            
-        extend_track(
-            tator_api=tator_api,
-            media_id=media.id,
-            state_id=state_data['state_id'],
-            start_localization_id=state_data['end_localization_id'],
-            direction='forward',
-            work_folder='/work')
+    if extend_tracks:
+        for state_data in state_id_list:
+            extend_track(
+                tator_api=tator_api,
+                media_id=media.id,
+                state_id=state_data['state_id'],
+                start_localization_id=state_data['start_localization_id'],
+                direction='backward',
+                work_folder='/work')
+
+            extend_track(
+                tator_api=tator_api,
+                media_id=media.id,
+                state_id=state_data['state_id'],
+                start_localization_id=state_data['end_localization_id'],
+                direction='forward',
+                work_folder='/work')
 
 def parse_args():
     """ Get the arguments passed into this script.
@@ -827,9 +841,10 @@ def parse_args():
     parser.add_argument('--csv', type=str, help='.csv file with local_media_file, media_id')
     parser.add_argument('--gid', type=str, help='Group Jobs ID')
     parser.add_argument('--uid', type=str, help='Job ID')
-    parser.add_argument('--max-coast-age', type=int, help='Maximum track coast age', default=5)
-    parser.add_argument('--association-threshold', type=float, help='Passing association threshold', default=0.4)
+    parser.add_argument('--max-coast-age', type=int, help='Maximum track coast age', default=50)
+    parser.add_argument('--association-threshold', type=float, help='Passing association threshold', default=0.1)
     parser.add_argument('--state-label', type=str, help='Label to apply to the track')
+    parser.add_argument('--extend-tracks', action='store_true', help='Enable to extend tracks with a visual tracker')
     return parser.parse_args()
 
 def main():
@@ -851,7 +866,8 @@ def main():
             args=args,
             tator_api=tator_api,
             media_id=args.media,
-            state_label=args.state_label)
+            state_label=args.state_label,
+            extend_tracks=args.extend_tracks)
 
     else:
         # Was provided a .csv file that contains a list of local video files to process
@@ -863,7 +879,8 @@ def main():
                 tator_api=tator_api,
                 media_id=row['media_id'],
                 local_video_file_path=row['media'],
-                state_label=args.state_label)
+                state_label=args.state_label,
+                extend_tracks=args.extend_tracks)
 
 if __name__ == '__main__':
     main()

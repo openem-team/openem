@@ -169,11 +169,19 @@ def extend_track(
     logger.info(f"  media (width, height) {media_width} {media_height}")
     logger.info(f"  start_detection (frame) {start_detection.frame}")
 
-    roi = (
+    roi = [
         start_detection.x * media_width,
         start_detection.y * media_height,
         start_detection.width * media_width,
-        start_detection.height * media_height)
+        start_detection.height * media_height]
+
+    # Test, expand the ROI before feeding it into the tracker. This might yield
+    # in better tracking
+    roi[0] = max(0, roi[0] - roi[2]*0.2)
+    roi[1] = max(0, roi[1] - roi[3]*0.2)
+    roi[2] = min(image.shape[1], roi[2] + roi[2]*0.4)
+    roi[3] = min(image.shape[0], roi[3] + roi[3]*0.4)
+    roi = tuple(roi)
 
     tracker = cv2.TrackerKCF_create()
     ret = tracker.init(image, roi)
@@ -808,9 +816,9 @@ def process_media(
              'start_localization_id': track.detection_list[track.start_detection_list_index].id,
              'end_localization_id': track.detection_list[track.last_detection_list_index].id})
 
-    # Loop through each of the tracks, and attempt to extend the track both backwards
-    # and forwards using a visual tracker. This isn't going to attempt to merge and will
-    # likely result in overlapping tracks as a result
+    # Loop through each of the tracks, and attempt to extend the track backward using
+    # a visual tracker. This isn't going to attempt to merge and will likely result in
+    # overlapping tracks as a result
     if extend_tracks:
         for state_data in state_id_list:
             extend_track(
@@ -819,14 +827,6 @@ def process_media(
                 state_id=state_data['state_id'],
                 start_localization_id=state_data['start_localization_id'],
                 direction='backward',
-                work_folder='/work')
-
-            extend_track(
-                tator_api=tator_api,
-                media_id=media.id,
-                state_id=state_data['state_id'],
-                start_localization_id=state_data['end_localization_id'],
-                direction='forward',
                 work_folder='/work')
 
 def parse_args():

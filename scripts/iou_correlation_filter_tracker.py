@@ -774,14 +774,14 @@ def process_media(
     save_alg_run_name = False
     if args.alg_run_name_attr and args.alg_run_name:
         for attr_type in state_types[0].attribute_types:
-            if attr_type['name'] == args.alg_run_name_attr:
+            if attr_type.name == args.alg_run_name_attr:
                 save_alg_run_name = True
                 break
 
     save_alg_run_uid = False
     if args.alg_run_uid_attr:
         for attr_type in state_types[0].attribute_types:
-            if attr_type['name'] == args.alg_run_uid_attr:
+            if attr_type.name == args.alg_run_uid_attr:
                 save_alg_run_uid = True
                 break
 

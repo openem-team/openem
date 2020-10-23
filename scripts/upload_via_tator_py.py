@@ -94,14 +94,14 @@ def main():
         save_alg_run_name = False
         if args.alg_run_name_attr and args.alg_run_name:
             for attr_type in loc_type_attributes:
-                if attr_type['name'] == args.alg_run_name_attr:
+                if attr_type.name == args.alg_run_name_attr:
                     save_alg_run_name = True
                     break
 
         save_alg_run_uid = False
         if args.alg_run_uid_attr and args.alg_run_uid:
             for attr_type in loc_type_attributes:
-                if attr_type['name'] == args.alg_run_uid_attr:
+                if attr_type.name == args.alg_run_uid_attr:
                     save_alg_run_uid = True
                     break
         print(args)

@@ -26,6 +26,15 @@ def parse_args():
     parser.add_argument("--csvfile", help="test.csv, length.csv, or detect.csv")
     parser.add_argument("--species-attr-name", type=str, default="Species")
     parser.add_argument("--confidence-attr-name", type=str, default="Confidence")
+    parser.add_argument("--alg-run-name",
+        help="Name of algorithm run. Will save to detections if attributes are present.")
+    parser.add_argument("--alg-run-name-attr",
+        help="Name of localization attribute to save algorithm run name to.")
+    parser.add_argument("--alg-run-uid",
+        help="UID of algorithm run, optional. Will save to detections if attributes are present.")
+    parser.add_argument("--alg-run-uid-attr",
+        help="Name of localization attribute to save algorithm run UID to.")
+    
     return parser.parse_args()
 
 def main():
@@ -66,9 +75,11 @@ def main():
         # has been set up to only have one localization box type (that will be the detections)
         detection_type_id = None
         box_type_counts = 0
+        loc_type_attributes = None
         localization_types = tator_api.get_localization_type_list(project=media.project)
         for loc_type in localization_types:
             if loc_type.dtype == 'box':
+                loc_type_attributes = loc_type.attribute_types
                 detection_type_id = loc_type.id
                 box_type_counts += 1
 
@@ -77,6 +88,25 @@ def main():
 
         if box_type_counts > 1:
             raise ValueError("Multiple localization box types detected. Expected only one.")
+
+        # It's optional for the localization type to have fields used to store
+        # algorithm run information. Check to see if we should save that information.
+        save_alg_run_name = False
+        if args.alg_run_name_attr and args.alg_run_name:
+            for attr_type in loc_type_attributes:
+                if attr_type['name'] == args.alg_run_name_attr:
+                    save_alg_run_name = True
+                    break
+
+        save_alg_run_uid = False
+        if args.alg_run_uid_attr and args.alg_run_uid:
+            for attr_type in loc_type_attributes:
+                if attr_type['name'] == args.alg_run_uid_attr:
+                    save_alg_run_uid = True
+                    break
+        print(args)
+        print(loc_type_attributes)
+        print(f"{save_alg_run_name} {save_alg_run_uid}")
 
         # Grab the detections that match the current media name, loop through each of them
         # and create a localization
@@ -97,6 +127,12 @@ def main():
             attributes = {
                 args.species_attr_name: det.det_species,
                 args.confidence_attr_name: det.det_conf}
+
+            if save_alg_run_name:
+                attributes[args.alg_run_name_attr] = args.alg_run_name
+
+            if save_alg_run_uid:
+                attributes[args.alg_run_uid_attr] = args.alg_run_uid
 
             detection_spec = dict(
                 media_id=media.id,

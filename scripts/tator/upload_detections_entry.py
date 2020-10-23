@@ -19,6 +19,12 @@ if __name__=="__main__":
         sys.exit(-1)
     species_attr_name = pipeline_args.get('species_attr_name','Species')
     confidence_attr_name = pipeline_args.get('confidence_attr_name','Confidence')
+    alg_run_name = pipeline_args.get('alg_run_name', None)
+    alg_run_name_attr = pipeline_args.get('alg_run_name_attr', None)
+    alg_run_uid = pipeline_args.get('alg_run_uid', None)
+    alg_run_uid_attr = pipeline_args.get('alg_run_uid_attr', None)
+
+    print(f"Pipeline Args = {pipeline_args}")
 
     args = ["python3", "/scripts/upload_via_tator_py.py",
             "--host", host,
@@ -26,6 +32,15 @@ if __name__=="__main__":
             "--csvfile", work_csv_file,
             '--species-attr-name', species_attr_name,
             '--confidence-attr-name', confidence_attr_name]
+
+    if alg_run_name:
+        args.extend(["--alg-run-name", alg_run_name])
+    if alg_run_name_attr:
+        args.extend(["--alg-run-name-attr", alg_run_name_attr])
+    if alg_run_uid:
+        args.extend(["--alg-run-uid", alg_run_uid])
+    if alg_run_uid_attr:
+        args.extend(["--alg-run-uid-attr", alg_run_uid_attr])
 
     cmd = " ".join(args)
     print(f"Upload Detections Command = '{cmd}'")

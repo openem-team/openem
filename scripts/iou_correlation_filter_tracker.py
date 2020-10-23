@@ -77,7 +77,7 @@ class FrameBuffer():
             self.frame_buffer is set with numpy arrays, indexed by frame number
         """
 
-        logger.info(f"Refreshing frame buffer. Start frame {start_frame}")
+        #logger.info(f"Refreshing frame buffer. Start frame {start_frame}")
         start_time = time.time()
 
         # Request the video clip and download it
@@ -97,7 +97,7 @@ class FrameBuffer():
         frame_list = []
         for start_frame, end_frame in zip(clip.segment_start_frames, clip.segment_end_frames):
             frame_list.extend(list(range(start_frame, end_frame + 1)))
-        logger.info(f"Frame buffer contains frames: {frame_list[0]} to {frame_list[-1]}")
+        #logger.info(f"Frame buffer contains frames: {frame_list[0]} to {frame_list[-1]}")
 
         # With the video downloaded, process the video and save the imagery into the buffer
         self.frame_buffer = {}
@@ -111,7 +111,7 @@ class FrameBuffer():
         os.remove(save_path)
 
         end_time = time.time()
-        logger.info(f"Refresh took {end_time - start_time} seconds.")
+        #logger.info(f"Refresh took {end_time - start_time} seconds.")
 
 def extend_track(
         tator_api: tator.api,
@@ -165,9 +165,9 @@ def extend_track(
     media_width = image.shape[1]
     media_height = image.shape[0]
 
-    logger.info(f"Extending track (state_id): {state_id} {direction} (max frames: {max_extend_frames})")
-    logger.info(f"  media (width, height) {media_width} {media_height}")
-    logger.info(f"  start_detection (frame) {start_detection.frame}")
+    #logger.info(f"Extending track (state_id): {state_id} {direction} (max frames: {max_extend_frames})")
+    #logger.info(f"  media (width, height) {media_width} {media_height}")
+    #logger.info(f"  start_detection (frame) {start_detection.frame}")
 
     roi = [
         start_detection.x * media_width,
@@ -372,12 +372,20 @@ class Track():
         # List of detections in this track. Detection per frame and
         # the last entry is the most recently associated / generated (from coast).
         self.detection_list = [detection]
+        
+        # If a track extension is performed, detections related to that will appear in this list.
+        # It's important it's in this list because there are assumptions the detection_list
+        # is generated moving forward.
+        self.back_extend_detection_list = []
 
         # Will be created in the update() function and used when the track is coasting
         self.tracker = None
 
         # Used to determine if the tracker needs to be replaced.
         self.last_tracker_frame = -2
+
+        # Useful
+        self.age = 0
 
         # Coast age increments when no detection is associated with the track.
         # Coast age rests to 0 otherwise.
@@ -452,6 +460,71 @@ class Track():
 
         return self.coast_age >= self.max_coast_age
 
+    def extend_backwards(
+            self,
+            frame: int,
+            frame_buffer: dict) -> None:
+        """
+        """
+        current_image = frame_buffer[frame]
+        last_detection = self.detection_list[-1]
+
+        tracker = cv2.TrackerKCF_create()
+        roi = [last_detection.x, last_detection.y, last_detection.width, last_detection.height]
+        roi[0] = max(0, roi[0] - roi[2]*0.2)
+        roi[1] = max(0, roi[1] - roi[3]*0.2)
+        roi[2] = min(current_image.shape[1], roi[2] + roi[2]*0.4)
+        roi[3] = min(current_image.shape[0], roi[3] + roi[3]*0.4)
+        tracker.init(current_image, tuple(roi))
+
+        current_frame = frame
+        if current_frame == 0:
+            return
+
+        last_frame = max(0, frame - self.max_coast_age)
+        done = False
+        while not done:
+            current_frame = current_frame - 1
+            current_image = frame_buffer[current_frame]
+            ret, roi = tracker.update(current_image)
+
+            if ret:
+                # First verify the dimensions are ok / make sense
+                image_width = current_image.shape[1]
+                image_height = current_image.shape[0]
+                #logger.info(f"Frame: Extend backwards - track {self.track_id} image (w,h) {image_width} {image_height} roi (x,y,w,h) {roi} frame {current_frame}")
+                x = roi[0]
+                y = roi[1]
+                width = roi[2]
+                height = roi[3]
+                dimensions_ok = width > 0 and height > 0 and width <= image_width and height <= image_height and x < image_width and y < image_height
+
+                if dimensions_ok:
+                    # Create the new detection for this coasted frame and add it
+                    # to the detection list
+                    x = 0 if x < 0 else x
+                    y = 0 if y < 0 else y
+                    new_detection = Detection(
+                        frame=current_frame,
+                        x=x,
+                        y=y,
+                        width=width,
+                        height=height,
+                        det_id=None)
+                    self.back_extend_detection_list.append(new_detection)
+                
+            else:
+                done = True
+
+            if current_frame == last_frame:
+                done = True
+
+    def finalize(self):
+        """ Called when a track is done (e.g. being promoted from tracklet to track)
+        """
+
+        self.detection_list.extend(self.back_extend_detection_list)
+
     def update(
             self,
             frame: int,
@@ -465,6 +538,8 @@ class Track():
         If not, only need to the reset coast age to 0
 
         """
+
+        self.age += 1
 
         # Track coast this frame?
         last_detection = self.detection_list[-1]
@@ -498,7 +573,7 @@ class Track():
                 # First verify the dimensions are ok / make sense
                 image_width = current_image.shape[1]
                 image_height = current_image.shape[0]
-                logger.info(f"Frame: {frame} tracker update - track {self.track_id} image (w,h) {image_width} {image_height} roi (x,y,w,h) {roi}")
+                #logger.info(f"Frame: {frame} tracker update - track {self.track_id} image (w,h) {image_width} {image_height} roi (x,y,w,h) {roi}")
                 x = roi[0]
                 y = roi[1]
                 width = roi[2]
@@ -523,14 +598,14 @@ class Track():
             if not create_new_detection:
                 # Uh oh, tracker failed with the update. This track is now dead.
                 self.coast_age = self.max_coast_age
-                logger.info(f"Frame: {frame} tracker update - track {self.track_id} dead")
+                #logger.info(f"Frame: {frame} tracker update - track {self.track_id} dead")
 
             self.last_tracker_frame = frame
 
         else:
             # Track didn't coast, just reset the coast age.
             self.coast_age = 0
-            logger.info(f"Frame: {frame} tracker update - track {self.track_id} not coasting")
+            #logger.info(f"Frame: {frame} tracker update - track {self.track_id} not coasting")
 
 class TrackManager():
 
@@ -616,23 +691,37 @@ class TrackManager():
     def process_end_of_frame(
             self,
             frame: int,
-            current_image: np.ndarray,
-            previous_image: np.ndarray) -> None:
+            frame_buffer: dict,
+            extend_tracks: bool) -> None:
         """ Performs required operations at the end of frame.
 
         Expected to be called after the detections have been processed.
 
         """
 
+        current_image = frame_buffer[frame]
+
+        previous_frame = frame - 1
+        if previous_frame in frame_buffer:
+            previous_image = frame_buffer[previous_frame]
+        else:
+            previous_image = None
+
         for tracklet in self.tracklets:
-            logger.info(f"[Frame {frame}] - Updating tracklet - {tracklet.track_id}")
+
+            if extend_tracks and tracklet.age == 0:
+                #logger.info(f"[Frame {frame}] - Extend tracklets backwards")
+                tracklet.extend_backwards(frame=frame, frame_buffer=frame_buffer)
+
+            #logger.info(f"[Frame {frame}] - Updating tracklet - {tracklet.track_id}")
             tracklet.update(
                 frame=frame,
                 current_image=current_image,
                 previous_image=previous_image)
 
             if tracklet.is_dead():
-                logger.info(f"[Frame {frame}] - Promoting tracklet to track - {tracklet.track_id}")
+                #logger.info(f"[Frame {frame}] - Promoting tracklet to track - {tracklet.track_id}")
+                tracklet.finalize()
                 self.final_track_list.append(tracklet)
 
         self.tracklets = [tracklet for tracklet in self.tracklets if not tracklet.is_dead()]
@@ -641,6 +730,7 @@ class TrackManager():
         """ Forces moving all current tracklets to the final track list
         """
         for tracklet in self.tracklets:
+            tracklet.finalize()
             self.final_track_list.append(tracklet)
 
         self.tracklets = []
@@ -653,6 +743,9 @@ def process_media(
         local_video_file_path: str='',
         state_label: str=None) -> None:
     """ Process single media
+
+    :param extend_tracks: Note this only controls whether to extend backwards or not.
+
     """
 
     media = tator_api.get_media(id=media_id)
@@ -677,13 +770,28 @@ def process_media(
     state_types = tator_api.get_state_type_list(project=media.project)
     state_type_id = state_types[0].id
 
+    # If the algorithm run attribute types are present in this state type, save that info
+    save_alg_run_name = False
+    if args.alg_run_name_attr and args.alg_run_name:
+        for attr_type in state_types[0].attribute_types:
+            if attr_type['name'] == args.alg_run_name_attr:
+                save_alg_run_name = True
+                break
+
+    save_alg_run_uid = False
+    if args.alg_run_uid_attr:
+        for attr_type in state_types[0].attribute_types:
+            if attr_type['name'] == args.alg_run_uid_attr:
+                save_alg_run_uid = True
+                break
+
     # Gather all the detections in the given media
     detections = tator_api.get_localization_list(project=media.project, media_id=[media.id])
 
     # If there are no detections, then just get out of here.
     if len(detections) == 0:
         msg = "No detections in media"
-        logger.info(msg)
+        #logger.info(msg)
         return
 
     # Make the detections accessible by frame
@@ -711,21 +819,22 @@ def process_media(
     max_coast_age = args.max_coast_age
     passing_association_score_threshold = args.association_threshold
 
-    logger.info(f"Tracking parameters: {max_coast_age} {passing_association_score_threshold}")
+    #logger.info(f"Tracking parameters: {max_coast_age} {passing_association_score_threshold}")
 
     track_mgr = TrackManager(
         track_class=Track,
         association_score_threshold=passing_association_score_threshold,
         max_coast_age=max_coast_age)
 
-    start_frame = min_frame
+    start_frame = max(0, min_frame - max_coast_age)
     end_frame = min(media.num_frames, max_frame + max_coast_age)
     current_image = None
     previous_image = None
+    frame_buffer = {}
     for frame in range(start_frame, end_frame):
 
         msg = f'Processing frame: {frame}'
-        logging.info(msg)
+        #logger.info(msg)
 
         previous_image = current_image
 
@@ -738,6 +847,10 @@ def process_media(
             ok, current_image = video_reader.read()
             if not ok:
                 raise ValueError(f"Problem with local video read of {local_video_file}")
+
+        frame_buffer[frame] = current_image
+        if len(frame_buffer) > max_coast_age + 2:
+            del frame_buffer[frame - max_coast_age - 2]
 
         # Grab the detections list for this frame. We need to convert the dimensions
         # to integer pixel values
@@ -752,12 +865,15 @@ def process_media(
                     height=det.height * media.height,
                     frame=frame,
                     det_id=det.id))
-        track_mgr.process_detections(frame=frame, detection_list=det_list)
+
+        track_mgr.process_detections(
+            frame=frame,
+            detection_list=det_list)
 
         track_mgr.process_end_of_frame(
             frame=frame,
-            current_image=current_image,
-            previous_image=previous_image)
+            frame_buffer=frame_buffer,
+            extend_tracks=extend_tracks)
 
     # Finalize the track list
     track_mgr.promote_tracklets_to_tracks()
@@ -809,25 +925,31 @@ def process_media(
         if state_label:
             state_spec['Label'] = state_label
 
-        logger.info(f"{state_spec}")
+        if save_alg_run_name:
+            state_spec[args.alg_run_name_attr] = args.alg_run_name
+
+        if save_alg_run_uid:
+            state_spec[args.alg_run_uid_attr] = args.uid
+
+        #logger.info(f"{state_spec}")
         response = tator_api.create_state_list(project=media.project, state_spec=[state_spec])
-        state_id_list.append(
-            {'state_id': response.id[0],
-             'start_localization_id': track.detection_list[track.start_detection_list_index].id,
-             'end_localization_id': track.detection_list[track.last_detection_list_index].id})
+        #state_id_list.append(
+        #    {'state_id': response.id[0],
+        #     'start_localization_id': track.detection_list[track.start_detection_list_index].id,
+        #     'end_localization_id': track.detection_list[track.last_detection_list_index].id})
 
     # Loop through each of the tracks, and attempt to extend the track backward using
     # a visual tracker. This isn't going to attempt to merge and will likely result in
     # overlapping tracks as a result
-    if extend_tracks:
-        for state_data in state_id_list:
-            extend_track(
-                tator_api=tator_api,
-                media_id=media.id,
-                state_id=state_data['state_id'],
-                start_localization_id=state_data['start_localization_id'],
-                direction='backward',
-                work_folder='/work')
+    #if extend_tracks:
+    #    for state_data in state_id_list:
+    #        extend_track(
+    #            tator_api=tator_api,
+    #            media_id=media.id,
+    #            state_id=state_data['state_id'],
+    #            start_localization_id=state_data['start_localization_id'],
+    #            direction='backward',
+    #            work_folder='/work')
 
 def parse_args():
     """ Get the arguments passed into this script.
@@ -845,6 +967,9 @@ def parse_args():
     parser.add_argument('--association-threshold', type=float, help='Passing association threshold', default=0.1)
     parser.add_argument('--state-label', type=str, help='Label to apply to the track')
     parser.add_argument('--extend-tracks', action='store_true', help='Enable to extend tracks with a visual tracker')
+    parser.add_argument("--alg-run-name", help="Name of this algorithm.")
+    parser.add_argument("--alg-run-name-attr", help="Name of localization attribute to save algorithm run name to.")
+    parser.add_argument("--alg-run-uid-attr", help="Name of localization attribute to save algorithm run UID to.")
     return parser.parse_args()
 
 def main():
@@ -872,7 +997,7 @@ def main():
     else:
         # Was provided a .csv file that contains a list of local video files to process
         medias_df = pd.read_csv(args.csv)
-        logger.info(list(medias_df.columns))
+        #logger.info(list(medias_df.columns))
         for row_idx, row in medias_df.iterrows():
             process_media(
                 args=args,

@@ -179,11 +179,11 @@ if __name__=="__main__":
     if class_method:
         pip_package=class_method.get('pip',None)
         if pip_package:
-            subprocess.run(sys.executable,
-                           "-m",
-                           "pip",
-                           "install",
-                           pip_package)
+            subprocess.run([sys.executable,
+                            "-m",
+                            "pip",
+                            "install",
+                            pip_package])
         function_name = class_method.get('function',None)
         classify_args = class_method.get('args',None)
         module_name,callable_name = function_name.split('.')

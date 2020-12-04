@@ -16,6 +16,9 @@ from collections import defaultdict
 import yaml
 import math
 
+import subprocess
+import sys
+
 def crop_localization(frame_bgr, localization):
     img_width = frame_bgr.shape[1]
     img_height = frame_bgr.shape[0]
@@ -170,6 +173,24 @@ if __name__=="__main__":
         comparator=FeaturesComparator(model_file)
         #extractor=FeaturesExtractor(args.model_file)
 
+
+    class_method = strategy.get('class-method',None)
+    classify_function = None
+    if class_method:
+        pip_package=class_method.get('pip',None)
+        if pip_package:
+            subprocess.run(sys.executable,
+                           "-m",
+                           "pip",
+                           "install",
+                           pip_package)
+        function_name = class_method.get('function',None)
+        classify_args = class_method.get('args',None)
+        module_name,callable_name = function_name.split('.')
+        module = __import__(module_name)
+        classify_function = getattr(module,callable_name)
+
+
     print("Strategy: ")
     pprint(strategy)
     for media_file in args.media_files:
@@ -280,32 +301,22 @@ if __name__=="__main__":
             track_len = len(track)
             velocity_len = int(track_len*0.50)
             track.sort(key=lambda x:x['frame'])
-            angle,speed,comps = track_vel(track[velocity_len:])
-            obj={"type": args.tracklet_type_id,
-                 "media_ids": [int(media_id)],
-                 "localization_ids": [x['id'] for x in track],
-                 "Species": "Tracklet",
-                 "length": len(track),
-                 "angle": math.degrees(angle),
-                 "speed": speed,
-                 "version": version_id}
-            print(f"{track[0]['frame']}: {angle} - {comps}")
-            angle = math.degrees(angle)
-            # Remark: y is down, so 90 degrees is DOWN.
-            if len(track) < 200:
-                obj['Species'] = 'Toss out'
-            elif speed < 0.00001:
-                obj['Species'] = 'Stationary'
-            elif angle > -45 and angle < 45:
-                obj['Species'] = 'Exiting'
-            elif angle > -135 and angle < 175:
-                obj['Species'] = 'Entering'
+            valid,attrs = classify_function(media_id,
+                                            track,
+                                            **classify_args)
+            if valid:
+                obj={"type": args.tracklet_type_id,
+                     "media_ids": [int(media_id)],
+                     "localization_ids": [x['id'] for x in track],
+                     **attrs,
+                     "version": version_id}
+                return obj
             else:
-                obj['Species'] = 'Unknown'
-            return obj
+                return None
 
         tracklets = join_up_final(detections, track_ids)
-        new_objs=[make_object(tracklet) for tracklet in tracklets.values() if len(tracklet) > strategy['min-length']]
+        new_objs=[make_object(tracklet) for tracklet in tracklets.values()]
+        new_objs=[x for x in new_objs if x is not None]
         with open(f"/work/{media_id}.json", "w") as f:
             json.dump(new_objs,f)
         tator.Track.new(new_objs)

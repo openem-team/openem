@@ -188,9 +188,11 @@ if __name__=="__main__":
             print("Finished process.", flush=True)
         function_name = class_method.get('function',None)
         classify_args = class_method.get('args',None)
-        module_name,callable_name = function_name.split('.')
-        module = __import__(module_name)
-        classify_function = getattr(module,callable_name)
+        names = function_name.split('.')
+        module = __import__(names[0])
+        for name in names[1:-1]:
+            module = getattr(module,name)
+        classify_function = getattr(module,names[-1])
 
 
     print("Strategy: ", flush=True)
@@ -320,9 +322,11 @@ if __name__=="__main__":
 
         tracklets = join_up_final(detections, track_ids)
         new_objs=[make_object(tracklet) for tracklet in tracklets.values()]
+        print(f"New objects = {len(new_objs)}")
         new_objs=[x for x in new_objs if x is not None]
         with open(f"/work/{media_id}.json", "w") as f:
             json.dump(new_objs,f)
-        tator.util.chunk_create(api.create_state_list,project,
-                                neww_objs)
+        for response in tator.util.chunked_create(api.create_state_list,project,
+                                                  state_spec=new_objs):
+            pass
         tator.update_media(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})

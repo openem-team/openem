@@ -17,20 +17,23 @@ if __name__=="__main__":
 
     detection_type_id = pipeline_args.get('detection_type_id', None)
     tracklet_type_id = pipeline_args.get('tracklet_type_id', None)
-    version_number = pipeline_args.get('version_number', None)
+    version_id = pipeline_args.get('version_id', None)
     batch_size = pipeline_args.get('batch_size', 1)
     all_files=os.listdir('/work')
-    media_files=[os.path.join('/work',x) for x in all_files if x.endswith('.mp4')]
+
+    mode = pipeline_args.get('mode')
+    if mode == 'nonvisual':
+        media_files=[f"/work/{x}_foo.mp4" for x in os.getenv('TATOR_MEDIA_IDS').split(',')]
+    else:
+        media_files=[os.path.join('/work',x) for x in all_files if x.endswith('.mp4')]
 
     args = ['python3', '/scripts/tator_tracker.py',
-            '--url', os.getenv("TATOR_API_SERVICE"),
+            '--host', os.getenv("TATOR_API_SERVICE").replace('/rest',''),
             '--token', os.getenv("TATOR_AUTH_TOKEN"),
-            '--project', os.getenv('TATOR_PROJECT_ID'),
-            '--model-file', '/work/network/graph.pb',
             '--detection-type-id', str(detection_type_id),
             '--tracklet-type-id', str(tracklet_type_id),
-            '--version-number', str(version_number),
-            '--batch-size', str(batch_size),
+            '--version-id', str(version_id),
+            '--strategy-config', '/work/strategy.yaml',
             *media_files]
 
     cmd = " ".join(args)

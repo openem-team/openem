@@ -6,8 +6,10 @@ the original graph. This allows for code to run on platforms without tensorrt.
 """
 
 import tensorflow as tf
+import os
+
 def optimizeGraph(graph_def, output_nodes, user_trt_args=None):
-    if tf.test.is_gpu_available(cuda_only=True) is False:
+    if tf.test.is_gpu_available(cuda_only=True) is False or os.getenv("OPENEM_NOTRT") == "1":
         print("No GPU available to optimize for")
         return graph_def
     try:

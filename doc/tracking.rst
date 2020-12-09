@@ -126,16 +126,27 @@ Classification plugins
 ^^^^^^^^^^^^^^^^^^^^^^
 
 An example classification plugin project can be found here on `github. <https://github.com/cvisionai/tracker_classification>`_ The example aligns
-with the sample strategy above. `media_id` is a dictionary representing a media element `proposed_track_element` is a list of detection objects.
+with the sample strategy above. ``media_id`` is a dictionary representing a media element `proposed_track_element` is a list of detection objects.
 
-Full definition of the dictionary and detection object is implementation specific, for tator-backed deployments the definitions apply for `Media <https://www.tatorapp.com/docs/tator-py/api.html#tator.models.Media>`_ and `detections <https://www.tatorapp.com/docs/tator-py/api.html#tator.models.Localization>`_. At a minimum the media dictionary must supply a width and height of the media. Each detection must have at a minimum an x,y,height,width each in relative coordinates (0.0 to 1.0). Additional properties for each detection may be present in a given detection `attributes` object.
+Full definition of the dictionary and detection object is implementation specific, for tator-backed deployments the definitions apply for `Media <https://www.tatorapp.com/docs/tator-py/api.html#tator.models.Media>`_ and `detections <https://www.tatorapp.com/docs/tator-py/api.html#tator.models.Localization>`_. At a minimum the media dictionary must supply a width and height of the media. Each detection must have at a minimum an x,y,height,width each in relative coordinates (0.0 to 1.0). Additional properties for each detection may be present in a given detection ``attributes`` object.
+
 
 .. code-block:: python
-   ::linenos::
+   :linenos:
 
    def classify_track(media_id,
                       proposed_track_element,
                       minimum_length=2,
                       label='Label',
                       names={}):
+
+
+Example Tator Workflow
+^^^^^^^^^^^^^^^^^^^^^^
+
+In its entirety a reference tator workflow is supplied. 
     
+.. literalinclude:: ../scripts/tator/detection_workflow.yaml
+   :linenos:
+   :language: yaml
+   :emphasize-lines: 14,34-49, 66

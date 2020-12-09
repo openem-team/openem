@@ -98,7 +98,8 @@ more training data for associating detections faster, than having annotators sta
 Tracker strategy
 ========================
 
-The `--strategy-config` argument to `tator_tracker.py` expects a yaml file that allows for the configuration of 
+The ``--strategy-config`` argument to ``tator_tracker.py`` expects a yaml file that allows for the configuration of the tracker. The options above
+are exposed via the yaml syntax. An example with commentary is provided below:
 
 .. code-block:: yaml
    :linenos:

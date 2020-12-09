@@ -146,7 +146,7 @@ Example Tator Workflow
 
 In its entirety a reference tator workflow is supplied. 
     
-.. literalinclude:: ../scripts/tator/detection_workflow.yaml
+.. literalinclude:: ../scripts/tator/tracker_workflow.yaml
    :linenos:
    :language: yaml
    :emphasize-lines: 14,34-49, 66

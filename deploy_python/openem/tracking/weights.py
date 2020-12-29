@@ -240,6 +240,9 @@ def track_vel(track):
         y_vel = 0
     else:
         angle = math.atan2(y_vel, x_vel)
+        # unfurl radian
+        if angle < 0:
+            angle = 2*math.pi + angle
     return (angle, magnitude,[x_vel,y_vel])
 
 class IoUMotionWeights(IoUWeights):

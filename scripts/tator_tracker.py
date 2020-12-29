@@ -9,12 +9,15 @@ from openem.tracking import *
 import json
 import sys
 import datetime
-import pytator
+import tator
 from pprint import pprint
 from collections import defaultdict
 
 import yaml
 import math
+
+import subprocess
+import sys
 
 def crop_localization(frame_bgr, localization):
     img_width = frame_bgr.shape[1]
@@ -123,13 +126,13 @@ def trim_tracklets(detections, track_ids, max_length):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    pytator.tator.cli_parser(parser)
+    tator.get_parser(parser)
     parser.add_argument("--detection-type-id", type=int, required=True)
     parser.add_argument("--tracklet-type-id", type=int, required=True)
     parser.add_argument("--version-number", type=int)
     parser.add_argument("--version-id", type=int)
     parser.add_argument("--strategy-config", type=str)
-    parser.add_argument('media_files', type=str, nargs='+')
+    parser.add_argument('media_files', type=str, nargs='*')
     args = parser.parse_args()
 
     # Weight methods
@@ -138,13 +141,14 @@ if __name__=="__main__":
     # Weight methods that require the video
     visual_methods = ['hybrid']
 
-    tator = pytator.Tator(args.url, args.token, args.project)
+    api = tator.get_api(args.host, args.token)
+    detection_type = api.get_localization_type(args.detection_type_id)
+    project = detection_type.project
     version_id = None
     if args.version_number:
-        pprint(tator.Version.all())
-        for version in tator.Version.all():
-            if version['number'] == args.version_number:
-                version_id = version['id']
+        for version in api.get_version_list(project):
+            if version.number == args.version_number:
+                version_id = version.id
                 print(f"Using version ID {version_id}")
     elif args.version_id:
         version_id = args.version_id
@@ -170,19 +174,42 @@ if __name__=="__main__":
         comparator=FeaturesComparator(model_file)
         #extractor=FeaturesExtractor(args.model_file)
 
-    print("Strategy: ")
+
+    class_method = strategy.get('class-method',None)
+    classify_function = None
+    if class_method:
+        pip_package=class_method.get('pip',None)
+        if pip_package:
+            p = subprocess.run([sys.executable,
+                                "-m",
+                                "pip",
+                                "install",
+                                pip_package])
+            print("Finished process.", flush=True)
+        function_name = class_method.get('function',None)
+        classify_args = class_method.get('args',None)
+        names = function_name.split('.')
+        module = __import__(names[0])
+        for name in names[1:-1]:
+            module = getattr(module,name)
+        classify_function = getattr(module,names[-1])
+
+
+    print("Strategy: ", flush=True)
     pprint(strategy)
+    print(args.media_files, flush=True)
     for media_file in args.media_files:
         localizations_by_frame = {}
         comps=os.path.splitext(os.path.basename(media_file))[0]
         media_id=comps.split('_')[0]
-        lookup = {"type": args.detection_type_id,
-                  "media_id" : media_id}
-        localizations = tator.Localization.filter(lookup)
+        localizations = api.get_localization_list(project,
+                                                  type=args.detection_type_id,
+                                                  media_id=[media_id])
+        localizations = [l.to_dict() for l in localizations]
         if len(localizations) == 0:
-            print(f"No localizations present in media {media_file}")
+            print(f"No localizations present in media {media_file}", flush=True)
             continue
-        print(f"Processing {len(localizations)} detections")
+        print(f"Processing {len(localizations)} detections", flush=True)
         # Group by localizations by frame
         for lid, local in enumerate(localizations):
             frame = local['frame']
@@ -195,9 +222,9 @@ if __name__=="__main__":
         track_ids=[]
         track_id=1
 
-        media = tator.Media.get(media_id)
-        media_shape = (media['height'], media['width'])
-        fps = media['fps']
+        media = api.get_media(media_id)
+        media_shape = (media.height, media.width)
+        fps = media.fps
 
         if strategy['method'] in visual_methods:
             vid=cv2.VideoCapture(media_file)
@@ -218,11 +245,13 @@ if __name__=="__main__":
         else:
             # The method is analytical on the detections coordinates
             # and does not require processing the video
-            for frame,detections in localizations_by_frame.items():
-                for det in detections:
+            for frame,frame_detections in localizations_by_frame.items():
+                for det in frame_detections:
                     detections.append(det)
                     track_ids.append(track_id)
-                    track_ids += 1
+                    track_id += 1
+
+        print("Loaded all detections", flush=True)
 
         track_ids = renumber_track_ids(track_ids)
 
@@ -240,6 +269,7 @@ if __name__=="__main__":
             weights_strategy = IoUMotionWeights(media_shape, **strategy['args'])
         # Generate localization bgr based on grouped localizations
         for x in strategy['frame-diffs']:
+            print(f"Started {x}", flush=True)
             detections, track_ids, pairs, weights, is_cut, constraints = join_tracklets(
                 detections,
                 track_ids,
@@ -251,7 +281,7 @@ if __name__=="__main__":
                 print(f"Trimming track to max length of {trim_to}")
                 detections, track_ids = trim_tracklets(detections, track_ids, trim_to)
             _,det_counts_per_track=np.unique(track_ids,return_counts=True)
-            print(f"frame-diff {x}: {len(detections)} to {len(det_counts_per_track)}")
+            print(f"frame-diff {x}: {len(detections)} to {len(det_counts_per_track)}", flush=True)
 
             if x > 1 and strategy['extension']['method'] == 'linear-motion':
                 ext_frames=x
@@ -276,37 +306,27 @@ if __name__=="__main__":
             return tracklets
 
         def make_object(track):
-            # Only use last 50% for velocity
-            track_len = len(track)
-            velocity_len = int(track_len*0.50)
             track.sort(key=lambda x:x['frame'])
-            angle,speed,comps = track_vel(track[velocity_len:])
-            obj={"type": args.tracklet_type_id,
-                 "media_ids": [int(media_id)],
-                 "localization_ids": [x['id'] for x in track],
-                 "Species": "Tracklet",
-                 "length": len(track),
-                 "angle": math.degrees(angle),
-                 "speed": speed,
-                 "version": version_id}
-            print(f"{track[0]['frame']}: {angle} - {comps}")
-            angle = math.degrees(angle)
-            # Remark: y is down, so 90 degrees is DOWN.
-            if len(track) < 200:
-                obj['Species'] = 'Toss out'
-            elif speed < 0.00001:
-                obj['Species'] = 'Stationary'
-            elif angle > -45 and angle < 45:
-                obj['Species'] = 'Exiting'
-            elif angle > -135 and angle < 175:
-                obj['Species'] = 'Entering'
+            valid,attrs = classify_function(media.to_dict(),
+                                            track,
+                                            **classify_args)
+            if valid:
+                obj={"type": args.tracklet_type_id,
+                     "media_ids": [int(media_id)],
+                     "localization_ids": [x['id'] for x in track],
+                     **attrs,
+                     "version": version_id}
+                return obj
             else:
-                obj['Species'] = 'Unknown'
-            return obj
+                return None
 
         tracklets = join_up_final(detections, track_ids)
-        new_objs=[make_object(tracklet) for tracklet in tracklets.values() if len(tracklet) > strategy['min-length']]
+        new_objs=[make_object(tracklet) for tracklet in tracklets.values()]
+        print(f"New objects = {len(new_objs)}")
+        new_objs=[x for x in new_objs if x is not None]
         with open(f"/work/{media_id}.json", "w") as f:
             json.dump(new_objs,f)
-        tator.Track.new(new_objs)
-        tator.Media.update(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})
+        for response in tator.util.chunked_create(api.create_state_list,project,
+                                                  state_spec=new_objs):
+            pass
+        tator.update_media(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})

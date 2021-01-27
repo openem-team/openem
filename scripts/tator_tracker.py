@@ -313,8 +313,11 @@ if __name__=="__main__":
                 valid,attrs = classify_function(media.to_dict(),
                                                 track,
                                                 **classify_args)
-            else:
+            elif len(track) >= strategy['min-length']:
                 valid = True
+                attrs = {}
+            else:
+                valid = False
                 attrs = {}
             if valid:
                 obj={"type": args.tracklet_type_id,
@@ -328,12 +331,15 @@ if __name__=="__main__":
 
         tracklets = join_up_final(detections, track_ids)
         new_objs=[make_object(tracklet) for tracklet in tracklets.values()]
-        print(f"New objects = {len(new_objs)}")
         new_objs=[x for x in new_objs if x is not None]
+        print(f"New objects = {len(new_objs)}")
         with open(f"/work/{media_id}.json", "w") as f:
             json.dump(new_objs,f)
         if not args.dry_run:
             for response in tator.util.chunked_create(api.create_state_list,project,
                                                       state_spec=new_objs):
                 pass
-            api.update_media(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})
+            try:
+                api.update_media(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})
+            except:
+                print("WARNING: Unable to set 'Tracklet Generator Processed' attribute")

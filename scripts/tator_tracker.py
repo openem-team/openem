@@ -132,6 +132,7 @@ if __name__=="__main__":
     parser.add_argument("--version-number", type=int)
     parser.add_argument("--version-id", type=int)
     parser.add_argument("--strategy-config", type=str)
+    parser.add_argument("--dry-run", action='store_true')
     parser.add_argument('media_files', type=str, nargs='*')
     args = parser.parse_args()
 
@@ -177,6 +178,7 @@ if __name__=="__main__":
 
     class_method = strategy.get('class-method',None)
     classify_function = None
+    classify_args = {}
     if class_method:
         pip_package=class_method.get('pip',None)
         if pip_package:
@@ -302,14 +304,19 @@ if __name__=="__main__":
             num_tracklets = np.max(track_ids) + 1
             assert(len(detections) == len(track_ids))
             for d,tid in zip(detections, track_ids):
+                print(f"{tid}: Adding {d['id']}")
                 tracklets[tid].append(d)
             return tracklets
 
         def make_object(track):
             track.sort(key=lambda x:x['frame'])
-            valid,attrs = classify_function(media.to_dict(),
-                                            track,
-                                            **classify_args)
+            if classify_function:
+                valid,attrs = classify_function(media.to_dict(),
+                                                track,
+                                                **classify_args)
+            else:
+                valid = True
+                attrs = {}
             if valid:
                 obj={"type": args.tracklet_type_id,
                      "media_ids": [int(media_id)],
@@ -326,7 +333,8 @@ if __name__=="__main__":
         new_objs=[x for x in new_objs if x is not None]
         with open(f"/work/{media_id}.json", "w") as f:
             json.dump(new_objs,f)
-        for response in tator.util.chunked_create(api.create_state_list,project,
-                                                  state_spec=new_objs):
-            pass
-        tator.update_media(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})
+        if not args.dry_run:
+            for response in tator.util.chunked_create(api.create_state_list,project,
+                                                      state_spec=new_objs):
+                pass
+            api.update_media(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})

@@ -304,7 +304,6 @@ if __name__=="__main__":
             num_tracklets = np.max(track_ids) + 1
             assert(len(detections) == len(track_ids))
             for d,tid in zip(detections, track_ids):
-                print(f"{tid}: Adding {d['id']}")
                 tracklets[tid].append(d)
             return tracklets
 

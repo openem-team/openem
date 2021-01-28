@@ -22,7 +22,7 @@ RUN apt-get install -y --no-install-recommends docker-ce \
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 RUN echo "force 0.1.1"
-RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 tator>=0.9.0 docker>=4.2.0 tables>=3.6.1 natsort>=7.0.1 tqdm
+RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 tator>=0.9.2 docker>=4.2.0 tables>=3.6.1 natsort>=7.0.1 tqdm
 # Graph solver
 WORKDIR /
 RUN git clone https://github.com/cvisionai/graph.git && git -C graph checkout 35dc69c9ab25639

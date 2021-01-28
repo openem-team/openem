@@ -221,6 +221,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser = tator.get_parser(parser)
     parser.add_argument("csvfile", help="test.csv, length.csv, or detect.csv")
+    parser.add_argument("--project", help="Project ID", type=int)
     parser.add_argument("--img-base-dir", help="Base Path to media files", required=True)
     parser.add_argument("--img-ext", default="jpg")
     parser.add_argument("--media-type-id", type=int, required=True)
@@ -321,7 +322,7 @@ if __name__=="__main__":
                                          raw=False,
                                          axis=1)
         bar2.finish()
-        raw_objects = localizations.values
+        raw_objects = localizations.values.tolist()
         for response in tator.util.chunked_create(api.create_localization_list,
                                                   args.project,
                                                   localization_spec=raw_objects):

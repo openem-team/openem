@@ -21,7 +21,7 @@ if __name__ == '__main__':
         sys.exit(-1)
     box_type_id = pipeline_args['type_id']
     img_ext = pipeline_args.get('img_ext', None)
-    media_type = pipeline_args.get('media_type', None)
+    media_type = pipeline_args.get('media_type', "pipeline")
     image_ext = pipeline_args.get('img_ext', None)
     species_attr_name = pipeline_args.get('species_attr_name','Species')
     confidence_attr_name = pipeline_args.get('confidence_attr_name','Confidence')

@@ -27,7 +27,7 @@ if __name__ == '__main__':
     confidence_attr_name = pipeline_args.get('confidence_attr_name','Confidence')
     optional_args=[]
     version_id = pipeline_args.get('version_id', None)
-    if version_number:
+    if version_id:
         optional_args.extend(['--version-id', str(version_id)])
 
     args = ["python3",

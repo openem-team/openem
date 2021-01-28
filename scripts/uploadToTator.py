@@ -2,7 +2,7 @@
 
 """ Upload a result set or training set to tator for analysis """
 import argparse
-import pytator
+import tator
 import csv
 import progressbar
 import sys
@@ -65,7 +65,7 @@ def process_line(args, tator, species_names, row):
 
 def process_detect(row,
                    args,
-                   tator,
+                   api,
                    version_id,
                    species_names,
                    truth_data,
@@ -153,7 +153,7 @@ def make_localization_obj(args,
 
 media_list_cache={}
 media_count = 0
-def uploadMedia(row, args, tator, bar):
+def uploadMedia(row, args, api, bar):
     """ Attempts to upload the media in the row to tator
         if already there, skips, but either way returns the
         media element information. """
@@ -179,7 +179,7 @@ def uploadMedia(row, args, tator, bar):
         if media_id in media_list_cache:
             return media_id,media_list_cache[media_id]
         else:
-            result = tator.Media.get(media_id)
+            result = api.get_media(media_id).to_dict()
             media_list_cache[media_id] = result
             return result['id'],result
     elif args.media_type == "image":
@@ -193,23 +193,23 @@ def uploadMedia(row, args, tator, bar):
     else:
         print(f"{time.time()}: {desired_name}: Not In Cache")
         print(f"Cache = {media_list_cache}")
-        media_element_search=tator.Media.filter({"name": desired_name})
+        media_element_search=api.get_media_list(args.project,name=desired_name)
         if media_element_search == None:
             print(f"Uploading file...{desired_name}")
-            tator.Media.uploadFile(args.media_type_id,
-                                   img_path,
-                                   progressBars=False,
-                                   section=args.section,
-                                   fname=desired_name)
-            media_element_search=tator.Media.filter({"name": desired_name})
+            for _,__ in tator.util.upload_media(api,
+                                                args.media_type_id,
+                                                img_path,
+                                                section=args.section,
+                                                fname=desired_name):
+                pass
+            
+            media_element_search=api.get_media_list(args.project,name=desired_name)
+            while media_element_search is None:
+                time.sleep(1)
+                print("Waiting for upload")
+                media_element_search=api.get_media_list(args.project,name=desired_name)
         if media_element_search:
-            result = tator.Media.get(media_element_search[0]['id'])
-            if result['attributes']['tator_user_sections'] != args.section:
-                if args.section:
-                    tator.Media.update(result['id'], {'attributes':
-                                                      {'tator_user_sections':
-                                                       args.section}})
-                    print(f"Moving to {args.section}")
+            result = media_element_search[0]
             media_list_cache[desired_name] = result
             return result['id'], result
         else:
@@ -219,7 +219,7 @@ def uploadMedia(row, args, tator, bar):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser = pytator.tator.cli_parser(parser)
+    parser = tator.get_parser(parser)
     parser.add_argument("csvfile", help="test.csv, length.csv, or detect.csv")
     parser.add_argument("--img-base-dir", help="Base Path to media files", required=True)
     parser.add_argument("--img-ext", default="jpg")
@@ -236,17 +236,13 @@ if __name__=="__main__":
     parser.add_argument("--threshold", type=float, help="Discard boxes less than this value")
     parser.add_argument("--truth-data", type=str, help="Path to annotations.csv to exclude non-truth data")
     parser.add_argument("--species-keyname", type=str,default="Species")
-    parser.add_argument("--version-number", type=int)
+
+    parser.add_argument("--version-id", type=int)
     args = parser.parse_args()
-    tator = pytator.Tator(args.url, args.token, args.project)
+    api = tator.get_api(args.host, args.token)
 
     # convert supplied version number to version id
-    version_id = None
-    if args.version_number:
-        project_versions = tator.Version.all()
-        for obj in project_versions:
-            if obj['number'] == args.version_number:
-                version_id = obj['id']
+    version_id = args.version_id
 
     signal.signal(signal.SIGINT, exit_func)
 
@@ -296,7 +292,7 @@ if __name__=="__main__":
     media_info = input_data.apply(uploadMedia,
                                   axis=1,
                                   result_type='expand',
-                                  args=(args, tator, bar),
+                                  args=(args, api, bar),
                                   raw=False)
     bar.finish()
     input_data = input_data.assign(media_id = media_info[0])
@@ -326,23 +322,13 @@ if __name__=="__main__":
                                          axis=1)
         bar2.finish()
         raw_objects = localizations.values
-        upload_count = 0
-        upload_batch = 25
-        batch_count = math.ceil(len(raw_objects) / 25)
-        for idx in range(batch_count):
-            start_idx = 0+(idx*upload_batch)
-            current_batch=list(raw_objects[start_idx:start_idx+upload_batch])
-            try:
-                before=time.time()
-                code,resp = tator.Localization.new(current_batch)
-                if code >= 300 or code < 200:
-                    print("Failed batch upload.")
-                    sys.exit(-1)
-                after=time.time()
-                print(f"Duration={(after-before)*1000}ms")
-            except:
-                traceback.print_exc(file=sys.stdout)
+        for response in tator.util.chunked_create(api.create_localization_list,
+                                                  args.project,
+                                                  localization_spec=raw_objects):
+                pass
 
-        # When complete for a given media update the sentinel value
-        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}})
-        tator.Media.update(media_id, {"attributes":{"Object Detector Processed": str(datetime.datetime.now())}})
+        try:
+            # When complete for a given media update the sentinel value
+            api.update_media(media_id, attributes={"Object Detector Processed": str(datetime.datetime.now())})
+        except:
+            print("Unable to set sentinel attribute")

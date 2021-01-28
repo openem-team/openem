@@ -196,7 +196,7 @@ if __name__=="__main__":
 
     optional_fetch_args = {}
     if args.input_version_id:
-        optional_fetch_args['version'] = args.input_version_id
+        optional_fetch_args['version'] = [args.input_version_id]
     for media_file in args.media_files:
         localizations_by_frame = {}
         comps=os.path.splitext(os.path.basename(media_file))[0]

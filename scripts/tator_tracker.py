@@ -129,8 +129,8 @@ if __name__=="__main__":
     tator.get_parser(parser)
     parser.add_argument("--detection-type-id", type=int, required=True)
     parser.add_argument("--tracklet-type-id", type=int, required=True)
-    parser.add_argument("--version-number", type=int)
     parser.add_argument("--version-id", type=int)
+    parser.add_argument("--input-version-id", type=int)
     parser.add_argument("--strategy-config", type=str)
     parser.add_argument("--dry-run", action='store_true')
     parser.add_argument('media_files', type=str, nargs='*')
@@ -145,14 +145,7 @@ if __name__=="__main__":
     api = tator.get_api(args.host, args.token)
     detection_type = api.get_localization_type(args.detection_type_id)
     project = detection_type.project
-    version_id = None
-    if args.version_number:
-        for version in api.get_version_list(project):
-            if version.number == args.version_number:
-                version_id = version.id
-                print(f"Using version ID {version_id}")
-    elif args.version_id:
-        version_id = args.version_id
+    version_id = args.version_id
 
 
     default_strategy = {"method": "hybrid",
@@ -200,13 +193,19 @@ if __name__=="__main__":
     print("Strategy: ", flush=True)
     pprint(strategy)
     print(args.media_files, flush=True)
+
+    optional_fetch_args = {}
+    if args.input_version_id:
+        optional_fetch_args['version'] = args.input_version_id
     for media_file in args.media_files:
         localizations_by_frame = {}
         comps=os.path.splitext(os.path.basename(media_file))[0]
         media_id=comps.split('_')[0]
         localizations = api.get_localization_list(project,
                                                   type=args.detection_type_id,
-                                                  media_id=[media_id])
+                                                  media_id=[media_id],
+                                                  **optional_fetch_args)
+
         localizations = [l.to_dict() for l in localizations]
         if len(localizations) == 0:
             print(f"No localizations present in media {media_file}", flush=True)

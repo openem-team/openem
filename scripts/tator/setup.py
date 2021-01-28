@@ -62,7 +62,7 @@ if __name__ == '__main__':
         media_filepath = os.path.join(work_dir,media_unique_name)
         data={'media': media_filepath}
         print(f"Downloading {media.name} to {media_filepath}")
-        for _,_ in tator.download_media(api,media, media_filepath):
+        for _ in tator.download_media(api,media, media_filepath):
             pass
         if not os.path.exists(media_filepath):
             print("File did not download!")

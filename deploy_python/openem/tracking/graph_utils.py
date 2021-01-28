@@ -48,6 +48,9 @@ def _make_tracklets(detections, track_ids):
     assert(len(detections) == len(track_ids))
     for d, tid in zip(detections, track_ids):
         tracklets[tid].append(d)
+    # make sure to sort by frame
+    for tid in tracklets:
+        tracklets[tid].sort(key=lambda x:x['frame'])
     return list(tracklets.values())
 
 def _find_edge_pairs(tracklets, max_frame_diff):

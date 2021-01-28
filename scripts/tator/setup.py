@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import pytator
+import tator
 import docker
 import tarfile
 import os
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     media_ids = os.getenv('TATOR_MEDIA_IDS')
     print(f"processing = {media_ids})")
     media_ids = [int(m) for m in media_ids.split(',')]
-    rest_svc = os.getenv('TATOR_API_SERVICE')
+    host = os.getenv("TATOR_API_SERVICE").replace('/rest','')
     work_dir = os.getenv('TATOR_WORK_DIR')
     token=os.getenv('TATOR_AUTH_TOKEN')
     project_id=os.getenv('TATOR_PROJECT_ID')
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         pipeline_args = json.loads(pipeline_args_str)
     else:
         pipeline_args = {}
-    tator=pytator.Tator(rest_svc, token, project_id)
+    api=tator.get_api(host, token)
     
     work_filepath=os.path.join(work_dir, "work.csv")
     try:
@@ -54,23 +54,16 @@ if __name__ == '__main__':
     work_frame=pd.DataFrame(columns=cols)
     work_frame.to_csv(work_filepath, index=False)
 
-    media_elements=[]
-    count=0
-    chunk=100
-    for _ in range(math.ceil(len(media_ids)/chunk)):
-        chunk_ids=media_ids[count:count+chunk]
-        str_ids = [str(x) for x in chunk_ids]
-        media_elements.extend(tator.Media.filter({"media_id":
-                                                  ','.join(str_ids)}))
-        count+=chunk
-        
+    media_elements = api.get_media_list(project_id,
+                                        media_id=media_ids)
     print(f"Starting on {work_filepath}")
     for media_id,media in zip(media_ids,media_elements):
-        media_unique_name = f"{media['id']}_{media['name']}"
+        media_unique_name = f"{media.id}_{media.name}"
         media_filepath = os.path.join(work_dir,media_unique_name)
         data={'media': media_filepath}
-        print(f"Downloading {media['name']} to {media_filepath}")
-        tator.Media.downloadFile(media, media_filepath)
+        print(f"Downloading {media.name} to {media_filepath}")
+        for _ in tator.download_media(api,media, media_filepath):
+            pass
         if not os.path.exists(media_filepath):
             print("File did not download!")
             sys.exit(255)

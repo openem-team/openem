@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import pytator
+import tator
 import json
 import os
 import sys
@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 if __name__ == '__main__':
-    rest_svc = os.getenv('TATOR_API_SERVICE')
+    host = os.getenv("TATOR_API_SERVICE").replace('/rest','')
     work_dir = os.getenv('TATOR_WORK_DIR')
     token = os.getenv('TATOR_AUTH_TOKEN')
     project_id = os.getenv('TATOR_PROJECT_ID')
@@ -21,18 +21,18 @@ if __name__ == '__main__':
         sys.exit(-1)
     box_type_id = pipeline_args['type_id']
     img_ext = pipeline_args.get('img_ext', None)
-    media_type = pipeline_args.get('media_type', None)
+    media_type = pipeline_args.get('media_type', "pipeline")
     image_ext = pipeline_args.get('img_ext', None)
     species_attr_name = pipeline_args.get('species_attr_name','Species')
     confidence_attr_name = pipeline_args.get('confidence_attr_name','Confidence')
     optional_args=[]
-    version_number = pipeline_args.get('version_number', None)
-    if version_number:
-        optional_args.extend(['--version-number', str(version_number)])
+    version_id = pipeline_args.get('version_id', None)
+    if version_id:
+        optional_args.extend(['--version-id', str(version_id)])
 
     args = ["python3",
             "/scripts/uploadToTator.py",
-            "--url", rest_svc,
+            "--host", host,
             "--project", str(project_id),
             "--token", token,
             "--img-base-dir", "/work",

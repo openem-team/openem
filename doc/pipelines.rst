@@ -63,12 +63,12 @@ Detailed Mechanics
 This section walks through the mechanics of the reference workflow so that
 users could build more ellaborate workflows on OpenEM technology.
 
-A Tator Workflow is specifed no differently than a regular `Argo <https://argoproj.github.io/argo/>` workflow, other than there is an expectation the Tator REST
+A Tator Workflow is specifed no differently than a regular `Argo <https://argoproj.github.io/argo/>`_ workflow, other than there is an expectation the Tator REST
 API is used to access media files and supply results to a project.
 
 A canonoical Tator workflow has three parts: setup, execution, and teardown.
 More advanced workflows can replace the execution stage with multiple stages
-using the directed acylcic graph capabilities of argo.
+using the directed acyclic graph capabilities of argo.
 
 Project setup
 ^^^^^^^^^^^^^

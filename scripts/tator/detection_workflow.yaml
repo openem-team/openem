@@ -71,7 +71,7 @@ spec:
       - name: TATOR_WORK_DIR
         value: "/work"
       - name: TATOR_PIPELINE_ARGS
-        value: "{"img_max_side\": <max>, \"img_min_side\": <min>, \"keep_threshold\": <keep>, \"media_type\": \"video\", \"img_ext\": \"mp4\", \"batch_size\" : <batch_size>}"
+        value: "{\"img_max_side\": <max>, \"img_min_side\": <min>, \"keep_threshold\": <keep>, \"media_type\": \"video\", \"img_ext\": \"mp4\", \"batch_size\" : <batch_size>}"
       volumeMounts:
       - name: workdir
         mountPath: /work

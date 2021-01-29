@@ -2,7 +2,7 @@ OpenEM and Tator Pipelines
 ==========================
 
 `Tator <https://github.com/cvisionai/tator>`_  is a web-based media management
-and curation project. Part of the media mangement is executing algorithms or
+and curation project. Part of the media management is executing algorithms or
 *workflows* on a set of media. OpenEM is able to be run within the confines
 of a Tator workflow. Currently Retinanet-based Detection is supported for
 inference within a workflow.
@@ -29,7 +29,7 @@ Note the values of <docker_hub_user> and <image_name> for use in the next
 section.
 
 The referenced train.ini can be a subset of full `train.ini`;
-a minimimal configuration such as the following is acceptable for the
+a minimal configuration such as the following is acceptable for the
 requirements of `uploadToTator.py`:
 
 .. code-block:: ini
@@ -61,12 +61,12 @@ Detailed Mechanics
 ******************
 
 This section walks through the mechanics of the reference workflow so that
-users could build more ellaborate workflows on OpenEM technology.
+users could build more elaborate workflows on OpenEM technology.
 
-A Tator Workflow is specifed no differently than a regular `Argo <https://argoproj.github.io/argo/>`_ workflow, other than there is an expectation the Tator REST
+A Tator Workflow is specified no differently than a regular `Argo <https://argoproj.github.io/argo/>`_ workflow, other than there is an expectation the Tator REST
 API is used to access media files and supply results to a project.
 
-A canonoical Tator workflow has three parts: setup, execution, and teardown.
+A canonical Tator workflow has three parts: setup, execution, and teardown.
 More advanced workflows can replace the execution stage with multiple stages
 using the directed acyclic graph capabilities of argo.
 
@@ -84,7 +84,7 @@ localization box type represented by ``<box_type_id>``. The
      A string attribute type that is set to the date time when the object
      detector finishes processing the media file.
 
-The ``<box_type_id>`` requires the the following attributes:
+The ``<box_type_id>`` requires the following attributes:
 
 .. glossary::
 
@@ -127,7 +127,7 @@ Submitting results
 `infer.py` generates a csv with inference results, so another utility must
 interpret these results and submit to the underlying Tator web service. A script
 called `uploadToTator.py` is located in scripts, but similar to `infer.py`;
-inserting a layer between the raw script can be helpful to mananage
+inserting a layer between the raw script can be helpful to manage
 the environment.
 
 .. literalinclude:: ../scripts/tator/teardown.py

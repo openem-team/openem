@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: tracker-example
+spec:
+  entrypoint: pipeline
+  ttlStrategy:
+    SecondsAfterSuccess: 600
+    SecondsAfterFailure: 86400
+  volumeClaimTemplates:
+  - metadata:
+      name: workdir
+    spec:
+      storageClassName: aws-efs
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Mi
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+  templates:
+  - name: pipeline
+    steps:
+    - - name: worker
+        template: worker
+  - name: worker
+    container:
+      image: "" # Fill in with openem_lite-based image
+      imagePullPolicy: Always
+      resources:
+        requests:
+          cpu: 4000m
+      env:
+      - name: TATOR_MEDIA_IDS
+        value: "{{workflow.parameters.media_ids}}"
+      - name: TATOR_API_SERVICE
+        value: "{{workflow.parameters.rest_url}}"
+      - name: TATOR_AUTH_TOKEN
+        value: "{{workflow.parameters.rest_token}}"
+      - name: OBJECT_STORAGE_ACCESS_KEY
+        value: "" # Fill in with s3 access key
+      - name: OBJECT_STORAGE_SECRET_KEY
+        value: "" # Fill in with s3 secret access key
+      - name: S3_BUCKET
+        value: "" # Fill in with existing bucket name
+      - name: TATOR_ATTRIBUTE_NAME
+        value: "feature_s3"
+      - name: ENDPOINT_URL
+        value: "" # Fill in with s3 endpoint
+      - name: TATOR_PROJECT_ID
+        value: "{{workflow.parameters.project_id}}"
+      - name: TATOR_WORK_DIR
+        value: "/work"
+      volumeMounts:
+      - name: workdir
+        mountPath: /work
+      command: [python3]
+      args: ["/scripts/tator/feature_extraction_entry.py"]

@@ -59,6 +59,9 @@ if __name__ == "__main__":
         *os.getenv("IMAGE_SIZE").split(","),
     ]
 
+    if os.getenv("VERBOSE") is not None:
+        args.append("--verbose")
+
     cmd = " ".join(args)
     logger.info(f"Feature Extraction Command = '{cmd}'")
     p = subprocess.Popen(args)

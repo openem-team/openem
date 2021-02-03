@@ -251,6 +251,7 @@ if __name__ == "__main__":
     parser.add_argument("--media-ids", type=int, nargs="*", required=True)
     parser.add_argument("--frame-modulus", type=int, required=True)
     parser.add_argument("--image-size", type=int, nargs=2, required=True)
+    parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 
     logger.info(f"ARGS: {args}")
@@ -280,7 +281,9 @@ if __name__ == "__main__":
     logger.info("Extracting features")
     n_files = len(media_files_to_process)
     df_files = []
-    rfe = ResNet50FeatureExtractor(frame_modulus=args.frame_modulus, image_size=args.image_size)
+    rfe = ResNet50FeatureExtractor(
+        frame_modulus=args.frame_modulus, image_size=args.image_size, verbose=args.verbose
+    )
     for idx, media_file in enumerate(media_files_to_process):
         base_filename = os.path.splitext(media_file)[0]
         df_path = f"{base_filename}.hdf"

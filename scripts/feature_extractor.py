@@ -2,6 +2,7 @@
 import argparse
 from datetime import datetime
 from itertools import cycle
+import json
 import logging
 from math import floor
 import multiprocessing as mp
@@ -255,25 +256,44 @@ if __name__ == "__main__":
     parser.add_argument("--media-ids", type=int, nargs="*", required=True)
     parser.add_argument("--frame-modulus", type=int, required=True)
     parser.add_argument("--image-size", type=int, nargs=2, required=True)
-    parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--force-extraction", action="store_true")
     args = parser.parse_args()
 
     logger.info(f"ARGS: {args}")
 
     media_ids = args.media_ids
     project_id = args.project_id
+    force_extraction = args.force_extraction
+    attribute_name = args.attribute_name
     api = tator.get_api(args.host, args.token)
 
     # Download media
     logger.info("Downloading media")
     media_elements = api.get_media_list(project_id, media_id=media_ids)
-    media_tracker = {
-        media_id: {"element": element, "media_file": None, "df_file": None, "s3_key": None}
-        for media_id, element in zip(media_ids, media_elements)
-    }
+
+    # Create dict for tracking the progress of each media item
+    media_tracker = {}
+    for element in media_elements:
+        s3_info = element.attributes[attribute_name]
+        s3_key = None
+        if s3_info and not force_extraction:
+            try:
+                s3_key = json.loads(s3_info)["key"]
+            except:
+                pass
+
+        media_tracker[element.id] = {
+            "element": element,
+            "media_file": s3_key,
+            "df_file": s3_key,
+            "s3_key": s3_key,
+        }
+
     while _n_remaining(media_tracker, "media_file") > 0:
         for media_dict in media_tracker.values():
-            # Check to see if the file has already been downloaded
+            # Check to see if the file has already been downloaded or if the features are already in
+            # s3
             if media_dict["media_file"] is not None:
                 continue
 
@@ -296,7 +316,8 @@ if __name__ == "__main__":
     )
     while _n_remaining(media_tracker, "df_file") > 0:
         for media_dict in media_tracker.values():
-            # Check to see if the features have already been extracted
+            # Check to see if the features have already been extracted or if the features are
+            # already in s3
             if media_dict["df_file"] is not None:
                 continue
 
@@ -321,7 +342,6 @@ if __name__ == "__main__":
 
     # Push features to s3 and add feature location to media
     s3_bucket = args.s3_bucket
-    attribute_name = args.attribute_name
 
     client = boto3.client(
         "s3",
@@ -333,6 +353,10 @@ if __name__ == "__main__":
     logger.info("Uploading features to s3")
     while _n_remaining(media_tracker, "s3_key"):
         for media_id, media_dict in media_tracker.items():
+            # Check to see if the features are already in s3
+            if media_dict["s3_key"] is not None:
+                continue
+
             uuid_filename = f"{uuid4()}.hdf"
             try:
                 client.upload_file(media_dict["df_file"], s3_bucket, uuid_filename)

@@ -62,6 +62,9 @@ if __name__ == "__main__":
     if os.getenv("VERBOSE") is not None:
         args.append("--verbose")
 
+    if os.getenv("FORCE_EXTRACTION") is not None:
+        args.append("--force-extraction")
+
     cmd = " ".join(args)
     logger.info(f"Feature Extraction Command = '{cmd}'")
     p = subprocess.Popen(args)

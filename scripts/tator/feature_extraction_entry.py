@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     args = [
         "python3",
-        "/scripts/tator/feature_extractor.py",
+        "/scripts/feature_extractor.py",
         "--host",
         os.getenv("TATOR_API_SERVICE").replace("/rest", ""),
         "--token",

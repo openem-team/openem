@@ -31,7 +31,8 @@ RUN apt-get install -y --no-install-recommends docker-ce \
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 RUN echo "force 0.1.4"
 RUN pip3 install --no-cache-dir opencv-python==4.1.1.26 scikit-image==0.14.2 tator>=0.9.2 \
-      pytator>=0.1.4 docker>=4.2.0 tables>=3.6.1 natsort>=7.0.1 boto3>=1.16.63
+      pytator>=0.1.4 docker>=4.2.0 tables>=3.6.1 natsort>=7.0.1 boto3>=1.16.63 torch>=1.7.1 \
+      torchvision>=0.8.2
 % elif multiArch.arch == "aarch64":
 
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -

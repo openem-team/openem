@@ -21,7 +21,6 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-import torch
 import tator
 
 
@@ -50,7 +49,7 @@ class ResNet50FeatureExtractor:
 
     class ResNet50Features(nn.Module):
         def __init__(self):
-            super(ResNet50Features, self).__init__()
+            super().__init__()
             image_modules = list(torchvision.models.resnet50(pretrained=True).children())[:-1]
             image_modules[-1] = nn.AdaptiveAvgPool2d(1)
             self.model = nn.Sequential(*image_modules)
@@ -213,7 +212,7 @@ class ResNet50FeatureExtractor:
                 except queue.Empty:
                     if self._verbose:
                         logging.info("timed out getting frames")
-                    self._done.set()
+                    self._done_event.set()
                     break
                 else:
                     images, frames = map(list, zip(*image_batch))
@@ -295,6 +294,7 @@ if __name__ == "__main__":
     logger.info("Extracting features")
     n_files = len(media_files_to_process)
     df_files = []
+    rfe = ResNet50FeatureExtractor()
     for idx, media_file in enumerate(media_files_to_process):
         base_filename = os.path.splitext(media_file)[0]
         df_path = f"{base_filename}.hdf"
@@ -302,7 +302,7 @@ if __name__ == "__main__":
             logger.info(f"Feature file found for {media_file}, skipping extraction")
         else:
             # Extract features
-            df = ResNet50FeatureExtractor(media_file).extract_features()
+            df = rfe.extract_features(media_file)
             df.to_hdf(df_path, mode="w", key="df", format="table")
             del df
         df_files.append(df_path)

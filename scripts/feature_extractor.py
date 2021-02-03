@@ -238,6 +238,10 @@ class ResNet50FeatureExtractor:
         return video_features_df
 
 
+def _n_remaining(media_tracker, key):
+    return len([0 for v in media_tracker.values() if v[key] is None])
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     tator.get_parser(parser)
@@ -263,40 +267,57 @@ if __name__ == "__main__":
     # Download media
     logger.info("Downloading media")
     media_elements = api.get_media_list(project_id, media_id=media_ids)
-    n_media = len(media_ids)
-    media_files_to_process = []
-    for (idx, (media_id, media)) in enumerate(zip(media_ids, media_elements)):
-        media_unique_name = f"{media.id}_{media.name}"
-        media_filepath = os.path.join(args.work_dir, media_unique_name)
-        for _ in tator.download_media(api, media, media_filepath):
-            pass
-        if not os.path.exists(media_filepath):
-            logging.info("File did not download!")
-            sys.exit(255)
+    media_tracker = {
+        media_id: {"element": element, "media_file": None, "df_file": None, "s3_key": None}
+        for media_id, element in zip(media_ids, media_elements)
+    }
+    while _n_remaining(media_tracker, "media_file") > 0:
+        for media_dict in media_tracker.values():
+            # Check to see if the file has already been downloaded
+            if media_dict["media_file"] is not None:
+                continue
 
-        media_files_to_process.append(media_filepath)
+            media = media_dict["element"]
+            media_unique_name = f"{media.id}_{media.name}"
+            media_filepath = os.path.join(args.work_dir, media_unique_name)
+            for _ in tator.download_media(api, media, media_filepath):
+                pass
+            if not os.path.exists(media_filepath):
+                logging.info(f"{media_unique_name} did not download!")
+            else:
+                media_dict["media_file"] = media_filepath
 
     logger.info("Media successfully downloaded")
 
     logger.info("Extracting features")
-    n_files = len(media_files_to_process)
     df_files = []
     rfe = ResNet50FeatureExtractor(
         frame_modulus=args.frame_modulus, image_size=args.image_size, verbose=args.verbose
     )
-    for idx, media_file in enumerate(media_files_to_process):
-        base_filename = os.path.splitext(media_file)[0]
-        df_path = f"{base_filename}.hdf"
-        if os.path.isfile(df_path):
-            logger.info(f"Feature file found for {media_file}, skipping extraction")
-        else:
-            # Extract features
-            df = rfe.extract_features(media_file)
-            df.to_hdf(df_path, mode="w", key="df", format="table")
-            del df
-        df_files.append(df_path)
+    while _n_remaining(media_tracker, "df_file") > 0:
+        for media_dict in media_tracker.values():
+            # Check to see if the features have already been extracted
+            if media_dict["df_file"] is not None:
+                continue
 
-    logger.info("Features extracted")
+            media_file = media_dict["media_file"]
+            base_filename = os.path.splitext(media_file)[0]
+            df_path = f"{base_filename}.hdf"
+
+            # Extract features
+            try:
+                df = rfe.extract_features(media_file)
+                df.to_hdf(df_path, mode="w", key="df", format="table")
+                del df
+            except:
+                pass
+
+            if not os.path.exists(df_path):
+                logging.warning(f"Features not extracted for {media_file}!")
+            else:
+                media_dict["df_file"] = df_path
+
+    logger.info("Features successfully extracted")
 
     # Push features to s3 and add feature location to media
     s3_bucket = args.s3_bucket
@@ -310,18 +331,22 @@ if __name__ == "__main__":
     )
 
     logger.info("Uploading features to s3")
-    for idx, df_file in enumerate(df_files):
-        uuid_filename = f"{uuid4()}.hdf"
-        try:
-            client.upload_file(df_file, s3_bucket, uuid_filename)
-        except:
-            logger.warn(f"Unable to upload file {uuid_filename} to s3")
-            continue
+    while _n_remaining(media_tracker, "s3_key"):
+        for media_id, media_dict in media_tracker.items():
+            uuid_filename = f"{uuid4()}.hdf"
+            try:
+                client.upload_file(media_dict["df_file"], s3_bucket, uuid_filename)
+            except:
+                logger.warn(f"Unable to upload file {uuid_filename} to s3")
+                continue
 
-        try:
-            feature_s3 = f'{{"bucket": "{s3_bucket}", "key": "{uuid_filename}"}}'
-            api.update_media(int(media_id), {"attributes": {attribute_name: feature_s3}})
-        except:
-            logger.warn(f"Unable to set {attribute_name} attribute")
+            try:
+                feature_s3 = f'{{"bucket": "{s3_bucket}", "key": "{uuid_filename}"}}'
+                api.update_media(int(media_id), {"attributes": {attribute_name: feature_s3}})
+            except:
+                logger.warn(f"Unable to set {attribute_name} attribute")
+                continue
+
+            media_dict["s3_key"] = uuid_filename
 
     logger.info("Features uploaded to s3")

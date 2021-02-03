@@ -283,11 +283,14 @@ if __name__ == "__main__":
             except:
                 pass
 
+            if s3_key:
+                continue
+
         media_tracker[element.id] = {
             "element": element,
-            "media_file": s3_key,
-            "df_file": s3_key,
-            "s3_key": s3_key,
+            "media_file": None,
+            "df_file": None,
+            "s3_key": None,
         }
 
     while _n_remaining(media_tracker, "media_file") > 0:

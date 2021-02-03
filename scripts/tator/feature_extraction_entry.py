@@ -38,11 +38,11 @@ if __name__ == "__main__":
         "--token",
         os.getenv("TATOR_AUTH_TOKEN"),
         "--access-key",
-        os.getenv("OBJECT_STORAGE_ACCESS_KEY", ""),
+        os.getenv("OBJECT_STORAGE_ACCESS_KEY"),
         "--secret-key",
-        os.getenv("OBJECT_STORAGE_SECRET_KEY", ""),
+        os.getenv("OBJECT_STORAGE_SECRET_KEY"),
         "--s3-bucket",
-        os.getenv("S3_BUCKET", ""),
+        os.getenv("S3_BUCKET"),
         "--endpoint-url",
         os.getenv("ENDPOINT_URL"),
         "--work-dir",
@@ -53,6 +53,10 @@ if __name__ == "__main__":
         os.getenv("TATOR_ATTRIBUTE_NAME"),
         "--media-ids",
         *os.getenv("TATOR_MEDIA_IDS").split(","),
+        "--frame-modulus",
+        os.getenv("FRAME_MODULUS"),
+        "--image-size",
+        *os.getenv("IMAGE_SIZE").split(","),
     ]
 
     cmd = " ".join(args)

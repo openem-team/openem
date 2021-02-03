@@ -9,7 +9,7 @@ import os
 import queue
 import sys
 import time
-from typing import Optional, Union
+from typing import List, Optional, Union
 from uuid import uuid4
 
 import boto3
@@ -60,24 +60,22 @@ class ResNet50FeatureExtractor:
 
     def __init__(
         self,
-        gpu_num: Optional[int] = None,
+        frame_modulus: int,
+        image_size: List[int],
+        gpu_num: Optional[int] = 0,
         frame_cutoff: Optional[int] = float("inf"),
-        frame_modulus: Optional[int] = 5,
-        image_width: Optional[int] = None,
-        image_height: Optional[int] = None,
         frame_formatters: Optional[int] = 5,
         verbose: Optional[bool] = False,
     ):
-        self._video_path = None
-        if gpu_num is not None and torch.cuda.is_available():
+        if torch.cuda.is_available():
             torch.cuda.set_device(gpu_num)
             self._torch_device = torch.device(f"cuda:{gpu_num}")
         else:
             self._torch_device = torch.device("cpu")
         self._frame_cutoff = frame_cutoff
         self._frame_modulus = frame_modulus
-        self._image_width = image_width
-        self._image_height = image_height
+        self._image_width = image_size[0]
+        self._image_height = image_size[1]
         self._verbose = verbose
 
         self._raw_queue = mp.Queue(20)
@@ -86,8 +84,8 @@ class ResNet50FeatureExtractor:
         self._frame_stop_event = mp.Event()
         self._done_event = mp.Event()
 
+        self._video_path = None
         self._read_frames_process = None
-
         self._enqueue_frames_processes = [None for _ in range(frame_formatters)]
 
     @staticmethod
@@ -142,7 +140,6 @@ class ResNet50FeatureExtractor:
         while ok and not self._stop_event.is_set():
             if not self._raw_queue.full():
                 ok, img = vid.read()
-                frame_modulus = 5  # WARNING PARAMETERIZE
                 if ok and (frame_num % self._frame_modulus == 0):
                     self._raw_queue.put((img, frame_num))
                 frame_num += 1
@@ -164,8 +161,8 @@ class ResNet50FeatureExtractor:
 
     def _format_img(self, img):
         start_time = time.time()
-        if (self._image_width is not None) and (self._image_height is not None):
-            img = cv2.resize(img, (int(self._image_width), int(self._image_height)))
+        if self._image_width > 0 and self._image_height > 0:
+            img = cv2.resize(img, (self._image_width, self._image_height))
         img = img[:, :, (2, 1, 0)]
         img = img.astype(np.float32)
         img /= float(255.0)
@@ -241,33 +238,22 @@ class ResNet50FeatureExtractor:
         return video_features_df
 
 
-# Dummy feature extractor that fills a 1x2048 array with the frame number for each frame
-def extract_features(media_file):
-    vid = cv2.VideoCapture(media_file)
-    frame_num = 0
-    ok, _ = vid.read()
-
-    feature_list = []
-    while ok:
-        feature_list.append([frame_num] * 2048)
-        ok, _ = vid.read()
-        frame_num += 1
-
-    return DataFrame(feature_list)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     tator.get_parser(parser)
-    parser.add_argument("--access-key", required=True, type=str)
-    parser.add_argument("--secret-key", required=True, type=str)
-    parser.add_argument("--s3-bucket", required=True, type=str)
-    parser.add_argument("--endpoint-url", required=True, type=str)
-    parser.add_argument("--attribute-name", required=True, type=str)
+    parser.add_argument("--access-key", type=str, required=True)
+    parser.add_argument("--secret-key", type=str, required=True)
+    parser.add_argument("--s3-bucket", type=str, required=True)
+    parser.add_argument("--endpoint-url", type=str, required=True)
+    parser.add_argument("--attribute-name", type=str, required=True)
     parser.add_argument("--work-dir", type=str, required=True)
     parser.add_argument("--project-id", type=int, required=True)
-    parser.add_argument("--media-ids", type=int, nargs="*")
+    parser.add_argument("--media-ids", type=int, nargs="*", required=True)
+    parser.add_argument("--frame-modulus", type=int, required=True)
+    parser.add_argument("--image-size", type=int, nargs=2, required=True)
     args = parser.parse_args()
+
+    logger.info(f"ARGS: {args}")
 
     media_ids = args.media_ids
     project_id = args.project_id
@@ -294,7 +280,7 @@ if __name__ == "__main__":
     logger.info("Extracting features")
     n_files = len(media_files_to_process)
     df_files = []
-    rfe = ResNet50FeatureExtractor()
+    rfe = ResNet50FeatureExtractor(frame_modulus=args.frame_modulus, image_size=args.image_size)
     for idx, media_file in enumerate(media_files_to_process):
         base_filename = os.path.splitext(media_file)[0]
         df_path = f"{base_filename}.hdf"

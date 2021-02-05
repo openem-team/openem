@@ -27,7 +27,7 @@ spec:
         template: worker
   - name: worker
     container:
-      image: "" # Fill in with openem_lite-based image
+      image: "cvisionai/openem_pytorch:latest"
       imagePullPolicy: Always
       resources:
         requests:

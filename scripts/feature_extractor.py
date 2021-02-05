@@ -239,8 +239,9 @@ class ResNet50FeatureExtractor:
         return video_features_df
 
 
-def _n_remaining(media_tracker, key):
-    return len([0 for v in media_tracker.values() if v[key] is None])
+def _any_remaining(media_tracker, key):
+    """ Returns True if at least one value for the given key is None """
+    return next((True for v in media_tracker.values() if v[key] is None), False)
 
 
 if __name__ == "__main__":
@@ -293,7 +294,7 @@ if __name__ == "__main__":
             "s3_key": None,
         }
 
-    while _n_remaining(media_tracker, "media_file") > 0:
+    while _any_remaining(media_tracker, "media_file"):
         for media_dict in media_tracker.values():
             # Check to see if the file has already been downloaded or if the features are already in
             # s3
@@ -317,7 +318,7 @@ if __name__ == "__main__":
     rfe = ResNet50FeatureExtractor(
         frame_modulus=args.frame_modulus, image_size=args.image_size, verbose=args.verbose
     )
-    while _n_remaining(media_tracker, "df_file") > 0:
+    while _any_remaining(media_tracker, "df_file"):
         for media_dict in media_tracker.values():
             # Check to see if the features have already been extracted or if the features are
             # already in s3
@@ -354,7 +355,7 @@ if __name__ == "__main__":
     )
 
     logger.info("Uploading features to s3")
-    while _n_remaining(media_tracker, "s3_key"):
+    while _any_remaining(media_tracker, "s3_key"):
         for media_id, media_dict in media_tracker.items():
             # Check to see if the features are already in s3
             if media_dict["s3_key"] is not None:

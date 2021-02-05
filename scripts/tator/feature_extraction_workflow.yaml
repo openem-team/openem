@@ -49,6 +49,14 @@ spec:
         value: "feature_s3"
       - name: ENDPOINT_URL
         value: "" # Fill in with s3 endpoint
+      - name: FRAME_MODULUS
+        value: "1" # The modulus at which to sample the video
+      - name: IMAGE_SIZE
+        value: "0,0" # The width,height to resize each frame; 0,0 uses native resolution
+      # - name: VERBOSE # Set this environment variable to anything to enable verbose logging
+      #   value: "true"
+      # - name: FORCE_EXTRACTION # Set this environment variable to anything to force feature re-extraction
+      #   value: "true"
       - name: TATOR_PROJECT_ID
         value: "{{workflow.parameters.project_id}}"
       - name: TATOR_WORK_DIR

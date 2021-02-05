@@ -32,17 +32,17 @@ if __name__ == "__main__":
 
     args = [
         "python3",
-        "/scripts/tator/feature_extractor.py",
+        "/scripts/feature_extractor.py",
         "--host",
         os.getenv("TATOR_API_SERVICE").replace("/rest", ""),
         "--token",
         os.getenv("TATOR_AUTH_TOKEN"),
         "--access-key",
-        os.getenv("OBJECT_STORAGE_ACCESS_KEY", ""),
+        os.getenv("OBJECT_STORAGE_ACCESS_KEY"),
         "--secret-key",
-        os.getenv("OBJECT_STORAGE_SECRET_KEY", ""),
+        os.getenv("OBJECT_STORAGE_SECRET_KEY"),
         "--s3-bucket",
-        os.getenv("S3_BUCKET", ""),
+        os.getenv("S3_BUCKET"),
         "--endpoint-url",
         os.getenv("ENDPOINT_URL"),
         "--work-dir",
@@ -53,7 +53,17 @@ if __name__ == "__main__":
         os.getenv("TATOR_ATTRIBUTE_NAME"),
         "--media-ids",
         *os.getenv("TATOR_MEDIA_IDS").split(","),
+        "--frame-modulus",
+        os.getenv("FRAME_MODULUS"),
+        "--image-size",
+        *os.getenv("IMAGE_SIZE").split(","),
     ]
+
+    if os.getenv("VERBOSE") is not None:
+        args.append("--verbose")
+
+    if os.getenv("FORCE_EXTRACTION") is not None:
+        args.append("--force-extraction")
 
     cmd = " ".join(args)
     logger.info(f"Feature Extraction Command = '{cmd}'")

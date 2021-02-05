@@ -10,9 +10,7 @@ openem_image: Dockerfile.gen
 openem_lite: inference.gen
 	cd .. && docker build -t cvisionai/openem_lite:$(USER) -f config/inference.gen . || exit 255
 
-.FORCE:
-
-openem_pytorch: .FORCE
+openem_pytorch:
 	cd .. && docker build -t cvisionai/openem_pytorch:$(USER) -f config/openem_pytorch/Dockerfile . || exit 255
 
 openem_cpu: cpu.gen
@@ -24,7 +22,7 @@ ${BUILD_TOOLS}/makocc.py:
 ${BUILD_TOOLS}/version.sh:
 	cd .. && git submodule update --init
 
-.PHONY: ${BUILD_TOOLS}/version.py
+.PHONY: ${BUILD_TOOLS}/version.py openem_pytorch
 ${BUILD_TOOLS}/version.py: ${BUILD_TOOLS}/version.sh
 	./${BUILD_TOOLS}/version.sh > ${BUILD_TOOLS}/version.py
 

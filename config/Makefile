@@ -10,6 +10,11 @@ openem_image: Dockerfile.gen
 openem_lite: inference.gen
 	cd .. && docker build -t cvisionai/openem_lite:$(USER) -f config/inference.gen . || exit 255
 
+.FORCE:
+
+openem_pytorch: .FORCE
+	cd .. && docker build -t cvisionai/openem_pytorch:$(USER) -f config/openem_pytorch/Dockerfile . || exit 255
+
 openem_cpu: cpu.gen
 	cd .. && docker build -t cvisionai/openem_cpu:$(USER) -f config/cpu.gen . || exit 255
 

@@ -1,25 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: tracker-example
+  generateName: feature-extraction
 spec:
   entrypoint: pipeline
+  podGC:
+    strategy: OnPodCompletion
   ttlStrategy:
     SecondsAfterSuccess: 600
     SecondsAfterFailure: 86400
-  volumeClaimTemplates:
-  - metadata:
-      name: workdir
-    spec:
-      storageClassName: aws-efs
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 50Mi
+    SecondsAfterCompletion: 86400
   volumes:
   - name: dockersock
     hostPath:
       path: /var/run/docker.sock
+  - name: workdir
+    emptyDir:
+      medium: Memory
   templates:
   - name: pipeline
     steps:
@@ -30,8 +27,8 @@ spec:
       image: "cvisionai/openem_pytorch:latest"
       imagePullPolicy: Always
       resources:
-        requests:
-          cpu: 4000m
+        limits:
+          nvidia.com/gpu: 1
       env:
       - name: TATOR_MEDIA_IDS
         value: "{{workflow.parameters.media_ids}}"

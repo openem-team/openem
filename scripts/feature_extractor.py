@@ -296,10 +296,6 @@ def main(
                 logger.info(f"Features exist for {element.name}, skipping extraction")
                 continue
 
-        if api.get_state_count(project_id, media_id=[element.id]) < 1:
-            logger.info(f"No states exist for {element.name}, skipping extraction")
-            continue
-
         logger.info(f"Scheduling {element.name} for feature extraction")
         media_tracker[element.id] = {
             "element": element,

@@ -89,7 +89,6 @@ if __name__=="__main__":
     args = ["python3",
             "/scripts/uploadToTator.py",
             "--host", host,
-            "--project", str(project_id),
             "--token", token,
             "--img-base-dir", "/work",
             "--localization-type-id", str(box_type_id),

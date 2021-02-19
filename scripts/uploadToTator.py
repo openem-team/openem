@@ -330,6 +330,7 @@ if __name__=="__main__":
 
         try:
             # When complete for a given media update the sentinel value
-            api.update_media(media_id, attributes={"Object Detector Processed": str(datetime.datetime.now())})
-        except:
-            print("Unable to set sentinel attribute")
+            api.update_media(int(media_id), {'attributes':{"Object Detector Processed": str(datetime.datetime.now())}})
+        except Exception as e:
+            print(f"Unable to set sentinel attribute {e}")
+            traceback.print_exc()

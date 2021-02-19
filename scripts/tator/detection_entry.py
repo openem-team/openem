@@ -63,6 +63,8 @@ if __name__=="__main__":
         tar_file.extract("network/train.ini", work_dir)
 
     args = ['python3', '/scripts/infer.py',
+            '--host', host,
+            '--token', token,
             '--graph-pb', f'{work_dir}/network/graph.pb',
             '--keep-threshold', str(keep_threshold),
             '--csv-flavor', media_type,

@@ -344,6 +344,7 @@ if __name__=="__main__":
         print("Started all Threads")
         # For each video spawn up a worker thread combo
         for video in tqdm(media_files, desc='Files'):
+            need_to_delete = False
             print(f"Processing {video}")
             image_path = os.path.join(args.img_base_dir, video)
             if not os.path.exists(image_path) and not api is None:
@@ -352,6 +353,7 @@ if __name__=="__main__":
                 media_element = api.get_media(media_id)
                 for _ in tator.util.download_media(api, media_element, image_path):
                     pass
+                need_to_delete = True
                 assert os.path.exists(image_path)
             elif not os.path.exists(image_path):
                 print(f"{image_path} not found!")
@@ -373,6 +375,10 @@ if __name__=="__main__":
             # Run the Tensorflow stuff in the main thread
             image_consumer(batch_queue, result_queue, vid_len)
             print("Consumer Exited")
+
+            # Delete only temporary files
+            if need_to_delete and video_path.startswith('/tmp'):
+                os.remove(video_path)
 
         name_queue.put(None)
         name_res_queue.put(None)

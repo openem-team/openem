@@ -41,11 +41,13 @@ if __name__=="__main__":
     api = tator.get_api(host, token)
     media_list = api.get_media_list_by_id(project_id, media_ids)
     media_type_id = media_list[0].meta
-    media_files = [{'path': f"{m.id}_{m.name}"} for m in media_list]
+    media_files = [{'path': f"{m.id}_{m.name}"} for m in media_list if m.attributes.get("Object Detector Processed", "No") == "No"]
     work_df = pd.DataFrame(columns=['path'],
                            data=media_files)
     work_df.to_csv(f'{work_dir}/work.csv', index=False,header=False)
-    print(work_df)
+    if len(work_df) == 0:
+        print("No media to process.")
+        sys.exit(0)
 
     # Download network
     client=docker.from_env()

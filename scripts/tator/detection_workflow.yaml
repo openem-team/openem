@@ -54,6 +54,15 @@ spec:
       command: [python3]
       args: ["/scripts/tator/setup.py"]
   - name: worker
+    inputs:
+      artifacts:
+      - name: strategy
+        path: /work/strategy.yaml
+        raw:
+          data: |
+            img-size: [<max>,<min>]
+            keep-threshold: <keep>
+            batch-size: <batch>
     container:
       image: cvisionai/openem_lite:latest
       resources:
@@ -70,8 +79,6 @@ spec:
         value: "{{workflow.parameters.project_id}}"
       - name: TATOR_WORK_DIR
         value: "/work"
-      - name: TATOR_PIPELINE_ARGS
-        value: "{\"img_max_side\": <max>, \"img_min_side\": <min>, \"keep_threshold\": <keep>, \"media_type\": \"video\", \"img_ext\": \"mp4\", \"batch_size\" : <batch_size>}"
       volumeMounts:
       - name: workdir
         mountPath: /work

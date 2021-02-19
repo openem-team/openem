@@ -33,6 +33,7 @@ import numpy as np
 import shutil
 import copy
 import time
+import tator
 
 def process_batch_result(args, image_count, result_queue):
     before = time.time()
@@ -186,7 +187,7 @@ def result_consumer_v2(name_q,result_q):
                 result = result_q.get()
         name = name_q.get()
     print("Exiting results")
-    
+
 def get_videoId_frame(args, image_path):
     if args.csv_flavor == 'retinanet':
         # Raw video inputs may look like this:
@@ -230,8 +231,20 @@ if __name__=="__main__":
                         help="Module name that contains preprocessing function(s) to call on the image prior to insertion into the network")
     parser.add_argument("--cpu-only",
                         action="store_true")
+    parser.add_argument("--host",
+                        type=str,
+                        help="Tator host to use")
+    parser.add_argument("--token",
+                        type=str,
+                        help="Token to use for tator.")
     parser.add_argument("work_csv", help="CSV with file per row")
     args = parser.parse_args()
+
+    if args.token:
+        api = tator.get_api(host=args.host,token=args.token)
+    else:
+        api = None
+
 
     if args.cpu_only == True:
         print("Enabling CPU-only inference")
@@ -247,7 +260,7 @@ if __name__=="__main__":
             media_list.append(f"{row.video_id}/{row.frame:04d}.{args.img_ext}")
         work_df = pd.DataFrame(data=media_list)
     elif args.csv_flavor == "video" or args.csv_flavor == "image":
-        video_df = pd.read_csv(args.work_csv, names=None)
+        video_df = pd.read_csv(args.work_csv, header=None)
         count = len(video_df)
         media_list=list(video_df.iloc[:,0])
         work_df = pd.DataFrame(data=media_list)
@@ -284,6 +297,7 @@ if __name__=="__main__":
     result_queue=Queue(maxsize=2)
     name_queue=Queue(maxsize=2)
     name_res_queue=Queue(maxsize=2)
+    print(work_df)
     media_files = work_df[0].unique()
     if args.csv_flavor != "video":
         # We are iterating over images
@@ -332,6 +346,16 @@ if __name__=="__main__":
         for video in tqdm(media_files, desc='Files'):
             print(f"Processing {video}")
             image_path = os.path.join(args.img_base_dir, video)
+            if not os.path.exists(image_path) and not api is None:
+                print(f"Downloading {video} from Tator.")
+                media_id = video.split('_')[0]
+                media_element = api.get_media(media_id)
+                for _ in tator.util.download_media(api, media_element, image_path):
+                    pass
+                assert os.path.exists(image_path)
+            elif not os.path.exists(image_path):
+                print(f"{image_path} not found!")
+                print("No Tator Connection info provided.")
             video_id, frame = get_videoId_frame(args, image_path)
             # Now that we have video_id and frame, we can process them
 

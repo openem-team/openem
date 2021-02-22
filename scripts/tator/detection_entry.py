@@ -39,7 +39,7 @@ if __name__=="__main__":
 
     # Generate work document
     api = tator.get_api(host, token)
-    media_list = api.get_media_list_by_id(project_id, media_ids)
+    media_list = api.get_media_list_by_id(project_id, {"ids": media_ids})
     media_type_id = media_list[0].meta
     media_files = [{'path': f"{m.id}_{m.name}"} for m in media_list if m.attributes.get("Object Detector Processed", "No") == "No"]
     work_df = pd.DataFrame(columns=['path'],

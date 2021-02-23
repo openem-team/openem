@@ -87,6 +87,8 @@ if __name__=="__main__":
     p.wait()
 
     optional_args=[]
+    if version_id:
+        optional_args = ["--version-id", str(version_id)]
 
     args = ["python3",
             "/scripts/uploadToTator.py",

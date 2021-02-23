@@ -5,14 +5,6 @@ metadata:
 spec:
   entrypoint: pipeline
   ttlSecondsAfterFinished: 3600
-  volumeClaimTemplates:
-  - metadata:
-      name: workdir
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 20Gi
   volumes:
   - name: dockersock
     hostPath:
@@ -20,42 +12,26 @@ spec:
   templates:
   - name: pipeline
     steps:
-    - - name: setup
-        template: setup
     - - name: worker
         template: worker
-    - - name: teardown
-        template: teardown
-  - name: setup
-    container:
-      image: cvisionai/openem_lite:latest
-      resources:
-        limits:
-          cpu: 250m
-          memory: 1024Mi
-      env:
-      - name: TATOR_MEDIA_IDS
-        value: "{{workflow.parameters.media_ids}}"
-      - name: TATOR_API_SERVICE
-        value: "{{workflow.parameters.rest_url}}"
-      - name: TATOR_AUTH_TOKEN
-        value: "{{workflow.parameters.rest_token}}"
-      - name: TATOR_PROJECT_ID
-        value: "{{workflow.parameters.project_id}}"
-      - name: TATOR_WORK_DIR
-        value: "/work"
-      - name: TATOR_PIPELINE_ARGS
-        value: "{\"data_image\" : \"<docker_hub_user>/<data_image>\"}"
-      volumeMounts:
-      - name: workdir
-        mountPath: /work
-      - name: dockersock
-        mountPath: /var/run/docker.sock
-      command: [python3]
-      args: ["/scripts/tator/setup.py"]
   - name: worker
+    inputs:
+      artifacts:
+      - name: strategy
+        path: /data/strategy.yaml
+        raw:
+          data: |
+            img-size: [<max>,<min>]
+            keep-threshold: <keep>
+            batch-size: <batch>
+            date_image: <docker_image>
+            version_id: <version_id>
+            box_type_id: <localization_id>
     container:
       image: cvisionai/openem_lite:latest
+      volumeMounts:
+        - name: dockersock
+          mountPath: /var/run/docker.sock
       resources:
         limits:
           nvidia.com/gpu: 1
@@ -70,35 +46,8 @@ spec:
         value: "{{workflow.parameters.project_id}}"
       - name: TATOR_WORK_DIR
         value: "/work"
-      - name: TATOR_PIPELINE_ARGS
-        value: "{\"img_max_side\": <max>, \"img_min_side\": <min>, \"keep_threshold\": <keep>, \"media_type\": \"video\", \"img_ext\": \"mp4\", \"batch_size\" : <batch_size>}"
       volumeMounts:
       - name: workdir
         mountPath: /work
       command: [python3]
       args: ["/scripts/tator/detection_entry.py"]
-  - name: teardown
-    container:
-      image: cvisionai/openem_lite:latest
-      resources:
-        limits:
-          cpu: 250m
-          memory: 1024Mi
-      env:
-      - name: TATOR_MEDIA_IDS
-        value: "{{workflow.parameters.media_ids}}"
-      - name: TATOR_API_SERVICE
-        value: "{{workflow.parameters.rest_url}}"
-      - name: TATOR_AUTH_TOKEN
-        value: "{{workflow.parameters.rest_token}}"
-      - name: TATOR_PROJECT_ID
-        value: "{{workflow.parameters.project_id}}"
-      - name: TATOR_WORK_DIR
-        value: "/work"
-      - name: TATOR_PIPELINE_ARGS
-        value: "{\"type_id\": <box_type_id>, \"media_type\": \"pipeline\", \"img_ext\": \"mp4\", \"version_id\": <id>}"
-      volumeMounts:
-      - name: workdir
-        mountPath: /work
-      command: [python3]
-      args: ["/scripts/tator/teardown.py"]

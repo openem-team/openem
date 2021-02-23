@@ -5,14 +5,6 @@ metadata:
 spec:
   entrypoint: pipeline
   ttlSecondsAfterFinished: 3600
-  volumeClaimTemplates:
-  - metadata:
-      name: workdir
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 20Gi
   volumes:
   - name: dockersock
     hostPath:

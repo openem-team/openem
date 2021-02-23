@@ -50,12 +50,12 @@ indicate project-specific requirements. `img_max_side`, `img_min_side`,
 This workflow is for executing retinanet-based detections on a video dataset
 using tensor-rt enabled hardware.
 
-Nominally the only parameters required to change are the `TATOR_PIPELINE_ARGS` for each stage of the workflow.
+Nominally the only parameters required to change is the strategy definition.
 
 .. literalinclude:: ../scripts/tator/detection_workflow.yaml
    :linenos:
    :language: yaml
-   :emphasize-lines: 48, 74, 99
+   :emphasize-lines: 32-37
                      
 Detailed Mechanics
 ******************

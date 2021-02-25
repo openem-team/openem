@@ -306,7 +306,21 @@ if __name__=="__main__":
             for image in tqdm(media_files, desc='Files'):
                 image_path = os.path.join(args.img_base_dir, image)
                 video_id, frame = get_videoId_frame(args, image_path)
+                need_to_delete = False
+                if not os.path.exists(image_path) and not api is None:
+                    print(f"Downloading {image} from Tator.")
+                    media_id = image.split('_')[0]
+                    media_element = api.get_media(media_id)
+                    for _ in tator.util.download_media(api, media_element, image_path):
+                        pass
+                    need_to_delete = True
+                    assert os.path.exists(image_path)
+                elif not os.path.exists(image_path):
+                    print(f"{image_path} not found!")
+                    print("No Tator Connection info provided.")
                 image_data = cv2.imread(image_path)
+                if need_to_delete and image_path.startswith('/tmp'):
+                    os.remove(image_path)
                 cookie = {"batch_info": (video_id, frame)}
                 retinanet.addImage(image_data, cookie)
                 num_images += 1

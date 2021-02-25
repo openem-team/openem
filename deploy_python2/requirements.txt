@@ -1,0 +1,3 @@
+progressbar2>=3.43.1
+numpy>=1.16.1
+tator>=0.10.0

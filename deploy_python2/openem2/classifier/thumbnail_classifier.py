@@ -40,7 +40,7 @@ class EnsembleClassifier:
         """
         num_models = len(modelsList)
         assert num_models > 1, "Ensemble classifier requires more than 1 model"
-        assert classNames > 1, "Must supply more than 1 class name"
+        assert len(classNames) > 1, "Must supply more than 1 class name"
 
         self._input_shape = (*imageSize, 3)
         self._class_names = classNames
@@ -95,7 +95,7 @@ class EnsembleClassifier:
                 for idx in range(int(num_batches)):
                     start = self._batch_size*idx
                     end = start + self._batch_size
-                    current_batch = resized_images[start:end]
+                    current_batch = np.array(resized_images[start:end])
                     current_results = self._model_2.predict_on_batch(current_batch)
                     ensemble_sum[start:end, :] = np.add(ensemble_sum[start:end, :],
                                                         current_results)
@@ -117,17 +117,19 @@ class EnsembleClassifier:
         """
 
         # Generate winner for each image by the max of the score vector
-        labels = np.argmax(ensemble_score_vec, axis=0)
         track_sum = np.zeros(len(self._class_names))
-        for label, entropy in zip(labels, entropy_vec):
+        for score, entropy in zip(ensemble_score_vec, entropy_vec):
+            label = np.argmax(score)
             track_sum[label] += 1 - float(entropy)
 
-        winner = np.argmax(track_sum)
-        if np.max(track_sum) > entropy_cutoff:
+        track_entropy = np.mean(entropy_vec)
+        winner = np.argmax(track_sum, axis=0)
+        if entropy_cutoff and track_entropy > entropy_cutoff:
             label = high_entropy_name
+            winner = -1
         else:
             label = self._class_names[winner]
 
         # return label, but ingredients to if some diagnostics are useful to
         # higher level callers
-        return label, winner, track_sum
+        return label, winner, track_entropy

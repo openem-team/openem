@@ -5,20 +5,28 @@ import os
 import cv2
 import numpy as np
 import pandas as pd
+from pprint import pprint
 
 from . import thumbnail_classifier
-from pprint import pprint
 
 def main():
     """ Invokes a test of the thumbnail classifier """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-dir")
-    parser.add_argument("--image-size", default="224x224")
-    parser.add_argument("--dropout-percentage", default=0.20,type=float)
-    parser.add_argument("--monte-carlo-runs", default=20, type=int)
-    parser.add_argument("--batch-size", default=16)
-    parser.add_argument("track_dir")
-    parser.add_argument("output_file")
+    parser.add_argument("--model-dir", help="Directory containing model images")
+    parser.add_argument("--image-size", default="224x224",
+                        help="WxH to use for network input size")
+    parser.add_argument("--dropout-percentage",
+                        default=0.20,
+                        type=float,
+                        help="Percentage of network to dropout for each MC run")
+    parser.add_argument("--monte-carlo-runs", default=20, type=int,
+                        help="Number of Monte Carlo runs per network")
+    parser.add_argument("--batch-size", default=16,
+                        help="Number of thumbnails to process in a batch")
+    parser.add_argument("track_dir",
+                        help="Directory containing track folders")
+    parser.add_argument("output_file",
+                        help="Name of output file")
     args = parser.parse_args()
     print(args)
 

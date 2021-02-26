@@ -296,10 +296,15 @@ def main(
                 logger.info(f"Features exist for {element.name}, skipping extraction")
                 continue
 
+        if element.media_files.streaming is None:
+            logger.info(f"No video file found for {element.name}, skipping extraction")
+            continue
+
         logger.info(f"Scheduling {element.name} for feature extraction")
         media_tracker[element.id] = {
             "element": element,
             "media_file": None,
+            "download_attempts_rem": 5,
             "df_file": None,
             "s3_key": None,
         }
@@ -314,12 +319,26 @@ def main(
             media = media_dict["element"]
             media_unique_name = f"{media.id}_{media.name}"
             media_filepath = os.path.join(work_dir, media_unique_name)
-            for _ in tator.download_media(api, media, media_filepath):
-                pass
+            try:
+                for _ in tator.download_media(api, media, media_filepath):
+                    pass
+            except:
+                logger.warning(f"{media_unique_name} did not download!")
+                media_dict["download_attempts_rem"] -= 1
+                continue
+
             if not os.path.exists(media_filepath):
-                logger.info(f"{media_unique_name} did not download!")
+                media_dict["download_attempts_rem"] -= 1
+                logger.warning(f"{media_unique_name} did not download!")
             else:
                 media_dict["media_file"] = media_filepath
+        for media_id in list(media_tracker.keys()):
+            if media_tracker[media_id]["download_attempts_rem"] < 1:
+                media_tracker.pop(media_id)
+
+    if len(media_tracker) == 0:
+        logger.warning("No media requiring extraction")
+        return
 
     logger.info("Media successfully downloaded")
 

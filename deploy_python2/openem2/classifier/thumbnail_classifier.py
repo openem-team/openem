@@ -10,17 +10,17 @@ import tensorflow_hub as hub
 
 class Dropout_MC(tf.keras.layers.Layer):
     """ Custom Dropout layer to support randomization during inference
-    TODO: Fixme
     """
-    def __init__(self, rate, **kwargs):
+    def __init__(self, rate, training=True, **kwargs):
         super(Dropout_MC, self).__init__(**kwargs)
         self.rate = rate
+        self.training = training
 
     def build(self, input_shape):
         pass
 
     def call(self, inputs, training=True):
-        if training:
+        if self.training:
             return tf.nn.dropout(inputs, rate=self.rate)
         return inputs
 
@@ -55,8 +55,8 @@ class EnsembleClassifier:
         fe_layer = hub.KerasLayer(fe_url, input_shape=self._input_shape)
         fe_layer.trainable = False
 
-        dropout1 = Dropout_MC(dropoutPercent)
-        dropout2 = Dropout_MC(dropoutPercent)
+        dropout1 = Dropout_MC(dropoutPercent, training=True)
+        dropout2 = Dropout_MC(dropoutPercent, training=True)
         pred_layer1 = layers.Dense(1280, activation='relu')
         pred_layer2 = layers.Dense(label_batch.shape[1])
         softmax = tf.keras.layers.Softmax()

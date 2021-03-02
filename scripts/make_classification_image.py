@@ -21,9 +21,11 @@ RUN mkdir /network
 if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--publish", action="store_true")
-    parser.add_argument("--image-tag")
-    parser.add_argument("models", nargs="+")
+    parser.add_argument("--publish", action="store_true",
+                        help="If supplied pushes to image repo")
+    parser.add_argument("--image-tag", help="Name of image to build/publish")
+    parser.add_argument("models", nargs="+",
+                        help="One or more models to encorporate into image.")
     args = parser.parse_args()
     
     temp_dir = tempfile.mkdtemp()

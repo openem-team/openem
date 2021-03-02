@@ -78,7 +78,7 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
                                       thumb_x:thumb_x+thumb_width,
                                       :];
                 track_thumbs[localization['track_id']].append(thumbnail)
-                
+
         frame_idx+=1
     del reader
     _try_delete(temp_dir)
@@ -118,7 +118,7 @@ def run_tracker(api,
         if processed_time != "No":
             print(f"Already processed '{media.name}'")
             continue
-        
+
         for track_id,thumbnails in tracks.items():
             # Convert each thumbnail to RGB and scale to 0-1
             thumbnails = [_preprocess_thumbnail(t) for t in thumbnails]
@@ -132,12 +132,12 @@ def run_tracker(api,
                       'Entropy': track_entropy}}
             api.update_state(track_id, update)
             print(f"{track_id}: {label} {track_entropy}")
-        
+
         api.update_media(media.id,
                          {'attributes':
                           {"Track Classification Processed":
                            datetime.datetime.now().isoformat()}})
-        
+
 def main():
     """ Invokes the thumbnail classifier on a media in tator """
     parser = argparse.ArgumentParser(description=__doc__)
@@ -164,7 +164,7 @@ def main():
     if args.media_ids:
         media_ids = args.media_ids
 
-    
+
     api = tator.get_api(host, token)
 
     with open(args.strategy) as fp:
@@ -200,7 +200,7 @@ def main():
                 media_ids,
                 os.path.join(network_dir, 'network'),
                 strategy)
-    
+
     shutil.rmtree(network_dir)
 
 if __name__=="__main__":

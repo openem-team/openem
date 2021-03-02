@@ -55,7 +55,7 @@ Nominally the only parameters required to change is the strategy definition.
 .. literalinclude:: ../scripts/tator/detection_workflow.yaml
    :linenos:
    :language: yaml
-   :emphasize-lines: 32-37
+   :emphasize-lines: 24-29
                      
 Detailed Mechanics
 ******************

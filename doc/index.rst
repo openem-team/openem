@@ -37,6 +37,7 @@ Watch the video below to see a video of OpenEM in action:
    api/deployment
    pipelines
    tracking
+   classification
 
 .. toctree::
    :maxdepth: 2

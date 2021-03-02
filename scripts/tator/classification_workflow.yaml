@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: classifier-example
+spec:
+  entrypoint: pipeline
+  ttlStrategy:
+    SecondsAfterSuccess: 600
+    SecondsAfterFailure: 86400
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+  templates:
+  - name: pipeline
+    steps:
+    - - name: worker
+        template: worker
+  - name: worker
+    inputs:
+      artifacts:
+      - name: strategy
+        path: /work/strategy.yaml
+        raw:
+          data: |
+            tator:
+              track_type_id: 30
+              label_attribute: Predicted
+            ensemble_config:
+              classNames:
+                - Commercial
+                - Recreational
+              batchSize: 16
+            track_params:
+              high_entropy_name: Unknown
+              entropy_cutoff: 0.40
+            data_image: cvisionai/odfw_class_weights
+    container:
+      image: cvisionai/openem_lite_2:experimental
+      imagePullPolicy: Always
+      resources:
+        requests:
+          cpu: 4000m
+        limits:
+          nvidia.com/gpu: 1
+      env:
+      - name: TATOR_MEDIA_IDS
+        value: "{{workflow.parameters.media_ids}}"
+      - name: TATOR_API_SERVICE
+        value: "{{workflow.parameters.rest_url}}"
+      - name: TATOR_AUTH_TOKEN
+        value: "{{workflow.parameters.rest_token}}"
+      - name: TATOR_PROJECT_ID
+        value: "{{workflow.parameters.project_id}}"
+      volumeMounts:
+      - name: dockersock
+        mountPath: /var/run/docker.sock
+      command: [python3]
+      args: ["-m", "openem2.classification.tator", "--strategy", "/data/strategy.yaml"]

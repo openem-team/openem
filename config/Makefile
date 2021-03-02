@@ -16,6 +16,10 @@ openem_pytorch:
 openem_cpu: cpu.gen
 	cd .. && docker build -t cvisionai/openem_cpu:$(USER) -f config/cpu.gen . || exit 255
 
+.PHONY: lite2
+lite2: lite2.docker
+	cd .. && docker build -t cvisionai/openem_lite2:$(USER) -f config/lite2.docker . || exit 255
+
 ${BUILD_TOOLS}/makocc.py:
 	cd .. && git submodule update --init
 
@@ -72,6 +76,10 @@ endif
 
 inference_bash:
 	$(docker_cmd) --name $(openem_container_name) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_lite:$(USER)
+
+inference_2_bash:
+	$(docker_cmd) --name $(openem_container_name) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_lite2:$(USER)
+
 
 inference_cpu:
 	docker run --name $(container_name)_cpu --rm -ti --shm-size=1g -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_cpu:$(USER)

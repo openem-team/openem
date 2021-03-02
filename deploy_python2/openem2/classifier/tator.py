@@ -150,6 +150,8 @@ def main():
     print(args)
 
     host = os.getenv("TATOR_API_SERVICE")
+    if host:
+        host = host.replace('/rest', '')
     token = os.getenv("TATOR_AUTH_TOKEN")
     media_ids = None
     media_ids_str = os.getenv("TATOR_MEDIA_IDS")

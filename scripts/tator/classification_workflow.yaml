@@ -36,7 +36,7 @@ spec:
               entropy_cutoff: 0.40
             data_image: cvisionai/odfw_class_weights
     container:
-      image: cvisionai/openem_lite_2:experimental
+      image: cvisionai/openem_lite2:experimental
       imagePullPolicy: Always
       resources:
         requests:

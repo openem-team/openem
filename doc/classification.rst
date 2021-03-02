@@ -1,5 +1,5 @@
-OpenEM Classification and Tator Pipelines
-==========================
+Classification
+==============
 
 `Tator <https://github.com/cvisionai/tator>`_  is a web-based media management
 and curation project. Part of the media management is executing algorithms or
@@ -8,7 +8,7 @@ of a Tator workflow. Currently Retinanet-based Detection is supported for
 inference within a workflow.
 
 Using the Reference Classification Workflow
-**************************************
+*******************************************
 
 The reference workflow can be used by modifying the
 `scripts/tator/classification_workflow.yaml` to match those of the given
@@ -52,7 +52,7 @@ Options to ``track_params`` section map to the arguments and defaults to the
 .. literalinclude:: ../scripts/tator/classification_workflow.yaml
    :linenos:
    :language: yaml
-   :emphasize-lines: 27-38
+   :emphasize-lines: 26-37
                      
 Project setup
 ^^^^^^^^^^^^^

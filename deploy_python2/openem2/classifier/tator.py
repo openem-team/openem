@@ -11,7 +11,9 @@ import shutil
 import tarfile
 import tempfile
 import yaml
+import subprocess
 import time
+import sys
 
 import docker
 import tator
@@ -20,6 +22,12 @@ from . import thumbnail_classifier
 
 def _extract_tracks(api, media, trackTypeId, **kwargs):
     print(f"Extracting tracks from '{media.name}'")
+    tracks = api.get_state_list(media.project,
+                                media_id=[media.id],
+                                type=trackTypeId)
+    if len(tracks) == 0:
+        return None
+
     temp_dir = tempfile.mkdtemp()
     local_media = os.path.join(temp_dir, media.name)
     for _ in tator.download_media(api,
@@ -28,9 +36,6 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
         pass
     assert os.path.exists(local_media)
 
-    tracks = api.get_state_list(media.project,
-                                media_id=[media.id],
-                                type=trackTypeId)
     tracks = [t.to_dict() for t in tracks]
 
     by_frame = defaultdict(lambda: [])
@@ -99,11 +104,49 @@ def _preprocess_thumbnail(image):
     image /= 255.0
     return image
 
+def _safe_retry(function, *args,**kwargs):
+    count = kwargs.get('_retry_count', 5)
+    if '_retry_count' in kwargs:
+        del kwargs['_retry_count']
+    complete = False
+    fail_count = 0
+    while complete is False:
+        try:
+            return_value = function(*args,**kwargs)
+            complete = True
+            return return_value
+        except Exception as e:
+            fail_count += 1
+            if fail_count > count:
+                raise e
+
+
+
 def run_tracker(api,
                 project,
                 media_ids,
                 model_dir,
                 strategy):
+    filter_method = strategy.get('filter-method',None)
+    filter_function = None
+    filter_args = {}
+    if filter_method:
+        pip_package=filter_method.get('pip',None)
+        if pip_package:
+            p = subprocess.run([sys.executable,
+                                "-m",
+                                "pip",
+                                "install",
+                                pip_package])
+            print("Finished process.", flush=True)
+        function_name = filter_method.get('function',None)
+        filter_args = filter_method.get('args',{})
+        names = function_name.split('.')
+        module = __import__(names[0])
+        for name in names[1:-1]:
+            module = getattr(module,name)
+        filter_function = getattr(module,names[-1])
+
     model_files = [os.path.join(model_dir, f) for f in os.listdir(model_dir)]
     classifier = thumbnail_classifier.EnsembleClassifier(
         model_files,
@@ -112,31 +155,49 @@ def run_tracker(api,
     track_type_id = strategy['tator']['track_type_id']
     medias = api.get_media_list_by_id(project, {"ids": media_ids})
     for media in medias:
-        tracks = _extract_tracks(api, media, track_type_id)
         processed_time = media.attributes.get("Track Classification Processed",
                                               "No")
         if processed_time != "No":
             print(f"Already processed '{media.name}'")
             continue
 
+        tracks = _extract_tracks(api, media, track_type_id)
+
+        if tracks is None:
+            print(f"No tracks to process")
+            _safe_retry(api.update_media,
+                        media.id,
+                        {'attributes':
+                            {"Track Classification Processed": datetime.datetime.now().isoformat()}
+                        }
+                    )
+            continue
+
         for track_id,thumbnails in tracks.items():
-            # Convert each thumbnail to RGB and scale to 0-1
-            thumbnails = [_preprocess_thumbnail(t) for t in thumbnails]
-            detection_scores, entropy = classifier.run_track(thumbnails)
-            label, winner, track_entropy = classifier.process_track_results(
-                detection_scores,
-                entropy,
-                **strategy['track_params'])
+            # Run pre-processing filter first
+            label,track_entropy = None,None
+            if filter_function:
+                label,track_entropy = filter_function(track_id, thumbnails, **filter_args)
+            if label is None:
+                # Convert each thumbnail to RGB and scale to 0-1
+                thumbnails = [_preprocess_thumbnail(t) for t in thumbnails]
+                detection_scores, entropy = classifier.run_track(thumbnails)
+                label, winner, track_entropy = classifier.process_track_results(
+                    detection_scores,
+                    entropy,
+                    **strategy['track_params'])
             update = {'attributes':
                       {strategy['tator']['label_attribute']: label,
                       'Entropy': track_entropy}}
-            api.update_state(track_id, update)
+            _safe_retry(api.update_state,track_id, update)
             print(f"{track_id}: {label} {track_entropy}")
 
-        api.update_media(media.id,
-                         {'attributes':
-                          {"Track Classification Processed":
-                           datetime.datetime.now().isoformat()}})
+        _safe_retry(api.update_media,
+                    media.id,
+                    {'attributes':
+                        {"Track Classification Processed": datetime.datetime.now().isoformat()}
+                    }
+                )
 
 def main():
     """ Invokes the thumbnail classifier on a media in tator """
@@ -176,7 +237,7 @@ def main():
     print("Strategy:")
     pprint(strategy)
 
-    project = api.get_state_type(strategy['tator']['track_type_id']).project
+    project = _safe_retry(api.get_state_type,strategy['tator']['track_type_id']).project
 
     # Download the network files from docker
     network_dir = tempfile.mkdtemp()

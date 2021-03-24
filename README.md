@@ -20,6 +20,14 @@ Click the image below to see a video of OpenEM in action:
 
 [![OpenEM detection example](https://img.youtube.com/vi/EZ1Xyg_mnhM/0.jpg)](https://youtu.be/EZ1Xyg_mnhM)
 
+### Case Studies
+
+**OpenEM** has been used in multiple EM projects. We provide in depth case studies and tutorials showing the power and flexibility of the library. 
+
+**EDF West Coast Activity Recognition**
+
+For this project, CVision AI developed an algorithm using data provided by EDF to identify segments of video with specific activities of interest. You can read more about the overall project [here](http://blogs.edf.org/edfish/2021/03/01/computer-assisted-monitoring-technologies-are-set-to-revolutionize-fisheries/). You can follow the tutorial located [here](case-studies/EDF-Activity-Recognition.md)
+
 ### Distributions
 
 Get the latest Windows library from our [GitHub releases page][Releases].

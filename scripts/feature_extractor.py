@@ -334,10 +334,10 @@ def main(
             media = media_dict["element"]
             media_unique_name = f"{media.id}_{media.name}"
             media_filepath = os.path.join(work_dir, media_unique_name)
-            logger.info(f"Downloading {media_unique_name} with quality {image_size[0]}")
+            logger.info(f"Downloading {media_unique_name} with quality {image_size[1]}")
             try:
                 pct = 0
-                for progress in tator.download_media(api, media, media_filepath, image_size[0]):
+                for progress in tator.download_media(api, media, media_filepath, image_size[1]):
                     if progress > pct:
                         logger.info(f"Download progress: {progress}%")
                         pct = ceil(progress)

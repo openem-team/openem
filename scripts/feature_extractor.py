@@ -4,7 +4,7 @@ from datetime import datetime
 from itertools import cycle
 import json
 import logging
-from math import ceil
+from math import floor
 import multiprocessing as mp
 import os
 import queue
@@ -130,26 +130,15 @@ class ResNet50FeatureExtractor:
             raise RuntimeError("Video path not given, cannot read frames")
 
         ok = True
-        if self._verbose:
-            logger.info(f"Opening video {self._video_path}")
         vid = cv2.VideoCapture(self._video_path)
-        if self._verbose:
-            logger.info(f"{self._video_path} opened")
 
         frame_num = 0
         while ok and not self._stop_event.is_set():
             if not self._raw_queue.full():
                 ok, img = vid.read()
-                if self._verbose:
-                    logger.info(f"Reading frame {frame_num} was{'' if ok else ' not'} successful")
                 if ok and (frame_num % self._frame_modulus == 0):
-                    if self._verbose:
-                        logger.info(f"Put frame {frame_num} on raw queue")
                     self._raw_queue.put((img, frame_num))
                 frame_num += 1
-            else:
-                if self._verbose:
-                    logger.info(f"Raw queue full after reaching frame {frame_num}")
             if frame_num > self._frame_cutoff:
                 logger.info(f"Reached frame cutoff ({self._frame_cutoff})")
                 break
@@ -167,12 +156,8 @@ class ResNet50FeatureExtractor:
                 self._done_event.wait()
                 self._stop_event.set()
             else:
-                if self._verbose:
-                    logger.info(f"Read frame {frame_num} from raw queue")
                 formatted_img = self._format_img(img)
                 self._frame_queue.put((formatted_img, frame_num))
-                if self._verbose:
-                    logger.info(f"Put formatted frame {frame_num} in frame queue")
 
     def _format_img(self, img):
         start_time = time.time()
@@ -334,13 +319,20 @@ def main(
             media = media_dict["element"]
             media_unique_name = f"{media.id}_{media.name}"
             media_filepath = os.path.join(work_dir, media_unique_name)
-            logger.info(f"Downloading {media_unique_name} with quality {image_size[1]}")
+            kwargs = {"api": api, "media": media, "out_path": media_filepath}
+            if all(image_size):
+                kwargs["quality"] = image_size[1]
+                quality = kwargs["quality"]
+            else:
+                quality = "best"
+            logger.info(f"Downloading {media_unique_name} at {quality} quality")
+
             try:
-                pct = 0
-                for progress in tator.download_media(api, media, media_filepath, image_size[1]):
-                    if progress > pct:
-                        logger.info(f"Download progress: {progress}%")
-                        pct = ceil(progress)
+                last_progress = 0
+                for progress in tator.download_media(**kwargs):
+                    if floor(progress) > last_progress:
+                        logger.info(f"{media_unique_name} download progress: {progress}%")
+                        last_progress = floor(progress)
             except:
                 logger.warning(f"{media_unique_name} did not download!")
                 media_dict["download_attempts_rem"] -= 1

@@ -8,6 +8,7 @@ from math import floor
 import multiprocessing as mp
 import os
 import queue
+import subprocess
 import sys
 import time
 from typing import List, Optional, Union
@@ -29,7 +30,7 @@ if torch.cuda.is_available():
     torch.set_default_tensor_type("torch.cuda.HalfTensor")
 
 
-FRAME_TIMEOUT = 32  # seconds
+FRAME_TIMEOUT = 2  # seconds
 log_filename = "feature_extractor.log"
 
 
@@ -319,33 +320,47 @@ def main(
             media = media_dict["element"]
             media_unique_name = f"{media.id}_{media.name}"
             media_filepath = os.path.join(work_dir, media_unique_name)
-            kwargs = {"api": api, "media": media, "out_path": media_filepath}
-            if all(image_size):
-                kwargs["quality"] = image_size[1]
-                quality = kwargs["quality"]
-            else:
-                quality = "best"
-            logger.info(f"Downloading {media_unique_name} at {quality} quality")
-
-            try:
-                last_progress = 0
-                for progress in tator.download_media(**kwargs):
-                    if floor(progress) > last_progress:
-                        logger.info(f"{media_unique_name} download progress: {progress}%")
-                        last_progress = floor(progress)
-            except:
-                logger.warning(f"{media_unique_name} did not download!")
-                media_dict["download_attempts_rem"] -= 1
-                continue
+            logger.info(f"Downloading {media_unique_name}")
+            if not os.path.exists(media_filepath):
+                try:
+                    last_progress = 0
+                    for progress in tator.download_media(api, media, media_filepath):
+                        if floor(progress) > last_progress:
+                            logger.info(f"{media_unique_name} download progress: {progress}%")
+                            last_progress = floor(progress)
+                except:
+                    logger.warning(f"{media_unique_name} did not download!")
+                    media_dict["download_attempts_rem"] -= 1
+                    continue
 
             if not os.path.exists(media_filepath):
                 media_dict["download_attempts_rem"] -= 1
                 logger.warning(f"{media_unique_name} did not download!")
             else:
+                file_size_bytes = os.stat(media_filepath).st_size
                 if verbose:
-                    logger.info(
-                        f"Downloaded {media_filepath}; size {os.stat(media_filepath).st_size / 1024 / 1024}MB"
-                    )
+                    logger.info(f"Downloaded {media_filepath}; size {file_size_bytes / 1024**2}MB")
+                if all(d != 0 for d in image_size) and file_size_bytes / 1024 ** 3 > 8:
+                    if verbose:
+                        logger.info(
+                            f"Video larger than 8GB, transcoding {media_filepath} to {image_size[0]}x{image_size[1]}"
+                        )
+                    tmp_filepath = f"{media_filepath}.mp4"
+                    args = [
+                        "ffmpeg",
+                        "-i",
+                        media_filepath,
+                        "-vf",
+                        f"scale={image_size[0]}:{image_size[1]}",
+                        tmp_filepath,
+                    ]
+                    p = subprocess.Popen(args)
+                    p.wait()
+                    if p.returncode != 0 or not os.path.exists(tmp_filepath):
+                        logger.warning(f"ffmpeg returned {p.returncode}, will retry transcode")
+                        media_dict["download_attempts_rem"] -= 1
+                    os.remove(media_filepath)
+                    os.rename(tmp_filepath, media_filepath)
                 media_dict["media_file"] = media_filepath
         for media_id in list(media_tracker.keys()):
             if media_tracker[media_id]["download_attempts_rem"] < 1:

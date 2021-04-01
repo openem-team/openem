@@ -8,6 +8,7 @@ from math import floor
 import multiprocessing as mp
 import os
 import queue
+import subprocess
 import sys
 import time
 from typing import List, Optional, Union
@@ -29,6 +30,7 @@ if torch.cuda.is_available():
     torch.set_default_tensor_type("torch.cuda.HalfTensor")
 
 
+FRAME_TIMEOUT = 2  # seconds
 log_filename = "feature_extractor.log"
 
 
@@ -81,8 +83,8 @@ class ResNet50FeatureExtractor:
         self._image_height = image_size[1]
         self._verbose = verbose
 
-        self._raw_queue = mp.Queue(20)
-        self._frame_queue = mp.Queue(20)
+        self._raw_queue = mp.Queue(32)
+        self._frame_queue = mp.Queue(32)
         self._stop_event = mp.Event()
         self._frame_stop_event = mp.Event()
         self._done_event = mp.Event()
@@ -131,14 +133,6 @@ class ResNet50FeatureExtractor:
         ok = True
         vid = cv2.VideoCapture(self._video_path)
 
-        # TODO Unnecessary? Don't use vid_len or fps anywhere
-        if cv2.__version__ >= "3.2.0":
-            vid_len = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
-            fps = vid.get(cv2.CAP_PROP_FPS)
-        else:
-            vid_len = int(vid.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT))
-            fps = vid.get(cv2.cv.CV_CAP_PROP_FPS)
-
         frame_num = 0
         while ok and not self._stop_event.is_set():
             if not self._raw_queue.full():
@@ -147,6 +141,7 @@ class ResNet50FeatureExtractor:
                     self._raw_queue.put((img, frame_num))
                 frame_num += 1
             if frame_num > self._frame_cutoff:
+                logger.info(f"Reached frame cutoff ({self._frame_cutoff})")
                 break
 
         self._done_event.wait()
@@ -155,12 +150,15 @@ class ResNet50FeatureExtractor:
     def _enqueue_frames(self):
         while not self._stop_event.is_set():
             try:
-                img, frame_num = self._raw_queue.get(timeout=2)
-                formatted_img = self._format_img(img)
-                self._frame_queue.put((formatted_img, frame_num))
+                img, frame_num = self._raw_queue.get(timeout=FRAME_TIMEOUT)
             except:
+                if self._verbose:
+                    logger.info("Hit timeout retrieving from raw queue")
                 self._done_event.wait()
                 self._stop_event.set()
+            else:
+                formatted_img = self._format_img(img)
+                self._frame_queue.put((formatted_img, frame_num))
 
     def _format_img(self, img):
         start_time = time.time()
@@ -183,7 +181,7 @@ class ResNet50FeatureExtractor:
         return img
 
     def _get_frames(self, n):
-        timeout = 2  # seconds to wait for an item in the queue
+        timeout = FRAME_TIMEOUT  # seconds to wait for an item in the queue
 
         # The first .get() is outside the try..except to notify the caller that there are no frames
         # left to get
@@ -240,6 +238,7 @@ class ResNet50FeatureExtractor:
                 at = time.time()
 
                 if self._verbose:
+                    logger.info(f"\tlast frame processed\t\t= {frames[-1]}")
                     logger.info(f"\tget frames time\t\t\t= {bt - st}")
                     logger.info(f"\timages to gpu time\t\t= {ppt - bt}")
                     logger.info(f"\tmodel time\t\t\t= {mt - ppt}")
@@ -278,7 +277,6 @@ def main(
     secret_key,
 ):
     # Download media
-    logger.info("Downloading media")
     media_elements = api.get_media_list(project_id, media_id=media_ids)
 
     # Create dict for tracking the progress of each media item
@@ -306,9 +304,12 @@ def main(
             "media_file": None,
             "download_attempts_rem": 5,
             "df_file": None,
+            "extraction_attempts_rem": 3,
             "s3_key": None,
+            "upload_attempts_rem": 5,
         }
 
+    logger.info("Downloading media")
     while _any_remaining(media_tracker, "media_file"):
         for media_dict in media_tracker.values():
             # Check to see if the file has already been downloaded or if the features are already in
@@ -319,18 +320,47 @@ def main(
             media = media_dict["element"]
             media_unique_name = f"{media.id}_{media.name}"
             media_filepath = os.path.join(work_dir, media_unique_name)
-            try:
-                for _ in tator.download_media(api, media, media_filepath):
-                    pass
-            except:
-                logger.warning(f"{media_unique_name} did not download!")
-                media_dict["download_attempts_rem"] -= 1
-                continue
+            logger.info(f"Downloading {media_unique_name}")
+            if not os.path.exists(media_filepath):
+                try:
+                    last_progress = 0
+                    for progress in tator.download_media(api, media, media_filepath):
+                        if floor(progress) > last_progress:
+                            logger.info(f"{media_unique_name} download progress: {progress}%")
+                            last_progress = floor(progress)
+                except:
+                    logger.warning(f"{media_unique_name} did not download!")
+                    media_dict["download_attempts_rem"] -= 1
+                    continue
 
             if not os.path.exists(media_filepath):
                 media_dict["download_attempts_rem"] -= 1
                 logger.warning(f"{media_unique_name} did not download!")
             else:
+                file_size_bytes = os.stat(media_filepath).st_size
+                if verbose:
+                    logger.info(f"Downloaded {media_filepath}; size {file_size_bytes / 1024**2}MB")
+                if all(d != 0 for d in image_size) and file_size_bytes / 1024 ** 3 > 8:
+                    if verbose:
+                        logger.info(
+                            f"Video larger than 8GB, transcoding {media_filepath} to {image_size[0]}x{image_size[1]}"
+                        )
+                    tmp_filepath = f"{media_filepath}.mp4"
+                    args = [
+                        "ffmpeg",
+                        "-i",
+                        media_filepath,
+                        "-vf",
+                        f"scale={image_size[0]}:{image_size[1]}",
+                        tmp_filepath,
+                    ]
+                    p = subprocess.Popen(args)
+                    p.wait()
+                    if p.returncode != 0 or not os.path.exists(tmp_filepath):
+                        logger.warning(f"ffmpeg returned {p.returncode}, will retry transcode")
+                        media_dict["download_attempts_rem"] -= 1
+                    os.remove(media_filepath)
+                    os.rename(tmp_filepath, media_filepath)
                 media_dict["media_file"] = media_filepath
         for media_id in list(media_tracker.keys()):
             if media_tracker[media_id]["download_attempts_rem"] < 1:
@@ -361,17 +391,47 @@ def main(
             # Extract features
             try:
                 df = rfe.extract_features(media_file)
-                df.to_hdf(df_path, mode="w", key="df", format="table")
-                del df
             except:
-                pass
+                logger.warning(
+                    f"Exception raised during feature extraction for {media_file}", exc_info=True
+                )
+                media_dict["extraction_attempts_rem"] -= 1
+                continue
+
+            try:
+                df.to_hdf(df_path, mode="w", key="df", format="table")
+            except:
+                logger.warning(
+                    f"Exception raised while saving features for {media_file}", exc_info=True
+                )
+                media_dict["extraction_attempts_rem"] -= 1
+                continue
+            finally:
+                del df
 
             if not os.path.exists(df_path):
                 logger.warning(f"Features not extracted for {media_file}!")
-            else:
-                media_dict["df_file"] = df_path
+                media_dict["extraction_attempts_rem"] -= 1
+                continue
+            elif os.stat(df_path).st_size < 2048:
+                logger.warning(
+                    f"HDF file less than 2048 bytes for {media_file}, attempting re-extraction"
+                )
+                os.remove(df_path)
+                media_dict["extraction_attempts_rem"] -= 1
+                continue
 
-    logger.info("Features successfully extracted")
+            media_dict["df_file"] = df_path
+
+        for media_id in list(media_tracker.keys()):
+            if media_tracker[media_id]["extraction_attempts_rem"] < 1:
+                media_tracker.pop(media_id)
+
+    logger.info("Feature extraction complete")
+
+    if len(media_tracker) == 0:
+        logger.warning("No media requiring extraction")
+        return
 
     # Push features to s3 and add feature location to media
 
@@ -390,20 +450,30 @@ def main(
                 continue
 
             uuid_filename = f"{uuid4()}.hdf"
-            try:
-                client.upload_file(media_dict["df_file"], s3_bucket, uuid_filename)
-            except:
-                logger.warn(f"Unable to upload file {uuid_filename} to s3")
-                continue
 
+            # Try to set the attribute first. If it fails, the file won't be uploaded to S3
+            # erroneously
             try:
                 feature_s3 = f'{{"bucket": "{s3_bucket}", "key": "{uuid_filename}"}}'
                 api.update_media(int(media_id), {"attributes": {attribute_name: feature_s3}})
             except:
-                logger.warn(f"Unable to set {attribute_name} attribute")
+                logger.warn(f"Unable to set {attribute_name} attribute", exc_info=True)
+                media_dict["upload_attempts_rem"] -= 1
+                continue
+
+            try:
+                client.upload_file(media_dict["df_file"], s3_bucket, uuid_filename)
+            except:
+                logger.warn(f"Unable to upload file {uuid_filename} to s3")
+                api.update_media(int(media_id), {"attributes": {attribute_name: ""}})
+                media_dict["upload_attempts_rem"] -= 1
                 continue
 
             media_dict["s3_key"] = uuid_filename
+
+        for media_id in list(media_tracker.keys()):
+            if media_tracker[media_id]["upload_attempts_rem"] < 1:
+                media_tracker.pop(media_id)
 
     logger.info("Features uploaded to s3")
 

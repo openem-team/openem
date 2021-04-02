@@ -173,7 +173,7 @@ def run_tracker(api,
     for media in medias:
         processed_time = media.attributes.get("Track Classification Processed",
                                               "No")
-        if processed_time != "No":
+        if processed_time != "No" and not strategy['tator'].get('force', False):
             print(f"Already processed '{media.name}'")
             continue
 
@@ -193,7 +193,7 @@ def run_tracker(api,
             # Run pre-processing filter first
             label, winner, track_entropy = None, -1, None
             if filter_function:
-                label,track_entropy = filter_function(track_id, thumbnails, **filter_args)
+                label,track_entropy = filter_function(api, project, track_id, thumbnails, **filter_args)
             if label is None:
                 # Convert each thumbnail to RGB and scale to 0-1
                 thumbnails = [_preprocess_thumbnail(t) for t in thumbnails]

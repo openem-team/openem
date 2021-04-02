@@ -22,12 +22,19 @@ from . import thumbnail_classifier
 
 def _extract_tracks(api, media, trackTypeId, **kwargs):
     print(f"Extracting tracks from '{media.name}'")
-    tracks = api.get_state_list(media.project,
+    mode = kwargs.get('mode', 'state')
+
+    if mode == 'state':
+        tracks = api.get_state_list(media.project,
                                 media_id=[media.id],
                                 type=trackTypeId)
+    elif mode == 'localization':
+        # call these tracks even though its a track of one detection
+        tracks = api.get_localization_list(media.project,
+                                           media_id=[media.id],
+                                           type=trackTypeId)
     if len(tracks) == 0:
         return None
-
     temp_dir = tempfile.mkdtemp()
     local_media = os.path.join(temp_dir, media.name)
     for _ in tator.download_media(api,
@@ -37,18 +44,20 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
     assert os.path.exists(local_media)
 
     tracks = [t.to_dict() for t in tracks]
-
     by_frame = defaultdict(lambda: [])
-    for track in tracks:
-        localizations = api.get_localization_list_by_id(
-            media.project,
-            {"ids": track['localizations']})
-        localizations = [l.to_dict() for l in localizations]
-        for l in localizations:
-            l['track_id'] = track['id']
-            by_frame[l['frame']].append(l)
-        track['local_objs'] = localizations
-
+    if mode == 'state':
+        for track in tracks:
+            localizations = api.get_localization_list_by_id(
+                media.project,
+                {"ids": track['localizations']})
+            localizations = [l.to_dict() for l in localizations]
+            for l in localizations:
+                l['track_id'] = track['id']
+                by_frame[l['frame']].append(l)
+    elif mode == 'localization':
+        for local in localization:
+            l['track_id'] = local['id'] # just use local id
+            by_frame[local['frame']].append(l)
     max_frame = max(list(by_frame.keys()))
     print(f"Processing {len(tracks)} up to frame {max_frame}")
     reader = cv2.VideoCapture(local_media)
@@ -153,6 +162,13 @@ def run_tracker(api,
         **strategy['ensemble_config'])
 
     track_type_id = strategy['tator']['track_type_id']
+    extract_mode = strategy['tator'].get('type', 'state')
+    assert extract_mode in ['state','localization']
+    update_mode = strategy['tator'].get('update_mode', 'patch')
+    assert update_mode in ['patch', 'post']
+    update_type_id = strategy['tator'].get('update_type_id')
+    version_id = strategy['tator'].get('version_id', None)
+
     medias = api.get_media_list_by_id(project, {"ids": media_ids})
     for media in medias:
         processed_time = media.attributes.get("Track Classification Processed",
@@ -161,7 +177,7 @@ def run_tracker(api,
             print(f"Already processed '{media.name}'")
             continue
 
-        tracks = _extract_tracks(api, media, track_type_id)
+        tracks = _extract_tracks(api, media, track_type_id, mode=extract_mode)
 
         if tracks is None:
             print(f"No tracks to process")
@@ -175,7 +191,7 @@ def run_tracker(api,
 
         for track_id,thumbnails in tracks.items():
             # Run pre-processing filter first
-            label,track_entropy = None,None
+            label, winner, track_entropy = None, -1, None
             if filter_function:
                 label,track_entropy = filter_function(track_id, thumbnails, **filter_args)
             if label is None:
@@ -189,7 +205,30 @@ def run_tracker(api,
             update = {'attributes':
                       {strategy['tator']['label_attribute']: label,
                       'Entropy': track_entropy}}
-            _safe_retry(api.update_state,track_id, update)
+
+            # if supplied, update version
+            if version_id:
+                update.update({"version": version_id})
+            if update_mode == 'patch' or winner == -1:
+                if extract_mode == 'state':
+                    function = api.update_state
+                elif extract_mode == 'localization':
+                    function = api.update_localization
+                _safe_retry(api.update_state,track_id, update)
+            elif update_mode == 'post':
+                update.update({"type": update_type_id})
+                if extract_mode == 'state':
+                    assert False # not supported
+                elif extract_mode == 'localization':
+                    existing_obj = api.get_localization(track_id)
+                    if winner != -1:
+                        # Copy in existing positional information
+                        update['x'] = existing_obj.x
+                        update['y'] = existing_obj.y
+                        update['width'] = existing_obj.width
+                        update['height'] = existing_obj.height
+                        _safe_retry(api.create_localization_list,project, [update])
+
             print(f"{track_id}: {label} {track_entropy}")
 
         _safe_retry(api.update_media,

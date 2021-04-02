@@ -52,10 +52,9 @@ if __name__ == "__main__":
         os.getenv("MODEL_CONFIG_FILE"),
         "--sample-size",
         os.getenv("SAMPLE_SIZE"),
+        "--video-order",
+        *os.getenv("VIDEO_ORDER").split(","),
     ]
-
-    if os.getenv("VERBOSE") is not None:
-        args.append("--verbose")
 
     if os.getenv("FORCE_EXTRACTION") is not None:
         args.append("--force-extraction")

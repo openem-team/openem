@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import pickle
 from statistics import median
+from typing import Generator, List, Tuple
 import yaml
 
 import boto3
@@ -43,7 +44,15 @@ logger = logging.getLogger(__name__)
 
 
 class LSTMAR(nn.Module):
-    def __init__(self, input_dim, hidden_dim, batch_size, output_dim, num_layers, dropout=0):
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        batch_size: int,
+        output_dim: int,
+        num_layers: int,
+        dropout: float = 0,
+    ):
 
         super().__init__()
         self.input_dim = input_dim
@@ -75,7 +84,7 @@ class LSTMAR(nn.Module):
             )
         )
 
-    def forward(self, seq_batch):
+    def forward(self, seq_batch: torch.Tensor):
         lstm_out, self.hidden = self.lstm(seq_batch, self.hidden)
         output = torch.cat(
             (lstm_out[-1, :, : self.hidden_dim], lstm_out[0, :, self.hidden_dim :]), 1
@@ -89,7 +98,15 @@ class LSTMAR(nn.Module):
 
 
 class LSTMARNOLIN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, batch_size, output_dim, num_layers, dropout=0):
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        batch_size: int,
+        output_dim: int,
+        num_layers: int,
+        dropout: float = 0,
+    ):
 
         super().__init__()
         self.input_dim = input_dim
@@ -114,7 +131,7 @@ class LSTMARNOLIN(nn.Module):
             )
         )
 
-    def forward(self, seq_batch):
+    def forward(self, seq_batch: torch.Tensor):
         lstm_out, self.hidden = self.lstm(seq_batch, self.hidden)
         output = self.linear(lstm_out[-1].view(self.batch_size, -1))
         output = self.sigmoid(output)
@@ -122,7 +139,7 @@ class LSTMARNOLIN(nn.Module):
         return output.view(self.batch_size, -1)
 
 
-def init_models(params, torch_device):
+def init_models(params: dict, torch_device: torch.device) -> Tuple[LSTMARNOLIN, LSTMAR]:
     """
     Format:
 
@@ -171,147 +188,187 @@ def init_models(params, torch_device):
     return nolin_model, lin_model
 
 
-def process_stitch_map(stitch_map_str):
-    video_starts = []
-    blank_starts = []
+class SampleGenerator:
+    def __init__(
+        self,
+        project_id: int,
+        api: tator.api,
+        client: boto3.client,
+        work_dir: str,
+        torch_device: torch.device,
+        video_order: List[int],
+    ):
+        # The project ID where the media reside
+        self._project = project_id
 
-    try:
-        stitch_map = json.loads(stitch_map_str.replace("`", '"'))
-    except:
-        return []
+        # The tator.api client
+        self._api = api
 
-    for key, frame in stitch_map.items():
-        if key.startswith("blank"):
-            blank_starts.append(round(frame))
-        else:
-            video_starts.append(round(frame))
+        # The boto3 client
+        self._client = client
 
-    video_starts.pop(0)
+        # The location to temporarily store feature files
+        self._work_dir = work_dir
 
-    assert len(blank_starts) == len(video_starts)
-    return [(start, end) for start, end in zip(blank_starts, video_starts)]
+        # The device on which to put torch.Tensors
+        self._torch_device = torch_device
 
+        # The order in which to concatenate the videos, using their index in the
+        # `multiview.media_files.ids` list. For example, a list of ids [2, 4, 8, 16] with a video
+        # order [3, 2, 0, 1] would produce the id ordering [16, 8, 2, 4].
+        self._video_order = video_order
 
-def init_feature_samples(
-    project_id, api, client, work_dir, multiview_id, torch_device, sample_size
-):
-    # Get media associated with given multiview id
-    multiview = api.get_media(multiview_id)
-    media_list = api.get_media_list(project_id, media_id=multiview.media_files.ids)
-    media_ids = []
-    media_fps = []
-    for vid in media_list:
-        media_ids.append(vid.id)
-        media_fps.append(vid.fps)
-    media_ids.append(multiview_id)
+    @staticmethod
+    def _process_stitch_map(stitch_map_str: str) -> List[Tuple[int, int]]:
+        video_starts = []
+        blank_starts = []
 
-    # Download feature files from S3 and parse frame gaps
-    feature_files = []
-    frame_gaps = []
-    for vid in media_list:
         try:
-            feature_s3 = json.loads(vid.attributes["feature_s3"])
+            stitch_map = json.loads(stitch_map_str.replace("`", '"'))
         except:
-            logger.info(f"Could not load features for {vid.id}, aborting", exc_info=True)
-            embed()
-            raise
-        frame_gaps.append(process_stitch_map(vid.attributes["_stitch_map"]))
-        feature_files.append(os.path.join(work_dir, feature_s3["key"]))
-        logger.info(f"Downloading {feature_files[-1]}")
-        if not os.path.isfile(feature_files[-1]):
-            client.download_file(feature_s3["bucket"], feature_s3["key"], feature_files[-1])
-        logger.info(f"{feature_files[-1]} downloaded!")
+            return []
 
-    # Determine union of frame gaps across all media
-    n_gaps = len(frame_gaps[0])
-    assert all(len(gaps) == n_gaps for gaps in frame_gaps)
-
-    global_frame_gaps = [
-        (max(gap[idx][0] for gap in frame_gaps), max(gap[idx][1] for gap in frame_gaps))
-        for idx in range(n_gaps)
-    ]
-
-    # Load feature files
-    features = [pd.read_hdf(ff) for ff in feature_files]
-    max_frame = min(feat.iloc[-1].name for feat in features)
-
-    # Generate samples
-    samples = {}
-    if all(fps == media_fps[0] for fps in media_fps):
-        fps = media_fps[0]
-    else:
-        logger.warning(f"Media FPS differs ({media_fps}), using median value {median_fps}")
-        fps = round(median(media_fps))
-    sample_size_frames = sample_size * fps
-    sample_start_frame = 0
-    while True:
-        sample_end_frame = sample_start_frame + sample_size_frames - 1
-
-        if global_frame_gaps:
-            next_frame_gap = global_frame_gaps[0]
-
-            if (
-                next_frame_gap[0] < sample_start_frame < next_frame_gap[1]
-                or next_frame_gap[0] < sample_end_frame
-            ):
-                # If the start frame is too close to or contained in the next frame gap, skip to the
-                # end of it
-                sample_start_frame = next_frame_gap[1]
-                global_frame_gaps.pop(0)
-                continue
-            elif sample_start_frame > next_frame_gap[1]:
-                # If the sample start frame is beyond the end of the next frame gap (shouldn't
-                # happen), remove the frame gap and try again
-                global_frame_gaps.pop(0)
-                continue
-        else:
-            # If the end of the sample is past the end of the shortest video, sample generation is
-            # complete
-            if max_frame < sample_end_frame:
-                break
-
-        # Concatenate the samples from each video into a single feature vector per frame
-        sample_parts = []
-        for idx, feature in enumerate(features):
-            indices = list(feature.index)
-            start_frame = sample_start_frame
-            end_frame = sample_end_frame
-
-            try:
-                subsample = feature.loc[start_frame:end_frame]
-            except:
-                logger.info(f"Problem subsampling feature no. {idx}", exc_info=True)
-                raise
+        for key, frame in stitch_map.items():
+            if key.startswith("blank"):
+                blank_starts.append(round(frame))
             else:
-                sample_parts.append(subsample)
+                video_starts.append(round(frame))
 
-        sample = pd.concat(sample_parts, axis=1)
-        sample.columns = list(range(len(sample.columns)))
-        sample_batch = [torch.Tensor(sample.iloc[idx].to_numpy()) for idx in range(len(sample))]
-        samples[sample_start_frame] = (
-            torch.cat(sample_batch)
-            .view(len(sample_batch), 1, -1)
-            .to(torch_device, non_blocking=True)
-        )
-        sample_start_frame = sample_end_frame + 1
+        video_starts.pop(0)
 
-    return samples, media_ids
+        assert len(blank_starts) == len(video_starts)
+        return [(start, end) for start, end in zip(blank_starts, video_starts)]
+
+    def get_associated_media_ids(self, multiview_id: int) -> List[int]:
+        multiview = self._api.get_media(multiview_id)
+        media_ids = list(multiview.media_files.ids)
+        media_ids.append(multiview_id)
+        return media_ids
+
+    def __call__(
+        self, multiview_id: int, sample_size: int
+    ) -> Generator[Tuple[int, torch.Tensor], None, None]:
+        # Get media associated with given multiview id
+        multiview = self._api.get_media(multiview_id)
+        media_ids = list(multiview.media_files.ids)
+        media_ids = [media_ids[idx] for idx in self._video_order]
+        media_dict = {
+            vid.id: vid for vid in self._api.get_media_list(self._project, media_id=media_ids)
+        }
+        media_fps = [vid.fps for vid in media_dict.values()]
+
+        # Download feature files from S3 and parse frame gaps
+        feature_files = []
+        frame_gaps = [
+            self._process_stitch_map(media_dict[media_id].attributes["_stitch_map"])
+            for media_id in media_ids
+        ]
+        for media_id in media_ids:
+            vid = media_dict[media_id]
+            try:
+                feature_s3 = json.loads(vid.attributes["feature_s3"])
+            except:
+                logger.info(f"Could not load features for {vid.id}, aborting", exc_info=True)
+                embed()
+                raise
+            feature_files.append(os.path.join(self._work_dir, feature_s3["key"]))
+            logger.info(f"Downloading {feature_files[-1]}")
+            if not os.path.isfile(feature_files[-1]):
+                self._client.download_file(
+                    feature_s3["bucket"], feature_s3["key"], feature_files[-1]
+                )
+            logger.info(f"{feature_files[-1]} downloaded!")
+
+        # Determine union of frame gaps across all media
+        n_gaps = len(frame_gaps[0])
+        assert all(len(gaps) == n_gaps for gaps in frame_gaps)
+
+        global_frame_gaps = [
+            (max(gap[idx][0] for gap in frame_gaps), max(gap[idx][1] for gap in frame_gaps))
+            for idx in range(n_gaps)
+        ]
+
+        # Load feature files
+        features = [pd.read_hdf(ff) for ff in feature_files]
+        max_frame = min(feat.iloc[-1].name for feat in features)
+
+        # Generate samples
+        if all(fps == media_fps[0] for fps in media_fps):
+            fps = media_fps[0]
+        else:
+            logger.warning(f"Media FPS differs ({media_fps}), using median value {median_fps}")
+            fps = round(median(media_fps))
+        sample_size_frames = sample_size * fps
+        sample_start_frame = 0
+        while True:
+            sample_end_frame = sample_start_frame + sample_size_frames - 1
+
+            if global_frame_gaps:
+                next_frame_gap = global_frame_gaps[0]
+
+                if (
+                    next_frame_gap[0] < sample_start_frame < next_frame_gap[1]
+                    or next_frame_gap[0] < sample_end_frame
+                ):
+                    # If the start frame is too close to or contained in the next frame gap, skip to
+                    # the end of it
+                    sample_start_frame = next_frame_gap[1]
+                    global_frame_gaps.pop(0)
+                    continue
+                elif sample_start_frame > next_frame_gap[1]:
+                    # If the sample start frame is beyond the end of the next frame gap (shouldn't
+                    # happen), remove the frame gap and try again
+                    global_frame_gaps.pop(0)
+                    continue
+            else:
+                # If the end of the sample is past the end of the shortest video, sample generation
+                # is complete
+                if max_frame < sample_end_frame:
+                    break
+
+            # Concatenate the samples from each video into a single feature vector per frame
+            sample_parts = []
+            for idx, feature in enumerate(features):
+                indices = list(feature.index)
+                start_frame = sample_start_frame
+                end_frame = sample_end_frame
+
+                try:
+                    subsample = feature.loc[start_frame:end_frame]
+                except:
+                    logger.info(f"Problem subsampling feature no. {idx}", exc_info=True)
+                    raise
+                else:
+                    sample_parts.append(subsample)
+
+            sample = pd.concat(sample_parts, axis=1)
+            sample.columns = list(range(len(sample.columns)))
+            sample_batch = [torch.Tensor(sample.iloc[idx].to_numpy()) for idx in range(len(sample))]
+            sample_tensor = (
+                torch.cat(sample_batch)
+                .view(len(sample_batch), 1, -1)
+                .to(self._torch_device, non_blocking=True)
+            )
+            yield sample_start_frame, sample_tensor
+            sample_start_frame = sample_end_frame + 1
 
 
 def main(
-    access_key,
-    secret_key,
-    s3_bucket,
-    endpoint_url,
-    attribute_name,
-    work_dir,
-    project_id,
-    state_type,
-    api,
-    model_config_params,
-    multiview_ids,
-    sample_size,
-    gpu_num=0,
+    access_key: str,
+    secret_key: str,
+    s3_bucket: str,
+    endpoint_url: str,
+    attribute_name: str,
+    work_dir: str,
+    project_id: int,
+    state_type: int,
+    host: str,
+    token: str,
+    model_config_params: dict,
+    multiview_ids: List[int],
+    sample_size: int,
+    video_order: List[int],
+    gpu_num: int = 0,
 ):
 
     if torch.cuda.is_available():
@@ -320,6 +377,7 @@ def main(
     else:
         torch_device = torch.device("cpu")
 
+    api = tator.get_api(host, token)
     client = boto3.client(
         "s3",
         endpoint_url=endpoint_url,
@@ -330,22 +388,16 @@ def main(
     with torch.no_grad():
         softmax_norm = torch.nn.Softmax()
         nolin_model, lin_model = init_models(model_config_params, torch_device)
+        sample_generator = SampleGenerator(
+            project_id, api, client, work_dir, torch_device, video_order
+        )
 
         for multiview_id in multiview_ids:
-            logger.info(f"Starting {multiview_id}")
-            frame_num = 0
-            samples, media_ids = init_feature_samples(
-                project_id,
-                api,
-                client,
-                work_dir,
-                multiview_id,
-                torch_device,
-                sample_size,
-            )
+            logger.info(f"Starting inference on {multiview_id}")
+            media_ids = sample_generator.get_associated_media_ids(multiview_id)
 
             state_spec_list = []
-            for frame, sample in samples.items():
+            for frame, sample in sample_generator(multiview_id, sample_size):
                 logger.info(f"  Frame {frame}")
                 lin_model.hidden = lin_model.init_hidden()
                 nolin_model.hidden = nolin_model.init_hidden()
@@ -412,6 +464,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sample-size", help="The length of a sample in seconds", type=int, required=True
     )
+    parser.add_argument(
+        "--video-order",
+        help="The order in which the video features should be composed",
+        nargs="*",
+        type=int,
+        required=True,
+    )
     args = parser.parse_args()
     with open(args.model_config_file, "r") as fp:
         model_config_params = yaml.load(fp)
@@ -425,8 +484,10 @@ if __name__ == "__main__":
         work_dir=args.work_dir,
         project_id=args.project_id,
         state_type=args.state_type,
-        api=tator.get_api(args.host, args.token),
+        host=args.host,
+        token=args.token,
         model_config_params=model_config_params,
         multiview_ids=args.multiview_ids,
         sample_size=args.sample_size,
+        video_order=args.video_order,
     )

@@ -50,10 +50,10 @@ spec:
         value: "90" # The type of state to generate
       - name: MODEL_CONFIG_FILE
         value: "" # The location of the model configuration in the image
-      - name: VERBOSE # Set this environment variable to anything to enable verbose logging
-        value: "true"
       - name: SAMPLE_SIZE
         value: "60" # The size of each sample from which to infer activities, in seconds
+      - name: VIDEO_ORDER
+        value: "3,2,0,1" # The video order in which the features should be concatenated
       - name: TATOR_PROJECT_ID
         value: "{{workflow.parameters.project_id}}"
       - name: TATOR_WORK_DIR

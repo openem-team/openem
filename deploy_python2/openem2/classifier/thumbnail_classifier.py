@@ -39,7 +39,7 @@ class EnsembleClassifier:
         :param dropoutPercent: Percentage to use in each network run
         """
         num_models = len(modelsList)
-        assert num_models > 1, "Ensemble classifier requires more than 1 model"
+        assert num_models > 0, "Ensemble classifier requires at least 1 model"
         assert len(classNames) > 1, "Must supply more than 1 class name"
 
         self._input_shape = (*imageSize, 3)

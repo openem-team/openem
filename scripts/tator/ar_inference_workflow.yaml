@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: feature-extraction
+  generateName: ar-inference-
 spec:
   entrypoint: pipeline
   podGC:
@@ -24,7 +24,7 @@ spec:
         template: worker
   - name: worker
     container:
-      image: "cvisionai/openem_pytorch:latest"
+      image: "cvisionai/openem_pytorch:hugh"
       imagePullPolicy: Always
       resources:
         limits:

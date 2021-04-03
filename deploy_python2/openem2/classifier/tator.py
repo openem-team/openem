@@ -35,7 +35,12 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
                                            type=trackTypeId)
     if len(tracks) == 0:
         return None
-    temp_dir = tempfile.mkdtemp()
+    if os.getenv("TATOR_WORK_DIR"):
+        temp_dir = os.path.join(os.getenv("TATOR_WORK_DIR"),
+                                media.name)
+        os.makedirs(temp_dir, exist_ok=True)
+    else:
+        temp_dir = tempfile.mkdtemp()
     local_media = os.path.join(temp_dir, media.name)
     for _ in tator.download_media(api,
                                   media,

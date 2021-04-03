@@ -23,7 +23,7 @@ from . import thumbnail_classifier
 def _extract_tracks(api, media, trackTypeId, **kwargs):
     print(f"Extracting tracks from '{media.name}'")
     mode = kwargs.get('mode', 'state')
-
+    print(f"Extracing mode = {mode}")
     if mode == 'state':
         tracks = api.get_state_list(media.project,
                                 media_id=[media.id],
@@ -55,9 +55,9 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
                 l['track_id'] = track['id']
                 by_frame[l['frame']].append(l)
     elif mode == 'localization':
-        for local in localization:
-            l['track_id'] = local['id'] # just use local id
-            by_frame[local['frame']].append(l)
+        for local in tracks:
+            local['track_id'] = local['id'] # just use local id
+            by_frame[local['frame']].append(local)
     max_frame = max(list(by_frame.keys()))
     print(f"Processing {len(tracks)} up to frame {max_frame}")
     reader = cv2.VideoCapture(local_media)
@@ -162,11 +162,12 @@ def run_tracker(api,
         **strategy['ensemble_config'])
 
     track_type_id = strategy['tator']['track_type_id']
-    extract_mode = strategy['tator'].get('type', 'state')
+    extract_mode = strategy['tator'].get('extract_mode', 'state')
     assert extract_mode in ['state','localization']
     update_mode = strategy['tator'].get('update_mode', 'patch')
     assert update_mode in ['patch', 'post']
-    update_type_id = strategy['tator'].get('update_type_id')
+    update_type_id = strategy['tator'].get('update_type_id',None)
+    update_match = strategy['tator'].get('update_match',None)
     version_id = strategy['tator'].get('version_id', None)
 
     medias = api.get_media_list_by_id(project, {"ids": media_ids})
@@ -209,25 +210,40 @@ def run_tracker(api,
             # if supplied, update version
             if version_id:
                 update.update({"version": version_id})
-            if update_mode == 'patch' or winner == -1:
+            # If in post mode, check to see if we are only posting if the given a
+            # certain label.
+            if update_mode == 'post':
+                if update_match:
+                    post_new_state = (update_match == label)
+                else:
+                    post_new_state = True
+            else:
+                post_new_state = False
+
+            print(f"update_mode = {update_mode}, winner = {winner}, post_new_state={post_new_state}")
+            if update_mode == 'patch' or not post_new_state:
                 if extract_mode == 'state':
                     function = api.update_state
                 elif extract_mode == 'localization':
                     function = api.update_localization
-                _safe_retry(api.update_state,track_id, update)
+                _safe_retry(function,track_id, update)
             elif update_mode == 'post':
                 update.update({"type": update_type_id})
                 if extract_mode == 'state':
                     assert False # not supported
                 elif extract_mode == 'localization':
+                    print("Posting new object!")
                     existing_obj = api.get_localization(track_id)
-                    if winner != -1:
-                        # Copy in existing positional information
-                        update['x'] = existing_obj.x
-                        update['y'] = existing_obj.y
-                        update['width'] = existing_obj.width
-                        update['height'] = existing_obj.height
-                        _safe_retry(api.create_localization_list,project, [update])
+                    # Copy in existing positional information
+                    update['x'] = existing_obj.x
+                    update['y'] = existing_obj.y
+                    update['width'] = existing_obj.width
+                    update['height'] = existing_obj.height
+                    update['media_id'] = existing_obj.media
+                    update['frame'] = existing_obj.frame
+                    update.update(update['attributes'])
+                    del update['attributes']
+                    _safe_retry(api.create_localization_list,project, [update])
 
             print(f"{track_id}: {label} {track_entropy}")
 
@@ -276,8 +292,12 @@ def main():
     print("Strategy:")
     pprint(strategy)
 
-    project = _safe_retry(api.get_state_type,strategy['tator']['track_type_id']).project
-
+    extract_mode = strategy['tator'].get('extract_mode', 'state')
+    assert extract_mode in ['state','localization']
+    if extract_mode == 'state':
+        project = _safe_retry(api.get_state_type,strategy['tator']['track_type_id']).project
+    else:
+        project = _safe_retry(api.get_localization_type,strategy['tator']['track_type_id']).project
     # Download the network files from docker
     network_dir = tempfile.mkdtemp()
     client=docker.from_env()

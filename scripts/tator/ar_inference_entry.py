@@ -56,9 +56,6 @@ if __name__ == "__main__":
         *os.getenv("VIDEO_ORDER").split(","),
     ]
 
-    if os.getenv("FORCE_EXTRACTION") is not None:
-        args.append("--force-extraction")
-
     cmd = " ".join(args)
     logger.info(f"Feature Extraction Command = '{cmd}'")
     p = subprocess.Popen(args)

@@ -13,6 +13,9 @@ openem_lite: inference.gen
 openem_pytorch:
 	cd .. && docker build -t cvisionai/openem_pytorch:$(USER) -f config/openem_pytorch/Dockerfile . || exit 255
 
+openem_cv2:
+	cd .. && docker build -t cvisionai/openem_cv2:$(USER) -f config/openem_cv2.docker . || exit 255
+
 openem_cpu: cpu.gen
 	cd .. && docker build -t cvisionai/openem_cpu:$(USER) -f config/cpu.gen . || exit 255
 
@@ -92,3 +95,7 @@ publish_experimental_lite:
 publish_lite:
 	docker tag cvisionai/openem_lite:$(USER) cvisionai/openem_lite:latest
 	docker push cvisionai/openem_lite:latest
+
+publish_experimental_cv2:
+	docker tag cvisionai/openem_cv2:$(USER) cvisionai/openem_cv2:experimental
+	docker push cvisionai/openem_cv2:experimental

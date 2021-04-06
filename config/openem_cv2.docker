@@ -1,0 +1,31 @@
+FROM nvcr.io/nvidia/tensorflow:20.08-tf2-py3 as base
+
+WORKDIR /root
+
+RUN apt-get update
+RUN apt-get install -y \
+    build-essential \
+    wget \
+    libswscale-dev \
+    libavformat-dev \
+    libavcodec-dev \
+    libavutil-dev \
+    python3-pip \
+    x264 libx264-dev \
+    ffmpeg \
+    swig3.0
+
+#Install cmake from pip3 for a later version
+RUN pip3 install --upgrade pip 
+RUN pip3 install --no-cache-dir tator>=0.10.0 numpy==1.18.0 opencv-python>=4.3.0.0 opencv-contrib-python>=4.3.0.0 cmake>=3.16.0 pillow==6.2.1
+
+WORKDIR /root
+
+RUN apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install scripts
+COPY scripts/tator/fill_track_gaps.py /scripts/fill_track_gaps.py
+
+WORKDIR /scripts
+RUN mkdir /work

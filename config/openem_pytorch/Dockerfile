@@ -16,7 +16,7 @@ RUN apt-get install -y --no-install-recommends docker-ce docker-ce-cli container
       rm -fr /var/lib/apt/lists/*
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip
-RUN pip3 install --no-cache-dir opencv-python>=4.5 tator>=0.10.4  docker>=4.2.0 tables>=3.6.1 \
+RUN pip3 install --no-cache-dir opencv-python>=4.5 tator>=0.10.8  docker>=4.2.0 tables>=3.6.1 \
       boto3>=1.16.63 torch>=1.7.1 torchvision>=0.8.2
 RUN mkdir -p /root/.cache/torch/hub/checkpoints
 RUN wget https://download.pytorch.org/models/resnet50-19c8e357.pth \

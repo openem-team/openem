@@ -30,7 +30,7 @@ if torch.cuda.is_available():
     torch.set_default_tensor_type("torch.cuda.HalfTensor")
 
 
-FRAME_TIMEOUT = 2  # seconds
+FRAME_TIMEOUT = 30  # seconds
 log_filename = "feature_extractor.log"
 
 

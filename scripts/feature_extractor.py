@@ -152,8 +152,7 @@ class ResNet50FeatureExtractor:
             try:
                 img, frame_num = self._raw_queue.get(timeout=FRAME_TIMEOUT)
             except:
-                if self._verbose:
-                    logger.info("Hit timeout retrieving from raw queue")
+                logger.info("Hit timeout retrieving from raw queue")
                 self._done_event.wait()
                 self._stop_event.set()
             else:
@@ -197,7 +196,7 @@ class ResNet50FeatureExtractor:
         images = np.array(images)
         return images, frames
 
-    def extract_features(self, video_path: str) -> DataFrame:
+    def extract_features(self, video_path: str, df_path: str) -> None:
         current_time = datetime.now().strftime("%H:%M:%S")
         logger.info(f"Starting processing at: {current_time}")
         self._video_path = video_path
@@ -213,8 +212,7 @@ class ResNet50FeatureExtractor:
                 try:
                     images, frames = self._get_frames(batch_size)
                 except queue.Empty:
-                    if self._verbose:
-                        logger.info("timed out getting frames")
+                    logger.info("timed out getting frames")
                     self._done_event.set()
                     break
 
@@ -245,15 +243,20 @@ class ResNet50FeatureExtractor:
                     logger.info(f"\taggregate features time\t\t= {at - mt}")
                     logger.info(f"\tapproximate processing fps\t= {batch_size/(at - st)}")
 
-            video_features_df = DataFrame.from_dict(video_features, orient="index")
-            video_features_df.sort_index(inplace=True)
+                if len(video_features) > 1000:
+                    video_features_df = DataFrame.from_dict(video_features, orient="index")
+                    video_features_df.sort_index(inplace=True)
+                    video_features_df.to_hdf(
+                        df_path, mode="a", key="df", format="table", append=True
+                    )
+                    video_features = {}
+                    del video_features_df
+
             self._frame_stop_event.set()
             self._stop_event.set()
 
         current_time = datetime.now().strftime("%H:%M:%S")
         logger.info(f"Finished processing at: {current_time}")
-
-        return video_features_df
 
 
 def _any_remaining(media_tracker, key):
@@ -276,6 +279,9 @@ def main(
     access_key,
     secret_key,
 ):
+    # Track failures during execution for reporting
+    failures = set()
+
     # Download media
     media_elements = api.get_media_list(project_id, media_id=media_ids)
 
@@ -338,13 +344,11 @@ def main(
                 logger.warning(f"{media_unique_name} did not download!")
             else:
                 file_size_bytes = os.stat(media_filepath).st_size
-                if verbose:
-                    logger.info(f"Downloaded {media_filepath}; size {file_size_bytes / 1024**2}MB")
+                logger.info(f"Downloaded {media_filepath}; size {file_size_bytes / 1024**2}MB")
                 if all(d != 0 for d in image_size) and file_size_bytes / 1024 ** 3 > 8:
-                    if verbose:
-                        logger.info(
-                            f"Video larger than 8GB, transcoding {media_filepath} to {image_size[0]}x{image_size[1]}"
-                        )
+                    logger.info(
+                        f"Video larger than 8GB, transcoding {media_filepath} to {image_size[0]}x{image_size[1]}"
+                    )
                     tmp_filepath = f"{media_filepath}.mp4"
                     args = [
                         "ffmpeg",
@@ -365,10 +369,11 @@ def main(
         for media_id in list(media_tracker.keys()):
             if media_tracker[media_id]["download_attempts_rem"] < 1:
                 media_tracker.pop(media_id)
+                failures.add("download")
 
     if len(media_tracker) == 0:
         logger.warning("No media requiring extraction")
-        return
+        return failures
 
     logger.info("Media successfully downloaded")
 
@@ -390,24 +395,13 @@ def main(
 
             # Extract features
             try:
-                df = rfe.extract_features(media_file)
+                rfe.extract_features(media_file, df_path)
             except:
                 logger.warning(
                     f"Exception raised during feature extraction for {media_file}", exc_info=True
                 )
                 media_dict["extraction_attempts_rem"] -= 1
                 continue
-
-            try:
-                df.to_hdf(df_path, mode="w", key="df", format="table")
-            except:
-                logger.warning(
-                    f"Exception raised while saving features for {media_file}", exc_info=True
-                )
-                media_dict["extraction_attempts_rem"] -= 1
-                continue
-            finally:
-                del df
 
             if not os.path.exists(df_path):
                 logger.warning(f"Features not extracted for {media_file}!")
@@ -426,12 +420,13 @@ def main(
         for media_id in list(media_tracker.keys()):
             if media_tracker[media_id]["extraction_attempts_rem"] < 1:
                 media_tracker.pop(media_id)
+                failures.add("extract")
 
     logger.info("Feature extraction complete")
 
     if len(media_tracker) == 0:
         logger.warning("No media requiring extraction")
-        return
+        return failures
 
     # Push features to s3 and add feature location to media
 
@@ -474,8 +469,10 @@ def main(
         for media_id in list(media_tracker.keys()):
             if media_tracker[media_id]["upload_attempts_rem"] < 1:
                 media_tracker.pop(media_id)
+                failures.add("upload")
 
     logger.info("Features uploaded to s3")
+    return failures
 
 
 if __name__ == "__main__":
@@ -498,7 +495,7 @@ if __name__ == "__main__":
     logger.info(f"ARGS: {args}")
     logger.info(f"Using {'GPU' if torch.cuda.is_available() else 'CPU'} for feature extraction")
 
-    main(
+    failures = main(
         media_ids=args.media_ids,
         project_id=args.project_id,
         force_extraction=args.force_extraction,
@@ -513,3 +510,16 @@ if __name__ == "__main__":
         access_key=args.access_key,
         secret_key=args.secret_key,
     )
+
+    retval = 0
+    if failures:
+        retval += 64
+        logger.info(f"Steps with at least one failure: {', '.join(failures)}")
+        if "download" in failures:
+            retval += 1
+        if "extract" in failures:
+            retval += 2
+        if "upload" in failures:
+            retval += 4
+
+    sys.exit(retval)

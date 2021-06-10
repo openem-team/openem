@@ -287,6 +287,10 @@ class SampleGenerator:
         media_ids.append(multiview_id)
         return media_ids
 
+    @staticmethod
+    def _get_max_frame(feature_filenames):
+        return max(pd.read_hdf(fn, start=-1).iloc[-1].name for fn in feature_filenames)
+
     def __call__(
         self, multiview_id: int, sample_size: int
     ) -> Generator[Tuple[int, torch.Tensor], None, None]:
@@ -321,7 +325,7 @@ class SampleGenerator:
         ]
 
         # Download feature files from S3
-        features = []
+        feature_filenames = []
         for media_id in media_ids:
             logger.info(f"Loading features from {media_id}...")
             vid = media_dict[media_id]
@@ -335,13 +339,9 @@ class SampleGenerator:
                 raise
             feature_filename = os.path.join(self._work_dir, feature_s3["key"])
             logger.info(f"Downloading {feature_filename}")
-            self._client.download_file(
-                feature_s3["bucket"], feature_s3["key"], feature_filename
-            )
+            self._client.download_file(feature_s3["bucket"], feature_s3["key"], feature_filename)
             logger.info(f"{feature_filename} downloaded!")
-            features.append(pd.read_hdf(feature_filename))
-            logger.info(f"Features loaded to memory.")
-            os.remove(feature_filename)
+            feature_filenames.append(feature_filename)
 
         # Get global FPS
         if all(fps == media_fps[0] for fps in media_fps):
@@ -355,7 +355,7 @@ class SampleGenerator:
         sample_start_frame = 0
         sample_size_frames = sample_size * fps
         sample_end_frame = sample_start_frame + sample_size_frames - 1
-        max_frame = min(feat.iloc[-1].name for feat in features)
+        max_frame = self._get_max_frame(feature_filenames)
         while sample_end_frame < max_frame:
             if global_frame_gaps:
                 gap_start, gap_end = global_frame_gaps[0]
@@ -377,9 +377,11 @@ class SampleGenerator:
                     continue
 
             # Concatenate the samples from each video into a single feature vector per frame
+            condition = [f"index in {list(range(sample_start_frame, sample_end_frame + 1))}"]
             try:
                 sample_parts = [
-                    feature.loc[sample_start_frame:sample_end_frame] for feature in features
+                    pd.read_hdf(feature_filename, where=condition)
+                    for feature_filename in feature_filenames
                 ]
             except:
                 logger.info(f"Problem subsampling features.", exc_info=True)
@@ -466,6 +468,9 @@ def main(
                 state = {**state_header, **activities}
                 state["frame"] = frame
                 state_spec_list.append(state)
+
+            with open(f"{multiview_id}_state_spec_list.pkl", "wb") as fp:
+                pickle.dump(state_spec_list, fp)
 
             n_states = len(state_spec_list)
             logger.info(f"Generated {n_states} for {multiview_id}, uploading...")

@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import pandas as pd
-import pickle
 from statistics import median
 from typing import Dict, Generator, List, Tuple
 import yaml
@@ -408,6 +407,10 @@ class SampleGenerator:
             sample_start_frame = sample_end_frame + 1
             sample_end_frame = sample_start_frame + sample_size_frames - 1
 
+        # Clean up after sample generation
+        for feature_filename in feature_filenames:
+            os.remove(feature_filename)
+
 
 def main(
     access_key: str,
@@ -469,15 +472,24 @@ def main(
                 state["frame"] = frame
                 state_spec_list.append(state)
 
-            with open(f"{multiview_id}_state_spec_list.pkl", "wb") as fp:
-                pickle.dump(state_spec_list, fp)
-
             n_states = len(state_spec_list)
             logger.info(f"Generated {n_states} for {multiview_id}, uploading...")
-            for _ in tator.util.chunked_create(
-                api.create_state_list, project_id, state_spec=state_spec_list
-            ):
-                pass
+            states_uploaded = 0
+            try:
+                for response in tator.util.chunked_create(
+                    api.create_state_list, project_id, state_spec=state_spec_list
+                ):
+                    logger.info(response.message)
+                    states_uploaded += len(response.id)
+            except:
+                logger.info(
+                    f"Failed during chunked create after uploading {states_uploaded} states, moving on...",
+                    exc_info=True,
+                )
+            else:
+                logger.info(
+                    f"{states_uploaded} (of {n_states}) states for {multiview_id} uploaded successfully!"
+                )
 
 
 if __name__ == "__main__":

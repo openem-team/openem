@@ -15,7 +15,7 @@ FROM nvcr.io/nvidia/l4t-base:r32.3.1
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libsm6 libxext6 \
     libxrender-dev python3-pip software-properties-common \
-    libboost-python-dev && \
+    libboost-python-dev ffmpeg && \
     rm -fr /var/lib/apt/lists/*
 
 % if multiArch.arch == "x86_64":

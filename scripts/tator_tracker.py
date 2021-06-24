@@ -137,10 +137,10 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     # Weight methods
-    methods = ['hybrid', 'iou', 'iou-motion']
+    methods = ['hybrid', 'iou', 'iou-motion', 'iou-global-motion']
 
     # Weight methods that require the video
-    visual_methods = ['hybrid']
+    visual_methods = ['hybrid', 'iou-global-motion']
 
     api = tator.get_api(args.host, args.token)
     detection_type = api.get_localization_type(args.detection_type_id)
@@ -227,7 +227,14 @@ if __name__=="__main__":
         media_shape = (media.height, media.width)
         fps = media.fps
 
-        if strategy['method'] in visual_methods:
+        # If media does not exist, download it.
+        if strategy['method'] == 'iou-global-motion':
+            if not os.path.exists(media_file):
+                for progress in tator.util.download_media(api, media, media_file):
+                    print(f"Downloading {media_file}, {progress}%...")
+                print("Download finished!")
+
+        if strategy['method'] == 'hybrid': # Not all visual methods need detection images
             vid=cv2.VideoCapture(media_file)
             ok=True
             frame = 0
@@ -235,8 +242,7 @@ if __name__=="__main__":
                 ok,frame_bgr = vid.read()
                 if frame in localizations_by_frame:
                     for l in localizations_by_frame[frame]:
-                        if strategy['method'] == 'hybrid':
-                            l['bgr'] = crop_localization(frame_bgr, l)
+                        l['bgr'] = crop_localization(frame_bgr, l)
                         if l['attributes']['Confidence'] < 0.50:
                             continue
                         detections.append(l)
@@ -268,6 +274,8 @@ if __name__=="__main__":
             weights_strategy = IoUWeights(media_shape, **strategy['args'])
         elif strategy['method'] == 'iou-motion':
             weights_strategy = IoUMotionWeights(media_shape, **strategy['args'])
+        elif strategy['method'] == 'iou-global-motion':
+            weights_strategy = IoUGlobalMotionWeights(media_shape, media_file, **strategy['args'])
         # Generate localization bgr based on grouped localizations
         for x in strategy['frame-diffs']:
             print(f"Started {x}", flush=True)

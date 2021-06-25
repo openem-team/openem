@@ -198,6 +198,15 @@ if __name__=="__main__":
     if args.input_version_id:
         optional_fetch_args['version'] = [args.input_version_id]
     for media_file in args.media_files:
+        media = api.get_media(media_id)
+        if media.attributes.get("Tracklet Generator Processed") != "No":
+            print(f"Skipping media ID {media.id}, name {media.name} due to "
+                  f"'Tracklet Generator Processed' attribute being set to "
+                  f"something other than 'No'!")
+            continue
+        media_shape = (media.height, media.width)
+        fps = media.fps
+
         localizations_by_frame = {}
         comps=os.path.splitext(os.path.basename(media_file))[0]
         media_id=comps.split('_')[0]
@@ -222,10 +231,6 @@ if __name__=="__main__":
         detections=[]
         track_ids=[]
         track_id=1
-
-        media = api.get_media(media_id)
-        media_shape = (media.height, media.width)
-        fps = media.fps
 
         # If media does not exist, download it.
         if strategy['method'] == 'iou-global-motion':

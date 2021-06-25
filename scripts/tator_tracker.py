@@ -230,9 +230,12 @@ if __name__=="__main__":
         # If media does not exist, download it.
         if strategy['method'] == 'iou-global-motion':
             if not os.path.exists(media_file):
-                for progress in tator.util.download_media(api, media, media_file):
+                temp_path = f'/tmp/{os.path.basename(media_file)}'
+                for progress in tator.util.download_media(api, media, temp_path):
                     print(f"Downloading {media_file}, {progress}%...")
                 print("Download finished!")
+                # Unfrag the file
+                subprocess.run(["ffmpeg", '-i', temp_path, '-c:v', 'copy', media_file])
 
         if strategy['method'] == 'hybrid': # Not all visual methods need detection images
             vid=cv2.VideoCapture(media_file)

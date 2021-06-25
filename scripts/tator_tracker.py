@@ -236,6 +236,7 @@ if __name__=="__main__":
                 print("Download finished!")
                 # Unfrag the file
                 subprocess.run(["ffmpeg", '-i', temp_path, '-c:v', 'copy', media_file])
+                os.remove(temp_path)
 
         if strategy['method'] == 'hybrid': # Not all visual methods need detection images
             vid=cv2.VideoCapture(media_file)

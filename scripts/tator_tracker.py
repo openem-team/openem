@@ -198,6 +198,8 @@ if __name__=="__main__":
     if args.input_version_id:
         optional_fetch_args['version'] = [args.input_version_id]
     for media_file in args.media_files:
+        comps=os.path.splitext(os.path.basename(media_file))[0]
+        media_id=comps.split('_')[0]
         media = api.get_media(media_id)
         if media.attributes.get("Tracklet Generator Processed") != "No":
             print(f"Skipping media ID {media.id}, name {media.name} due to "
@@ -208,8 +210,6 @@ if __name__=="__main__":
         fps = media.fps
 
         localizations_by_frame = {}
-        comps=os.path.splitext(os.path.basename(media_file))[0]
-        media_id=comps.split('_')[0]
         localizations = api.get_localization_list(project,
                                                   type=args.detection_type_id,
                                                   media_id=[media_id],

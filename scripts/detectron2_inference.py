@@ -52,9 +52,9 @@ class FrameReaderMgr(FrameReaderMgrBase):
         self._augmentation = augmentation
 
     def _format_img(self, img, frame_num):
-        img = torch.as_tensor(img.astype("float32").transpose(2, 0, 1))
+        h, w = img.shape[:2]
         img = self._augmentation.get_transform(img).apply_image(img)
-        _, h, w = img.shape
+        img = torch.as_tensor(img.astype("float32").transpose(2, 0, 1))
         return {"image": img, "height": h, "width": w, "frame_num": frame_num}
 
 
@@ -86,7 +86,7 @@ def parse_args():
         "--score-threshold", help="Threshold to filter detections", default=0.7, type=float
     )
     parser.add_argument(
-        "--batch-size", help="batch size for frames to process at a time", default=8, type=int
+        "--batch-size", help="batch size for frames to process at a time", default=4, type=int
     )
     parser.add_argument(
         "--nms-threshold", help="threshold for NMS routine to suppress", default=0.55, type=float
@@ -130,18 +130,19 @@ def main(
     cfg.merge_from_file(inference_config)
     cfg.MODEL.RETINANET.SCORE_THRESH_TEST = 0.3  # TODO magic number
     cfg.MODEL.WEIGHTS = model_weights
-    cfg.MODEL.DEVICE = f"cuda:{gpu}" if torch.cuda.is_available() else "cpu"
+    cfg.MODEL.DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     model = build_model(cfg)  # returns a torch.nn.Module
     checkpointer = DetectionCheckpointer(model)
     checkpointer.load(cfg.MODEL.WEIGHTS)
+    model.eval()
 
     """
     separate NMS layer
     """
     model_nms = torchvision.ops.nms
     aug = T.ResizeShortestEdge(
-        [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
+        short_edge_length=[cfg.INPUT.MIN_SIZE_TEST], max_size=cfg.INPUT.MAX_SIZE_TEST, sample_style="choice"
     )
 
     frame_reader = FrameReaderMgr(augmentation=aug)
@@ -154,7 +155,7 @@ def main(
                 batch = frame_reader.get_frames(batch_size)
             except:
                 break
-            logger.info("Elapsed time pre-process = {}".format(time.time() - st))
+            logger.info(f"Elapsed time pre-process = {time.time() - st}")
 
             model_outputs = model(batch)
 
@@ -166,9 +167,10 @@ def main(
             logger.info(f"Elapsed time model = {time.time() - st}")
 
     if results:
+        logger.info("got results")
         # WARNING
         # write output - This is super fragile code you'll want to change
-        out_name = os.path.splitext(os.path.split(video_path)[1])
+        out_name = os.path.splitext(os.path.split(video_path)[1])[0]
         try:
             with open(f"{out_name}_bbox_results_{score_threshold}.pickle", "wb") as fp:
                 # json.dump(results, open('{}_bbox_results.json'.format(out_name), 'w'), indent=4)
@@ -177,7 +179,8 @@ def main(
             with open("default_bbox_results.pickle", "wb") as fp:
                 pickle.dump(results, fp)
                 # json.dump(results, open('default_bbox_results.json', 'w'), indent=4)
-
+    else:
+        logger.info("no results")
 
 if __name__ == "__main__":
     # parse arguments

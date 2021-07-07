@@ -1,4 +1,10 @@
-import detectron2
+import argparse
+import logging
+import multiprocessing as mp
+import os
+import pickle
+import time
+
 from detectron2.structures import BoxMode
 from detectron2 import model_zoo
 from detectron2.data import MetadataCatalog, DatasetCatalog
@@ -12,30 +18,12 @@ from detectron2.utils.visualizer import ColorMode
 from detectron2.modeling import build_model
 import detectron2.data.transforms as T
 from detectron2.checkpoint import DetectionCheckpointer
-
-import torchvision
-
-from PIL import Image
-
-from functools import partial
-import multiprocessing as mp
-import signal
-import os
-import glob
-import pickle
-import json
-import cv2
-import random
-import torch
 import numpy as np
 import pandas as pd
-import time
-from typing import List, Optional, Union
+import torch
+import torchvision
+
 from utils.frame_reader import FrameReaderMgrBase
-
-
-if torch.cuda.is_available():
-    torch.set_default_tensor_type("torch.cuda.HalfTensor")
 
 
 FRAME_TIMEOUT = 5  # seconds
@@ -56,6 +44,7 @@ logger = logging.getLogger(__name__)
 class FrameReaderMgr(FrameReaderMgrBase):
     def __init__(
         self,
+        *,
         augmentation: T.Augmentation,
         **kwargs,
     ):
@@ -71,9 +60,28 @@ class FrameReaderMgr(FrameReaderMgrBase):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Testing script for testing video data.")
-    parser.add_argument("model_config", help="Path to inference config file.")
     parser.add_argument("video_path", help="Path to video file")
-    parser.add_argument("--gpu", help="Id of the GPU to use (as reported by nvidia-smi).")
+    parser.add_argument(
+        "--inference_config",
+        help="Path to inference config file.",
+        # TODO remove default here
+        default="/mnt/md0/Projects/Fathomnet/Training_Files/2021-06-29-Detectron/detectron_files/fathomnet_config.yaml",
+    )
+    parser.add_argument(
+        "--builtin_model_config",
+        help="Path to built-in model config file.",
+        # TODO remove default here
+        default="COCO-Detection/retinanet_R_50_FPN_3x.yaml",
+    )
+    parser.add_argument(
+        "--model-weights",
+        help="Path to the trained model weights",
+        # TODO remove default here
+        default="/home/hugh/mycode/detectron/out/model_0076543.pth",
+    )
+    parser.add_argument(
+        "--gpu", help="Id of the GPU to use (as reported by nvidia-smi).", default=0, type=int
+    )
     parser.add_argument(
         "--score-threshold", help="Threshold to filter detections", default=0.7, type=float
     )
@@ -87,20 +95,42 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    # parse arguments
-    args = parse_args()
+def nms(element, model_nms, nms_threshold):
+    element["instances"] = element["instances"][
+        model_nms(
+            element["instances"].pred_boxes.tensor,
+            element["instances"].scores,
+            nms_threshold,
+        )
+        .to("cpu")
+        .tolist()
+    ]
+
+    return element
+
+
+def main(
+    *,
+    inference_config: str,
+    builtin_model_config: str,
+    model_weights: str,
+    video_path: str,
+    batch_size: int,
+    nms_threshold: float,
+    score_threshold: float,
+    gpu: int,
+):
     """
-    This is where the model is instantiated. There is a LOT of nested arguments in these yaml files, and the merging of baseline defaults plus
-    dataset specific parameters. I recommend spending a decent chunk of time trying to delve into some of the parameters.
+    This is where the model is instantiated. There is a LOT of nested arguments in these yaml files,
+    and the merging of baseline defaults plus dataset specific parameters. I recommend spending a
+    decent chunk of time trying to delve into some of the parameters.
     """
     cfg = get_cfg()
-    cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/retinanet_R_50_FPN_3x.yaml"))
-    cfg.merge_from_file(
-        "/mnt/md0/Projects/Fathomnet/Training_Files/2021-06-29-Detectron/detectron_files/fathomnet_config.yaml"
-    )
-    cfg.MODEL.RETINANET.SCORE_THRESH_TEST = 0.3
-    cfg.MODEL.WEIGHTS = ""  # path to the model file
+    cfg.merge_from_file(model_zoo.get_config_file(builtin_model_config))
+    cfg.merge_from_file(inference_config)
+    cfg.MODEL.RETINANET.SCORE_THRESH_TEST = 0.3  # TODO magic number
+    cfg.MODEL.WEIGHTS = model_weights
+    cfg.MODEL.DEVICE = f"cuda:{gpu}" if torch.cuda.is_available() else "cpu"
 
     model = build_model(cfg)  # returns a torch.nn.Module
     checkpointer = DetectionCheckpointer(model)
@@ -110,7 +140,6 @@ if __name__ == "__main__":
     separate NMS layer
     """
     model_nms = torchvision.ops.nms
-
     aug = T.ResizeShortestEdge(
         [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
     )
@@ -118,52 +147,41 @@ if __name__ == "__main__":
     frame_reader = FrameReaderMgr(augmentation=aug)
     results = []
 
-    with frame_reader(args.video_path) as frame_queue, done_event:
+    with frame_reader(video_path):
         while True:
             st = time.time()
-            batch = []
-            for idx in range(args.batch_size):
-                try:
-                    image = frame_queue.get(timeout=FRAME_TIMEOUT)
-                    batch.append(image)
-                except:
-                    print("timed out")
-                    done_event.set()
-                    break
-                print("Elapsed time pre-process = {}".format(time.time() - st))
+            try:
+                batch = frame_reader.get_frames(batch_size)
+            except:
+                break
+            logger.info("Elapsed time pre-process = {}".format(time.time() - st))
 
             model_outputs = model(batch)
 
-            # TODO Find the right spot for the nms call. Either here or at the end with post-proessing. Have to make sure you do it
-            # by element, because model_outputs is a list of instances.
-            for elem in model_outputs:
-                elem["instances"] = elem["instances"][
-                    model_nms(
-                        elem["instances"].pred_boxes.tensor,
-                        elem["instances"].scores,
-                        args.nms_threshold,
-                    )
-                    .to("cpu")
-                    .tolist()
-                ]
-                results.append(elem)
+            # TODO Find the right spot for the nms call. Either here or at the end with
+            # post-proessing. Have to make sure you do it by element, because model_outputs is a
+            # list of instances.
+            results.extend(nms(ele, model_nms, nms_threshold) for ele in model_outputs)
 
-            print(f"Elapsed time model = {time.time() - st}")
+            logger.info(f"Elapsed time model = {time.time() - st}")
 
     if results:
         # WARNING
         # write output - This is super fragile code you'll want to change
-        out_name = re.split(".mov", args.video_path.split("/")[-1], flags=re.IGNORECASE)[0]
-        print(out_name)
+        out_name = os.path.splitext(os.path.split(video_path)[1])
         try:
-            # json.dump(results, open('{}_bbox_results.json'.format(out_name), 'w'), indent=4)
-            pickle.dump(
-                results,
-                open("{}_bbox_results_{}.pickle".format(out_name, args.score_threshold), "wb"),
-            )
+            with open(f"{out_name}_bbox_results_{score_threshold}.pickle", "wb") as fp:
+                # json.dump(results, open('{}_bbox_results.json'.format(out_name), 'w'), indent=4)
+                pickle.dump(results, fp)
         except:
-            pickle.dump(results, open("default_bbox_results.pickle", "wb"))
-            # json.dump(results, open('default_bbox_results.json', 'w'), indent=4)
+            with open("default_bbox_results.pickle", "wb") as fp:
+                pickle.dump(results, fp)
+                # json.dump(results, open('default_bbox_results.json', 'w'), indent=4)
 
+
+if __name__ == "__main__":
+    # parse arguments
+    args = parse_args()
+
+    main(**vars(args))
     logger.info("Finished")
-    sys.exit()

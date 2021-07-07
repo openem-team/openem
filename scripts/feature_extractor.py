@@ -9,7 +9,6 @@ import multiprocessing as mp
 import os
 import queue
 import subprocess
-import sys
 import time
 from typing import List, Optional, Union
 from uuid import uuid4

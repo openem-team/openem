@@ -34,6 +34,7 @@ class FrameReaderMgrBase(ABC):
                     # Do something with the image here
         """
         self._frame_timeout = frame_timeout
+        self._frame_cutoff = frame_cutoff
         self._raw_queue = mp.Queue(queue_length)
         self._frame_queue = mp.Queue(queue_length)
         self._stop_event = mp.Event()
@@ -67,12 +68,19 @@ class FrameReaderMgrBase(ABC):
 
         return result
 
+    def stop_reading(self):
+        """
+        Sets the appropriate stop events to signal the processes.
+        """
+        self._stop_event.set()
+        self._frame_stop_event.set()
+
     @staticmethod
     def _terminate_if_alive(process):
         if process and process.is_alive():
             process.terminate()
 
-    def __enter__(self, vid_path):
+    def __call__(self, vid_path):
         # Clear out queues
         while not self._raw_queue.empty():
             self._raw_queue.get_nowait()
@@ -90,7 +98,7 @@ class FrameReaderMgrBase(ABC):
             self._terminate_if_alive(process)
 
         # Start frame processors
-        self._read_frames_process = mp.Process(target=self._read_frames, args=(vid_path))
+        self._read_frames_process = mp.Process(target=self._read_frames, args=(vid_path,))
         self._read_frames_process.daemon = True
         self._read_frames_process.start()
 
@@ -100,9 +108,18 @@ class FrameReaderMgrBase(ABC):
             p.start()
             self._enqueue_frames_processes[idx] = p
 
+        return self
+
+    def __enter__(self):
+        """
+        The heavy-lifting is done by __call__, which allows this class to be used as a context
+        manager or manually managed, similar to the built-in `open()`. If used manually, call
+        stop_reading to close all files and processes.
+        """
+        pass
+
     def __exit__(self, typ, value, traceback):
-        self._stop_event.set()
-        self._frame_stop_event.set()
+        self.stop_reading()
 
     def _signal_handler(self, signal_received, frame):
         self.__exit__(None, None, None)

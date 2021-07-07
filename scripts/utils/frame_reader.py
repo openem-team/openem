@@ -1,13 +1,39 @@
 from abc import ABC, abstractmethod
+from functools import partial
+import multiprocessing as mp
+import queue
+import signal
+import sys
+from typing import Optional, Union
+
+import cv2
 
 
 class FrameReaderMgrBase(ABC):
     def __init__(
         self,
+        *,
+        frame_timeout: Optional[int] = 5,
         queue_length: Optional[int] = 64,
         frame_cutoff: Optional[int] = float("inf"),
         frame_formatters: Optional[int] = 8,
     ):
+        """
+        This is the abstract base class for reading frames from a video file. It starts one process
+        for reading directly from the video and a configurable number of processes formatting each
+        frame. To use, subclass this and implement the _format_img method, then use it as a context
+        manager. For example:
+
+            frame_reader = FrameReaderMgrSubclass()
+            with frame_reader(video_path):
+                while True:
+                    try:
+                        images, frames = frame_reader.get_frames(batch_size)
+                    except:
+                        break
+                    # Do something with the image here
+        """
+        self._frame_timeout = frame_timeout
         self._raw_queue = mp.Queue(queue_length)
         self._frame_queue = mp.Queue(queue_length)
         self._stop_event = mp.Event()
@@ -17,8 +43,32 @@ class FrameReaderMgrBase(ABC):
         self._enqueue_frames_processes = [None for _ in range(frame_formatters)]
         self._signal = signal.signal(signal.SIGINT, partial(self._signal_handler))
 
+    def get_frames(self, n: int):
+        """
+        The interface for getting frames from the frame reader. n is the desired number of frames to
+        return from this function. It will return up to n frames, if there are any left to return,
+        or it will raise a `queue.Empty` exception if the frame queue is empty. Returns a list of
+        elements whose type is determined by the implementation of _format_img.
+        """
+        try:
+            # The first .get() is outside the while loop to notify the caller that there are no
+            # frames left to get and to set the done event
+            result = [self._frame_queue.get(timeout=self._frame_timeout)]
+        except queue.Empty:
+            self._done_event.set()
+            raise
+
+        while len(result) < n:
+            # .get() more until `self._frame_queue` is empty or `n` items obtained
+            try:
+                result.append(self._frame_queue.get(timeout=self._frame_timeout))
+            except queue.Empty:
+                break
+
+        return result
+
     @staticmethod
-    def _terminate_if_alive(process: Union[mp.Process, None]):
+    def _terminate_if_alive(process):
         if process and process.is_alive():
             process.terminate()
 
@@ -50,22 +100,18 @@ class FrameReaderMgrBase(ABC):
             p.start()
             self._enqueue_frames_processes[idx] = p
 
-        return self._frame_queue, done_event
-
-    def __exit__(self):
+    def __exit__(self, typ, value, traceback):
         self._stop_event.set()
         self._frame_stop_event.set()
 
     def _signal_handler(self, signal_received, frame):
-        # Handle any cleanup here
-        self._stop_event.set()
-        self._frame_stop_event.set()
-        logger.info("SIGINT or CTRL-C detected. Exiting gracefully")
-        for i in range(10):
-            logger.info(f"Shutting down in {10-i}")
-            time.sleep(1)
+        self.__exit__(None, None, None)
+        sys.exit(0)
 
     def _read_frames(self, vid_path):
+        """
+        Reads frames from the video and puts them in the raw queue.
+        """
         ok = True
         vid = cv2.VideoCapture(vid_path)
         frame_num = 0
@@ -76,30 +122,28 @@ class FrameReaderMgrBase(ABC):
                     self._raw_queue.put((img, frame_num))
                     frame_num += 1
             if frame_num > self._frame_cutoff:
-                logger.info(f"Reached frame cutoff ({self._frame_cutoff})")
                 break
         self._done_event.wait()
         self._stop_event.set()
         vid.release()
-        logger.info("This thread should exit now read frames")
 
     @abstractmethod
     def _format_img(self, img, frame_num):
         """
-        Applies a generic transform to the image. Input and output must both be numpy arrays.
+        Applies a generic transform to the image. Input is a numpy array and the output is the
+        desired element to enqueue in the frame queue.
         """
-        img = torch.as_tensor(img.astype("float32").transpose(2, 0, 1))
-        img = self._augmentation.get_transform(img).apply_image(img)
-        _, h, w = img.shape
-        return {"image": img, "height": h, "width": w, "frame_num": frame_num}
 
     def _enqueue_frames(self):
+        """
+        Reads frames from the raw queue and applies the image formatter before putting them in the
+        processed frame queue.
+        """
         while not self._stop_event.is_set():
             try:
-                img, frame_num = self._raw_queue.get(timeout=FRAME_TIMEOUT)
+                img, frame_num = self._raw_queue.get(timeout=self._frame_timeout)
                 X = self._format_img(img, frame_num)
-                self._frame_queue.put((X, frame_num))
+                self._frame_queue.put(X)
             except:
                 self._done_event.wait()
                 self._stop_event.set()
-                logger.info("This thread should exit now")

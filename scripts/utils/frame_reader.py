@@ -4,6 +4,7 @@ import multiprocessing as mp
 import queue
 import signal
 import sys
+import time
 from typing import Optional, Union
 
 import cv2
@@ -138,6 +139,8 @@ class FrameReaderMgrBase(ABC):
                 if ok:
                     self._raw_queue.put((img, frame_num))
                     frame_num += 1
+            else:
+                time.sleep(0.1)
             if frame_num > self._frame_cutoff:
                 break
         self._done_event.wait()

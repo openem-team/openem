@@ -26,7 +26,6 @@ import torchvision
 from utils.frame_reader import FrameReaderMgrBase
 
 
-FRAME_TIMEOUT = 5  # seconds
 log_filename = "detectron2_inference.log"
 
 
@@ -142,7 +141,9 @@ def main(
     """
     model_nms = torchvision.ops.nms
     aug = T.ResizeShortestEdge(
-        short_edge_length=[cfg.INPUT.MIN_SIZE_TEST], max_size=cfg.INPUT.MAX_SIZE_TEST, sample_style="choice"
+        short_edge_length=[cfg.INPUT.MIN_SIZE_TEST],
+        max_size=cfg.INPUT.MAX_SIZE_TEST,
+        sample_style="choice",
     )
 
     frame_reader = FrameReaderMgr(augmentation=aug)
@@ -157,7 +158,8 @@ def main(
                 break
             logger.info(f"Elapsed time pre-process = {time.time() - st}")
 
-            model_outputs = model(batch)
+            with torch.no_grad():
+                model_outputs = model(batch)
 
             # TODO Find the right spot for the nms call. Either here or at the end with
             # post-proessing. Have to make sure you do it by element, because model_outputs is a
@@ -181,6 +183,7 @@ def main(
                 # json.dump(results, open('default_bbox_results.json', 'w'), indent=4)
     else:
         logger.info("no results")
+
 
 if __name__ == "__main__":
     # parse arguments

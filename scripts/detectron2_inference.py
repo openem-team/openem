@@ -1,8 +1,8 @@
 import argparse
+import json
 import logging
 import multiprocessing as mp
 import os
-import pickle
 import time
 
 from detectron2.structures import BoxMode
@@ -94,7 +94,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def nms(element, model_nms, nms_threshold):
+def generate_detections(element, frame, model_nms, nms_threshold):
     element["instances"] = element["instances"][
         model_nms(
             element["instances"].pred_boxes.tensor,
@@ -105,7 +105,16 @@ def nms(element, model_nms, nms_threshold):
         .tolist()
     ]
 
-    return element
+    instance_dict = element["instances"].get_fields()
+    pred_boxes = instance_dict["pred_boxes"]
+    scores = instance_dict["scores"]
+    pred_classes = instance_dict["pred_classes"]
+
+    # yield LocalizationSpec-ish
+    # TODO add media_id, type, species annotation, score annotation
+    for box, score, cls in zip(pred_boxes, scores, pred_classes):
+        x1, y1, x2, y2 = box.tolist()
+        yield {"frame": frame, "x": x1, "y": y1, "width": x2 - x1, "height": y2 - y1}
 
 
 def main(
@@ -148,10 +157,12 @@ def main(
 
     frame_reader = FrameReaderMgr(augmentation=aug)
     results = []
+    start_frame = 0
 
     with frame_reader(video_path):
         while True:
             st = time.time()
+            frames = range(start_frame, start_frame + batch_size)
             try:
                 batch = frame_reader.get_frames(batch_size)
             except:
@@ -164,9 +175,14 @@ def main(
             # TODO Find the right spot for the nms call. Either here or at the end with
             # post-proessing. Have to make sure you do it by element, because model_outputs is a
             # list of instances.
-            results.extend(nms(ele, model_nms, nms_threshold) for ele in model_outputs)
+            results.extend(
+                det
+                for ele, frame in zip(model_outputs, frames)
+                for det in generate_detections(ele, frame, model_nms, nms_threshold)
+            )
 
             logger.info(f"Elapsed time model = {time.time() - st}")
+            start_frame += batch_size
 
     if results:
         logger.info("got results")
@@ -174,13 +190,11 @@ def main(
         # write output - This is super fragile code you'll want to change
         out_name = os.path.splitext(os.path.split(video_path)[1])[0]
         try:
-            with open(f"{out_name}_bbox_results_{score_threshold}.pickle", "wb") as fp:
-                # json.dump(results, open('{}_bbox_results.json'.format(out_name), 'w'), indent=4)
-                pickle.dump(results, fp)
+            with open(f"{out_name}_bbox_results_{score_threshold}.json", "w") as fp:
+                json.dump(results, fp, indent=4)
         except:
-            with open("default_bbox_results.pickle", "wb") as fp:
-                pickle.dump(results, fp)
-                # json.dump(results, open('default_bbox_results.json', 'w'), indent=4)
+            with open("default_bbox_results.json", "w") as fp:
+                json.dump(results, fp, indent=4)
     else:
         logger.info("no results")
 

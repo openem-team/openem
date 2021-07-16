@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: fill-track-gaps-
+spec:
+  entrypoint: pipeline
+  arguments:
+    parameters:
+    - name: media_ids
+    - name: rest_url
+    - name: rest_token
+    - name: project_id
+    - name: track
+    - name: extend_direction
+    - name: extend_detection_id
+  ttlSecondsAfterFinished: 3600
+  volumes:
+  - name: workdir
+    emptyDir:
+      medium: Memory
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+  templates:
+  - name: pipeline
+    steps:
+    - - name: execute
+        template: execute
+        arguments:
+          parameters:
+          - name: media_id
+            value: "{{item}}"
+        withParam: "[{{workflow.parameters.media_ids}}]"
+  - name: execute
+    inputs:
+      parameters:
+      - name: media_id
+    nodeSelector:
+      webServer: "yes"
+    container:
+      image: cvisionai/openem_cv2:experimental
+      imagePullPolicy: Always
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+      volumeMounts:
+      - name: workdir
+        mountPath: /work
+      - name: dockersock
+        mountPath: /var/run/docker.sock
+      command: ["python3"]
+      args: ["/scripts/fill_track_gaps.py",
+             "--url", "{{workflow.parameters.rest_url}}",
+             "--token", "{{workflow.parameters.rest_token}}",
+             "--gid", "{{workflow.parameters.gid}}",
+             "--uid", "{{workflow.parameters.uid}}",
+             "--media", "{{inputs.parameters.media_id}}",
+             "--track", "{{workflow.parameters.track}}",
+             "--algo", "fillgaps"]

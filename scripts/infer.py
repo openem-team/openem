@@ -30,6 +30,7 @@ import cv2
 import os
 import importlib
 import numpy as np
+import subprocess
 import shutil
 import copy
 import time
@@ -365,9 +366,16 @@ if __name__=="__main__":
                 print(f"Downloading {video} from Tator.")
                 media_id = video.split('_')[0]
                 media_element = api.get_media(media_id)
-                for _ in tator.util.download_media(api, media_element, image_path):
+                temp_path = os.path.join(args.img_base_dir, f'temp_{video}')
+                for _ in tator.util.download_media(api, media_element, temp_path):
                     pass
                 need_to_delete = True
+                # unfrag the file
+                subprocess.run(["ffmpeg",
+                                "-i", temp_path,
+                                "-c:v", "copy",
+                                image_path])
+                os.remove(temp_path)
                 assert os.path.exists(image_path)
             elif not os.path.exists(image_path):
                 print(f"{image_path} not found!")

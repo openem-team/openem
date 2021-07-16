@@ -1,6 +1,7 @@
 """ Various methods to compute weights """
 
 import numpy as np
+import cv2
 import math
 import progressbar
 
@@ -310,3 +311,72 @@ class IoUMotionWeights(IoUWeights):
             else:
                 weights[weight_idx] = -1000000
         return weights
+
+class IoUGlobalMotionWeights(IoUWeights):
+    """ Does a global motion prediction based on phase correlation of bounding box centers.
+    """
+    def __init__(self, vid_dims, media_file, **kwargs):
+        self._media_file = media_file
+        self._shifts = None
+        super().__init__(vid_dims, **kwargs)
+
+    def compute(self, tracklets, pairs):
+        vid_h, vid_w = self.vid_dims
+        # Compute global offsets.
+        if self._shifts is None:
+            # Compute ROI for global offsets.
+            x0 = [det['x'] for track in tracklets for det in track]
+            y0 = [det['y'] for track in tracklets for det in track]
+            x1 = [det['x'] + det['width'] for track in tracklets for det in track]
+            y1 = [det['y'] + det['height'] for track in tracklets for det in track]
+            if len(x0) > 2:
+                x0 = int(np.percentile(x0, 10, interpolation='nearest') * vid_w)
+                y0 = int(np.percentile(y0, 10, interpolation='nearest') * vid_h)
+                x1 = int(np.percentile(x1, 90, interpolation='nearest') * vid_w)
+                y1 = int(np.percentile(y1, 90, interpolation='nearest') * vid_h)
+                compute_shifts = True
+                print(f"ROI for phase correlation (x0, y0, x1, y1): {x0}, {y0}, {x1}, {y1}")
+            else:
+                compute_shifts = False
+            # Use phase correlation to compute shifts.
+            vid = cv2.VideoCapture(self._media_file)
+            prev = None
+            self._shifts = []
+            while True:
+                ok, frame_bgr = vid.read()
+                if not ok:
+                    break
+                height, width, _ = frame_bgr.shape
+                if (prev is None) or (not compute_shifts):
+                    self._shifts.append((0.0, 0.0))
+                else:
+                    img0 = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY).astype(np.float32)
+                    img1 = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+                    (dx, dy), _ = cv2.phaseCorrelate(img0[y0:y1, x0:x1], img1[y0:y1, x0:x1])
+                    if dx > width / 4.0:
+                        dx -= width / 2.0
+                    if dy > height / 4.0:
+                        dy -= height / 2.0
+                    self._shifts.append((dx, dy))
+                    print(f"Frame {len(self._shifts)} offsets: DX={dx}, DY={dy}")
+                prev = frame_bgr
+        # Compute IOU between pairs using global shifts.
+        weights = [0.0 for _ in pairs]
+        for weight_idx, (t0, t1) in enumerate(pairs):
+            # Pick the last of the 1st tracklet
+            # and the first of the 2nd tracklet
+            d0 = dict(tracklets[t0][-1])
+            d1 = tracklets[t1][0]
+            for frame in range(d0['frame'], d1['frame']):
+                dx, dy = self._shifts[frame + 1]
+                d0['x'] += dx / vid_w
+                d0['y'] += dy / vid_h
+            iou = self._intersection_over_union(d0, d1)
+            iou = min(iou, 1.0)
+            if iou > self.threshold:
+                # threshold to 1.0 translates to 0 to 1000000
+                weights[weight_idx] = math.pow(1000000, iou)
+            else:
+                weights[weight_idx] = -1000000
+        return weights
+

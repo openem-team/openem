@@ -16,7 +16,7 @@ import tensorflow as tf
 from tensorflow.python.framework import graph_util
 from tensorflow.python.framework import graph_io
 
-import tensorflow.contrib.tensorrt as trt
+from tensorflow.python.compiler.tensorrt import trt_convert as trt
 
 def keras_to_tensorflow(model, pred_node_names, out_path):
     """Converts a keras model to a tensorflow graph.

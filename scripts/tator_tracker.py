@@ -137,10 +137,10 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     # Weight methods
-    methods = ['hybrid', 'iou', 'iou-motion']
+    methods = ['hybrid', 'iou', 'iou-motion', 'iou-global-motion']
 
     # Weight methods that require the video
-    visual_methods = ['hybrid']
+    visual_methods = ['hybrid', 'iou-global-motion']
 
     api = tator.get_api(args.host, args.token)
     detection_type = api.get_localization_type(args.detection_type_id)
@@ -198,9 +198,18 @@ if __name__=="__main__":
     if args.input_version_id:
         optional_fetch_args['version'] = [args.input_version_id]
     for media_file in args.media_files:
-        localizations_by_frame = {}
         comps=os.path.splitext(os.path.basename(media_file))[0]
         media_id=comps.split('_')[0]
+        media = api.get_media(media_id)
+        if media.attributes.get("Tracklet Generator Processed") != "No":
+            print(f"Skipping media ID {media.id}, name {media.name} due to "
+                  f"'Tracklet Generator Processed' attribute being set to "
+                  f"something other than 'No'!")
+            continue
+        media_shape = (media.height, media.width)
+        fps = media.fps
+
+        localizations_by_frame = {}
         localizations = api.get_localization_list(project,
                                                   type=args.detection_type_id,
                                                   media_id=[media_id],
@@ -223,11 +232,18 @@ if __name__=="__main__":
         track_ids=[]
         track_id=1
 
-        media = api.get_media(media_id)
-        media_shape = (media.height, media.width)
-        fps = media.fps
+        # If media does not exist, download it.
+        if strategy['method'] == 'iou-global-motion':
+            if not os.path.exists(media_file):
+                temp_path = f'/tmp/{os.path.basename(media_file)}'
+                for progress in tator.util.download_media(api, media, temp_path):
+                    print(f"Downloading {media_file}, {progress}%...")
+                print("Download finished!")
+                # Unfrag the file
+                subprocess.run(["ffmpeg", '-i', temp_path, '-c:v', 'copy', media_file])
+                os.remove(temp_path)
 
-        if strategy['method'] in visual_methods:
+        if strategy['method'] == 'hybrid': # Not all visual methods need detection images
             vid=cv2.VideoCapture(media_file)
             ok=True
             frame = 0
@@ -235,8 +251,7 @@ if __name__=="__main__":
                 ok,frame_bgr = vid.read()
                 if frame in localizations_by_frame:
                     for l in localizations_by_frame[frame]:
-                        if strategy['method'] == 'hybrid':
-                            l['bgr'] = crop_localization(frame_bgr, l)
+                        l['bgr'] = crop_localization(frame_bgr, l)
                         if l['attributes']['Confidence'] < 0.50:
                             continue
                         detections.append(l)
@@ -268,6 +283,8 @@ if __name__=="__main__":
             weights_strategy = IoUWeights(media_shape, **strategy['args'])
         elif strategy['method'] == 'iou-motion':
             weights_strategy = IoUMotionWeights(media_shape, **strategy['args'])
+        elif strategy['method'] == 'iou-global-motion':
+            weights_strategy = IoUGlobalMotionWeights(media_shape, media_file, **strategy['args'])
         # Generate localization bgr based on grouped localizations
         for x in strategy['frame-diffs']:
             print(f"Started {x}", flush=True)

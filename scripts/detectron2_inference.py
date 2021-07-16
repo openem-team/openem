@@ -1,9 +1,10 @@
 import argparse
+import json
 import logging
 import multiprocessing as mp
 import os
-import pickle
 import time
+from typing import List
 
 from detectron2.structures import BoxMode
 from detectron2 import model_zoo
@@ -24,9 +25,10 @@ import torch
 import torchvision
 
 from utils.frame_reader import FrameReaderMgrBase
+from utils.file_downloader import FileDownloader
+import tator
 
 
-FRAME_TIMEOUT = 5  # seconds
 log_filename = "detectron2_inference.log"
 
 
@@ -58,17 +60,59 @@ class FrameReaderMgr(FrameReaderMgrBase):
         return {"image": img, "height": h, "width": w, "frame_num": frame_num}
 
 
+class LocalizationGenerator:
+    def __init__(self, model_nms, nms_threshold, localization_type):
+        self._model_nms = model_nms
+        self._nms_threshold = nms_threshold
+        self._localization_type = localization_type
+
+    def __call__(self, element, frame, media_id):
+        """
+        Yields `LocalizationSpec`s from the model detections in a video frame.
+        """
+        element["instances"] = element["instances"][
+            self._model_nms(
+                element["instances"].pred_boxes.tensor,
+                element["instances"].scores,
+                self._nms_threshold,
+            )
+            .to("cpu")
+            .tolist()
+        ]
+
+        instance_dict = element["instances"].get_fields()
+        pred_boxes = instance_dict["pred_boxes"]
+        scores = instance_dict["scores"]
+        pred_classes = instance_dict["pred_classes"]
+
+        # TODO check attribute names and determine if they should be dynamic
+        # yield LocalizationSpec
+        for box, score, cls in zip(pred_boxes, scores, pred_classes):
+            x1, y1, x2, y2 = box.tolist()
+            yield {
+                "type": self._localization_type,
+                "media_id": media_id,
+                "frame": frame,
+                "x": x1,
+                "y": y1,
+                "width": x2 - x1,
+                "height": y2 - y1,
+                "Species": cls,
+                "Score": score,
+            }
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Testing script for testing video data.")
     parser.add_argument("video_path", help="Path to video file")
     parser.add_argument(
-        "--inference_config",
+        "--inference-config",
         help="Path to inference config file.",
         # TODO remove default here
         default="/mnt/md0/Projects/Fathomnet/Training_Files/2021-06-29-Detectron/detectron_files/fathomnet_config.yaml",
     )
     parser.add_argument(
-        "--builtin_model_config",
+        "--builtin-model-config",
         help="Path to built-in model config file.",
         # TODO remove default here
         default="COCO-Detection/retinanet_R_50_FPN_3x.yaml",
@@ -91,22 +135,17 @@ def parse_args():
     parser.add_argument(
         "--nms-threshold", help="threshold for NMS routine to suppress", default=0.55, type=float
     )
+    parser.add_argument("--media-ids", help="The ids of the media to process", nargs="+", type=int)
+    parser.add_argument(
+        "--localization-type", help="The id of the localization type to generate", type=int
+    )
+    parser.add_argument("--host", type=str, help="Tator host to use")
+    parser.add_argument("--token", type=str, help="Token to use for tator.")
+    parser.add_argument(
+        "--work-dir", type=str, help="The name of the directory to use for local storage"
+    )
 
     return parser.parse_args()
-
-
-def nms(element, model_nms, nms_threshold):
-    element["instances"] = element["instances"][
-        model_nms(
-            element["instances"].pred_boxes.tensor,
-            element["instances"].scores,
-            nms_threshold,
-        )
-        .to("cpu")
-        .tolist()
-    ]
-
-    return element
 
 
 def main(
@@ -119,12 +158,18 @@ def main(
     nms_threshold: float,
     score_threshold: float,
     gpu: int,
+    media_ids: List[int],
+    localization_type: int,
+    host: str,
+    token: str,
+    work_dir: str,
 ):
-    """
-    This is where the model is instantiated. There is a LOT of nested arguments in these yaml files,
-    and the merging of baseline defaults plus dataset specific parameters. I recommend spending a
-    decent chunk of time trying to delve into some of the parameters.
-    """
+    # Download associated media
+    api = tator.get_api(host=host, token=token)
+    download = FileDownloader(work_dir, api)
+    media_paths = download(media_ids)
+
+    # Instantiate the model
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(builtin_model_config))
     cfg.merge_from_file(inference_config)
@@ -137,50 +182,58 @@ def main(
     checkpointer.load(cfg.MODEL.WEIGHTS)
     model.eval()
 
-    """
-    separate NMS layer
-    """
+    # Separate NMS layer
     model_nms = torchvision.ops.nms
     aug = T.ResizeShortestEdge(
-        short_edge_length=[cfg.INPUT.MIN_SIZE_TEST], max_size=cfg.INPUT.MAX_SIZE_TEST, sample_style="choice"
+        short_edge_length=[cfg.INPUT.MIN_SIZE_TEST],
+        max_size=cfg.INPUT.MAX_SIZE_TEST,
+        sample_style="choice",
     )
 
+    localization_generator = LocalizationGenerator(model_nms, nms_threshold, localization_type)
     frame_reader = FrameReaderMgr(augmentation=aug)
     results = []
 
-    with frame_reader(video_path):
-        while True:
+    for media_id, media_path in zip(media_ids, media_paths):
+        with frame_reader(media_path):
+            logger.info(f"Generating detections for {media_id}")
             st = time.time()
-            try:
-                batch = frame_reader.get_frames(batch_size)
-            except:
-                break
-            logger.info(f"Elapsed time pre-process = {time.time() - st}")
+            while True:
+                try:
+                    batch = frame_reader.get_frames(batch_size)
+                except:
+                    break
+                else:
+                    frames = [ele["frame_num"] for ele in batch]
 
-            model_outputs = model(batch)
+                with torch.no_grad():
+                    model_outputs = model(batch)
 
-            # TODO Find the right spot for the nms call. Either here or at the end with
-            # post-proessing. Have to make sure you do it by element, because model_outputs is a
-            # list of instances.
-            results.extend(nms(ele, model_nms, nms_threshold) for ele in model_outputs)
+                results.extend(
+                    loc
+                    for frame_detections, frame in zip(model_outputs, frames)
+                    for loc in localization_generator(frame_detections, frame, media_id)
+                )
 
-            logger.info(f"Elapsed time model = {time.time() - st}")
 
-    if results:
-        logger.info("got results")
-        # WARNING
-        # write output - This is super fragile code you'll want to change
-        out_name = os.path.splitext(os.path.split(video_path)[1])[0]
-        try:
-            with open(f"{out_name}_bbox_results_{score_threshold}.pickle", "wb") as fp:
-                # json.dump(results, open('{}_bbox_results.json'.format(out_name), 'w'), indent=4)
-                pickle.dump(results, fp)
-        except:
-            with open("default_bbox_results.pickle", "wb") as fp:
-                pickle.dump(results, fp)
-                # json.dump(results, open('default_bbox_results.json', 'w'), indent=4)
-    else:
-        logger.info("no results")
+        if results:
+            created_ids = []
+            for response in tator.util.chunked_create(
+                tator_api.create_localization_list, project, localization_spec=results
+            ):
+                created_ids += response.id
+
+            n_requested = len(results)
+            n_created = len(created_ids)
+            if n_created += n_requested:
+                logger.info(f"Created {n_created} localizations for {media_id}!")
+            else:
+                logger.warning(
+                    f"Requested the creation of {n_requested} localizations, but only {n_created} were created for {media_id}"
+                )
+        else:
+            logger.info(f"No detections for media {media_id}")
+
 
 if __name__ == "__main__":
     # parse arguments

@@ -1,0 +1,37 @@
+detector:
+  interval: 2 # skip every other frame
+  size: [540,960]
+  threshold: 0.4
+  names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
+          'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
+          'Sea spider', 'Worm']
+broadcast_process: ["ffmpeg",
+                    "-f", "rawvideo",
+                    "-video_size", "960x540", 
+                    "-framerate", "29.97",
+                    "-pix_fmt", "bgr24",
+                    "-i", "tcp://127.0.0.1:20001?listen", 
+                    "-c:v", "h264_nvenc", 
+                    "-threads", "4",
+                    "-profile", "baseline",
+                    "-preset", "ll",
+                    "-pix_fmt", "nv12",
+                    "-b:v", "4000K",
+                    "-f", "rtsp", 
+                    "-rtsp_transport", "tcp", 
+                    "-g", "25", 
+                    "-movflags", "faststart+frag_keyframe+empty_moov+default_base_moof",
+                    "-f", "rtsp", 
+                    "rtsp://spudcannon.tator.io:8554/Camera1_720"]
+save:
+  file: output.csv
+capture_process: ["ffmpeg",
+                  "-stream_loop", "-1", 
+                  "-re", 
+                  #"-c:v", "h264_cuvid",
+                  "-i", "test.mp4",
+                  "-c:v", "rawvideo", 
+                  "-f", "rawvideo",
+                  "-pix_fmt", "bgr24", 
+                  "-vf", "scale=960:540",
+                  "tcp://127.0.0.1:20000"]

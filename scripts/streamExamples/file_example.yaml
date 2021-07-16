@@ -1,0 +1,22 @@
+detector:
+  size: [540,960]
+  threshold: 0.4
+  names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
+          'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
+          'Sea spider', 'Worm']
+save:
+  file: output.csv
+  #Notional: 
+  # tator:
+    # media_id: <foo>
+    # host: <foo>
+    # token: <foo>
+    # type_id: <foo>
+capture_process: ["ffmpeg",
+                  #"-c:v", "h264_cuvid",
+                  "-i", "test.mp4",
+                  "-c:v", "rawvideo", 
+                  "-f", "rawvideo",
+                  "-pix_fmt", "bgr24", 
+                  "-vf", "scale=960:540",
+                  "tcp://127.0.0.1:20000"]

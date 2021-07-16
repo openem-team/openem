@@ -2,6 +2,8 @@ detector:
   interval: 2 # skip every other frame
   size: [540,960]
   threshold: 0.4
+  config: "fathomnet_config.yaml"
+  weights: "model_0183599.pth"
   names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
           'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
           'Sea spider', 'Worm']
@@ -23,8 +25,9 @@ broadcast_process: ["ffmpeg",
                     "-movflags", "faststart+frag_keyframe+empty_moov+default_base_moof",
                     "-f", "rtsp", 
                     "rtsp://spudcannon.tator.io:8554/Camera1_720"]
-save:
-  file: output.csv
+# Can optionally save to file as well
+#save:
+#  file: output.csv
 capture_process: ["ffmpeg",
                   "-stream_loop", "-1", 
                   "-re", 

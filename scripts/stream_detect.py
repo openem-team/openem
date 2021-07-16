@@ -209,11 +209,14 @@ def main():
     buffers.append(RawArray(ctypes.c_uint8, dims[0]*dims[1]*dims[2]))
     free_queue.put(x)
 
+  backbone = strategy['detector'].get('backbone', 'COCO-Detection/retinanet_R_50_FPN_3x.yaml')
+  config = strategy['detector']['config']
+  weights = strategy['detector']['weights']
   cfg = get_cfg()
-  cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/retinanet_R_50_FPN_3x.yaml"))
-  cfg.merge_from_file("fathomnet_config.yaml")
+  cfg.merge_from_file(model_zoo.get_config_file(backbone))
+  cfg.merge_from_file(config)
   cfg.MODEL.RETINANET.SCORE_THRESH_TEST = 0.3
-  cfg.MODEL.WEIGHTS = 'model_0183599.pth' # path to the model file
+  cfg.MODEL.WEIGHTS = weights # path to the model file
   model = build_model(cfg)
   checkpointer = DetectionCheckpointer(model)
   checkpointer.load(cfg.MODEL.WEIGHTS)

@@ -1,6 +1,8 @@
 detector:
   size: [540,960]
   threshold: 0.4
+  config: "fathomnet_config.yaml"
+  weights: "model_0183599.pth"
   names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
           'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
           'Sea spider', 'Worm']

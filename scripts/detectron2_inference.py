@@ -225,7 +225,7 @@ def main(
 
             n_requested = len(results)
             n_created = len(created_ids)
-            if n_created += n_requested:
+            if n_created == n_requested:
                 logger.info(f"Created {n_created} localizations for {media_id}!")
             else:
                 logger.warning(

@@ -57,7 +57,7 @@ def upload_new_chunk(args, api, project, upload_gid, frameRange, chunk_name):
     temp_name = os.path.join(td, chunk_name)
     ffmpeg_args = ["ffmpeg",
                    "-i", args.video,
-                   "-frames:v", str(args.frame_interval),
+                   "-frames:v", str(frameRange[1]+1),
                    "-vf", f"select=between(n\\,{frameRange[0]}\\,{frameRange[1]})",
                    "-c:v", "hevc_nvenc",
                    "-c:a", "copy",

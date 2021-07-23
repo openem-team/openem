@@ -11,6 +11,7 @@ from multiprocessing.sharedctypes import RawArray
 import ctypes
 import signal
 import subprocess
+import datetime
 
 from detectron2 import model_zoo
 from detectron2.config import get_cfg
@@ -36,12 +37,15 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
   serverSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
   # Sometimes on CTRL-C this doesn't get cleaned up.
   serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-  serverSocket.bind(("localhost",20000))
+  serverSocket.bind(("localhost",strategy.get('port', 20000)))
   serverSocket.listen(100)
 
   if strategy.get('capture_process', None):
     print("Lanching capture process")
-    capture = subprocess.Popen(strategy['capture_process'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for idx,term in enumerate(strategy['capture_process']):
+        strategy['capture_process'][idx] = term.replace('%{TIME}', datetime.datetime.utcnow().isoformat().replace(':','_'))
+    print(' '.join(strategy['capture_process']))
+    capture = subprocess.Popen(strategy['capture_process'],stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
   print("Waiting on connection")
   conn, addr =  serverSocket.accept() # Ctrl-C is blocked here. Kind of annoying.
@@ -84,11 +88,12 @@ def save_thread(save_queue, strategy):
   else:
     fp = None
   names = strategy['detector']['names']
+  dims = strategy['detector']['size']
   while results is not None:
     for box,score,label_id in zip(results['boxes'], results['scores'], results['classes']):
       frame = results['frame']
       if fp:
-        data=f"{frame},{box[0]},{box[1]},{box[2]},{box[3]},{score},{names[label_id]}\n"
+        data=f"{frame},{box[0]/dims[1]},{box[1]/dims[0]},{box[2]/dims[1]},{box[3]/dims[0]},{score},{names[label_id]}\n"
         fp.write(data)
         # flush out to disk after each write
         if strategy['save'].get('flush', True):

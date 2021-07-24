@@ -59,8 +59,9 @@ def upload_new_chunk(args, api, project, upload_gid, frameRange, chunk_name):
                    "-i", args.video,
                    "-frames:v", str(frameRange[1]+1),
                    "-vf", f"select=between(n\\,{frameRange[0]}\\,{frameRange[1]})",
+                   "-af", f"aselect=between(n\\,{frameRange[0]}\\,{frameRange[1]})",
                    "-c:v", "hevc_nvenc",
-                   "-c:a", "copy",
+                   "-c:a", "aac",
                    "-preset", "hq",
                    "-2pass", "0",
                    "-rc-lookahead", "8",
@@ -71,6 +72,7 @@ def upload_new_chunk(args, api, project, upload_gid, frameRange, chunk_name):
                    "-y",
                    "-f", "mp4",
                    temp_name]
+    print(" ".join(ffmpeg_args))
     p = subprocess.run(ffmpeg_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for p,_ in tator.util.upload_media(api,
                                        args.media_type_id,

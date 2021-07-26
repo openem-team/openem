@@ -47,7 +47,7 @@ def get_existing_chunks(api, args, project):
   media_list = api.get_media_list(project, section=section_id)
   return [x.name for x in media_list]
 
-def upload_new_chunk(args, api, project, upload_gid, frameRange, chunk_name):
+def upload_new_chunk(args, api, project, fps, upload_gid, frameRange, chunk_name):
   media_response = api.create_media(project, {'gid': upload_gid,
                                               'name':chunk_name,
                                               'section': args.section,
@@ -59,7 +59,7 @@ def upload_new_chunk(args, api, project, upload_gid, frameRange, chunk_name):
                    "-i", args.video,
                    "-frames:v", str(args.frame_interval),
                    "-vf", f"select=between(n\\,{frameRange[0]}\\,{frameRange[1]}),setpts=N/FRAME_RATE/TB",
-                   "-af", f"aselect=between(n\\,{frameRange[0]}\\,{frameRange[1]}),asetpts=N/SR/TB",
+                   "-af", f"aselect=between(t\\,{frameRange[0]/fps}\\,{frameRange[1]/fps}),asetpts=N/SR/TB",
                    "-frame_pts", "true",
                    "-c:v", "hevc_nvenc",
                    "-c:a", "aac",
@@ -140,7 +140,7 @@ def main():
         print("\t Found existing chunk.")
       else:
         print("\t Uploading chunk")
-        upload_new_chunk(args, api, project, upload_gid, (startFrame,endFrame), chunk_name)
+        upload_new_chunk(args, api, project, fps, upload_gid, (startFrame,endFrame), chunk_name)
 
     time.sleep(60)
 

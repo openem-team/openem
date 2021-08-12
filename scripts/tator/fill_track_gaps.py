@@ -27,7 +27,7 @@ class FrameBuffer():
 
     def __init__(
             self,
-            tator_api,
+            tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
             media_id: int,
             media_num_frames: int,
             moving_forward: bool,
@@ -113,13 +113,14 @@ class FrameBuffer():
         end_time = time.time()
 
 def extend_track(
-        tator_api: tator.api,
+        tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
         media_id: int,
         state_id: int,
         start_localization_id: int,
         direction: str,
         work_folder: str,
-        max_coast_frames: int=0) -> None:
+        max_coast_frames: int=0,
+        max_extend_frames: int=None) -> None:
     """ Extends the track using the given track's detection using a visual tracker
 
     :param tator_api: Connection to Tator REST API
@@ -132,13 +133,19 @@ def extend_track(
     :param work_folder: Folder that will contain the images
     :param max_coast_frames: Number of coasted frames allowed if the tracker fails to
                              track in the given frame.
+    :param max_extend_frames: Maximum number of frames to extend. Track extension will stop if
+                              coasting occurs still or if the start/end of the video has been
+                            reached.
 
     This function will ignore existing detections.
 
-    The track extension will stop once the maximum number of coast frames has been hit
-    or if the start/end of the video havs been reached.
-
     """
+
+    logger.info(f"media_id: {media_id}")
+    logger.info(f"state_id: {media_id}")
+    logger.info(f"max_coast_frames: {max_coast_frames}")
+    logger.info(f"max_extend_frames: {max_extend_frames}")
+    logger.info(f"direction: {direction}")
 
     # Make sure the provided direction makes sense
     if direction.lower() == 'forward':
@@ -193,13 +200,12 @@ def extend_track(
     # Loop over the frames and attempt to continually track
     coasting = False
     new_detections = []
-    max_number_of_frames = -1 # This will force the tracker to continuously track
     frame_count = 0
 
     while True:
 
         # For now, only process the a certain amount of frames
-        if frame_count == max_number_of_frames:
+        if frame_count == max_extend_frames:
             break
         frame_count += 1
 
@@ -287,17 +293,33 @@ def extend_track(
 
         localizations.append(detection_spec)
 
+    # These are encapsulated in try/catch blocks to delete newly created localizations
+    # if something goes awry
     created_ids = []
-    for response in tator.util.chunked_create(
-            tator_api.create_localization_list,
-            media.project,
-            localization_spec=localizations):
-        created_ids += response.id
+    try:
+        for response in tator.util.chunked_create(
+                tator_api.create_localization_list,
+                media.project,
+                localization_spec=localizations):
+            created_ids += response.id
 
-    tator_api.update_state(id=state_id, state_update={'localization_ids_add': created_ids})
+    except:
+        for loc_id in created_ids:
+            tator_api.delete_localization(id=loc_id)
+        created_ids = []
+        raise ValueError("Problem creating new localizations")
+
+    try:
+        if len(created_ids) > 0:
+            tator_api.update_state(id=state_id, state_update={'localization_ids_add': created_ids})
+
+    except:
+        for loc_id in created_ids:
+            tator_api.delete_localization(id=loc_id)
+        raise ValueError("Problem updating state with new localizations")
 
 def fill_sparse_track(
-        tator_api: tator.api,
+        tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
         media_id: int,
         state_id: int,
         work_folder: str) -> None:
@@ -463,14 +485,30 @@ def fill_sparse_track(
 
         localizations.append(detection_spec)
 
+    # These are encapsulated in try/catch blocks to delete newly created localizations
+    # if something goes awry
     created_ids = []
-    for response in tator.util.chunked_create(
-            tator_api.create_localization_list,
-            media.project,
-            localization_spec=localizations):
-        created_ids += response.id
+    try:
+        for response in tator.util.chunked_create(
+                tator_api.create_localization_list,
+                media.project,
+                localization_spec=localizations):
+            created_ids += response.id
 
-    tator_api.update_state(id=state_id, state_update={'localization_ids_add': created_ids})
+    except:
+        for loc_id in created_ids:
+            tator_api.delete_localization(id=loc_id)
+        created_ids = []
+        raise ValueError("Problem creating new localizations")
+
+    try:
+        if len(created_ids) > 0:
+            tator_api.update_state(id=state_id, state_update={'localization_ids_add': created_ids})
+
+    except:
+        for loc_id in created_ids:
+            tator_api.delete_localization(id=loc_id)
+        raise ValueError("Problem updating state with new localizations")
 
 def parse_args() -> argparse.Namespace:
     """ Returns the arguments passed to the script
@@ -481,11 +519,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--uid', type=str, default='', help='Job ID for sending progress.')
     parser.add_argument('--media', type=int, help='Media ID related to track.')
     parser.add_argument('--track', type=int, help='Track ID to process.')
-    parser.add_argument('--algo', type=str, help='Algorithm to run. Options: fillgaps|extend')
+    parser.add_argument('--algo', type=str, help='Algorithm to run. Options: fillgaps|extend|batchextend')
     parser.add_argument('--work-folder', type=str, default='/work', help='Work folder that clips will be downloaded to')
     parser.add_argument('--extend-direction', type=str, help='Extension algorithm direction. Options: forward|backward')
     parser.add_argument('--extend-detection-id', type=int, help='ID of detection to start the extension process with.')
-    parser.add_argument('--extend-max-coast', type=int, default=1, help='Max coast frames to use with the extension algorithm.')
+    parser.add_argument('--extend-max-coast', type=int, default=0, help='Max coast frames to use with the extension algorithm.')
+    parser.add_argument('--extend-max-frames', type=int, help="Max number of frames to extend if provided. If not provided, only coasting or end of media will prohibit the extension")
     return parser.parse_args()
 
 def main() -> None:
@@ -516,7 +555,8 @@ def main() -> None:
             start_localization_id=args.extend_detection_id,
             direction=args.extend_direction,
             work_folder=args.work_folder,
-            max_coast_frames=args.extend_max_coast)
+            max_coast_frames=args.extend_max_coast,
+            max_extend_frames=args.extend_max_frames)
 
     else:
         raise ValueError(f"Invalid algorithm provided: {args.algo}")

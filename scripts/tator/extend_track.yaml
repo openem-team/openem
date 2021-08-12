@@ -13,6 +13,7 @@ spec:
     - name: track
     - name: extend_direction
     - name: extend_detection_id
+    - name: extend_max_frames
   ttlSecondsAfterFinished: 3600
   volumes:
   - name: workdir
@@ -59,4 +60,5 @@ spec:
              "--track", "{{workflow.parameters.track}}",
              "--algo", "extend",
              "--extend-direction", "{{workflow.parameters.extend_direction}}",
-             "--extend-detection-id", "{{workflow.parameters.extend_detection_id}}"]
+             "--extend-detection-id", "{{workflow.parameters.extend_detection_id}}",
+             "--extend-max-frames", "{{workflow.parameters.extend_max_frames}}"]

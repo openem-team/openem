@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: make-localization-summary-
+spec:
+  entrypoint: pipeline
+  ttlSecondsAfterFinished: 3600
+  volumes:
+  - name: workdir
+    emptyDir:
+      medium: Memory
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+  templates:
+  - name: pipeline
+    steps:
+    - - name: execute
+        template: execute
+  - name: execute
+    nodeSelector:
+      webServer: "yes"
+    container:
+      image: cvisionai/openem_cv2:experimental
+      imagePullPolicy: "Always"
+      resources:
+        limits:
+          cpu: 250m
+          memory: 4Gi
+      env:
+      - name: TATOR_MEDIA_IDS
+        value: "{{workflow.parameters.media_ids}}"
+      - name: TATOR_API_SERVICE
+        value: "{{workflow.parameters.rest_url}}"
+      - name: TATOR_AUTH_TOKEN
+        value: "{{workflow.parameters.rest_token}}"
+      - name: TATOR_PROJECT_ID
+        value: "{{workflow.parameters.project_id}}"
+      - name: TATOR_WORK_DIR
+        value: "/work"
+      - name: TATOR_PIPELINE_ARGS
+        value: ""
+      volumeMounts:
+      - name: workdir
+        mountPath: /work
+      - name: dockersock
+        mountPath: /var/run/docker.sock
+      command: [python3]
+      args: ["/scripts/make_localization_summary.py",
+             "--encoded-filters", "{{workflow.parameters.encoded_filters}}",
+             "--total-image-size-threshold-gb", "2.0"]

@@ -26,6 +26,7 @@ RUN apt clean && \
 
 # Install scripts
 COPY scripts/tator/fill_track_gaps.py /scripts/fill_track_gaps.py
+COPY scripts/tator/make_localization_summary.py /scripts/make_localization_summary.py
 
 WORKDIR /scripts
 RUN mkdir /work

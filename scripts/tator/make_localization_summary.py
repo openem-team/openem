@@ -278,6 +278,7 @@ def main(
         tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
         project: int,
         encoded_filters: str,
+        job_id: str,
         work_dir: str="",
         no_email: bool=False,
         email_subject: str="Localization Summary",
@@ -320,7 +321,7 @@ def main(
     print(function_args)
 
     localizations = []
-    if len(dtype_ids) > 1:
+    if len(dtype_ids) > 0:
         for dtype in dtype_ids:
             count = tator_api.get_localization_count(
                 **function_args,
@@ -328,17 +329,15 @@ def main(
             print(f"Retrieving {count} localizations (type={dtype})")
 
             current_localizations = []
-            pageSize = 9000
+            page_size = 9000
             after = None
             while len(current_localizations) < count:
                 if after is None:
-                    current_localizations.extend(tator_api.get_localization_list(**function_args, start=0, stop=pageSize))
+                    current_localizations.extend(tator_api.get_localization_list(**function_args, type=dtype, start=0, stop=page_size))
                     after = current_localizations[-1].id
-                    pageStart = pageStart + pageSize
                 else:
-                    current_localizations.extend(tator_api.get_localization_list(**function_args, start=0, stop=pageSize, after=after))
+                    current_localizations.extend(tator_api.get_localization_list(**function_args, type=dtype, start=0, stop=page_size, after=after))
                     after = current_localizations[-1].id
-                    pageStart = pageStart + pageSize
             localizations.extend(current_localizations)
 
     else:
@@ -346,14 +345,14 @@ def main(
         print(f"Retrieving {count} localizations")
 
         current_localizations = []
-        pageSize = 9000
+        page_size = 9000
         after = None
         while len(current_localizations) < count:
             if after is None:
-                current_localizations.extend(tator_api.get_localization_list(**function_args, start=0, stop=pageSize))
+                current_localizations.extend(tator_api.get_localization_list(**function_args, start=0, stop=page_size))
                 after = current_localizations[-1].id
             else:
-                current_localizations.extend(tator_api.get_localization_list(**function_args, start=0, stop=pageSize, after=after))
+                current_localizations.extend(tator_api.get_localization_list(**function_args, start=0, stop=page_size, after=after))
                 after = current_localizations[-1].id
         localizations.extend(current_localizations)
 
@@ -378,6 +377,8 @@ The following filters were applied:
 {filter_conditions_string}
 
 An email with the same subject line will be sent upon report completion.
+
+Tator Workflow Job ID: {job_id}
 
 """))
 
@@ -449,6 +450,8 @@ Download the .zip file using the following Tator link. Please note this link wil
 
 Link: {zip_temp_file.path}
 
+Tator Workflow Job ID: {job_id}
+
 """)
 
     # Send out the email
@@ -478,6 +481,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", type=str, default="https://www.tatorapp.com")
     parser.add_argument("--token", type=str)
     parser.add_argument("--project", type=int)
+    parser.add_argument("--uid", type=str)
     parser.add_argument("--work-dir", type=str, default="./")
     parser.add_argument("--encoded-filters", type=str, default="%5B%5D")
     parser.add_argument("--total-image-size-threshold-gb", type=float, default=0.5)
@@ -514,10 +518,16 @@ def script_main() -> None:
     print(args)
     print("\n")
 
-    os.makedirs(work_dir)
+    os.makedirs(work_dir, exist_ok=True)
     print(f"Working directory: {work_dir}\n")
 
     tator_api = tator.get_api(host=host, token=token)
+    jobs = tator_api.get_job_list(project=project)
+    job_id = None
+    for job in jobs:
+        if job.uid == args.uid:
+            job_id = job.id
+            break
 
     project_obj = tator_api.get_project(id=project)
     current_time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -528,6 +538,7 @@ def script_main() -> None:
             tator_api=tator_api,
             project=project,
             encoded_filters=args.encoded_filters,
+            job_id=job_id,
             no_email=args.no_email,
             email_subject=email_subject,
             work_dir=work_dir,
@@ -544,6 +555,15 @@ def script_main() -> None:
                 subject=email_subject,
                 message=textwrap.dedent(f"""
 Error occurred. Please contact CVision AI.
+
+Arguments:
+- uid: {args.uid}
+- job_id: {job_id}
+- host: {host}
+- project: {project}
+- work_dir: {work_dir}
+- total-image-size-threshold-gb: {args.total_image_size_threshold_gb}
+- encoded-filters: {args.encoded_filters}
 
 Traceback error:
 {traceback.format_exc()}

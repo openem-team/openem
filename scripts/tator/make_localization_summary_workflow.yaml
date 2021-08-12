@@ -47,5 +47,6 @@ spec:
         mountPath: /var/run/docker.sock
       command: [python3]
       args: ["/scripts/make_localization_summary.py",
+             "--uid", "{{workflow.parameters.uid}}",
              "--encoded-filters", "{{workflow.parameters.encoded_filters}}",
              "--total-image-size-threshold-gb", "2.0"]

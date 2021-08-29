@@ -214,16 +214,16 @@ def create_files(
         if loc_type.dtype == "dot":
             margin_x = 50
             margin_y = 50
-            loc_x_pixels = int(localization.x * width)
-            loc_y_pixels = int(localization.y * height)
+            loc_x_pixels = int(localization.x * media.width)
+            loc_y_pixels = int(localization.y * media.height)
 
             if loc_y_pixels - margin_y < 0:
                 margin_y = loc_y_pixels
 
-            elif loc_y_pixels + margin_y > height:
-                margin_y = height - loc_y_pixels
+            elif loc_y_pixels + margin_y > media.height:
+                margin_y = media.height - loc_y_pixels
 
-            if margin_x < minimum_margin or margin_y < minimum_margin:
+            if margin_x < 10 or margin_y < 10:
                 msg = f"Dot graphic of {localization.id} not retrieved. Margins too small (x,y margins: {margin_x} {margin_y})"
                 print(msg)
                 continue

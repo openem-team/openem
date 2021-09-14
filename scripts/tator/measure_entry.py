@@ -20,15 +20,16 @@ if __name__=="__main__":
     attribute_name = pipeline_args.get('attribute_name')
     batch_size = pipeline_args.get('batch_size', 1)
     all_files=os.listdir('/work')
+    media_ids=os.getenv('TATOR_MEDIA_IDS').split(',')
 
-    args = ['python3', '/scripts/tator_tracker.py',
+    args = ['python3', '/scripts/measure.py',
             '--host', os.getenv("TATOR_API_SERVICE").replace('/rest',''),
             '--token', os.getenv("TATOR_AUTH_TOKEN"),
             '--tracklet-type-id', str(tracklet_type_id),
             '--version-id', str(version_id),
             '--attribute-name', str(attribute_name),
             '--strategy-config', '/work/strategy.yaml',
-            *media_files]
+            *media_ids]
 
     cmd = " ".join(args)
     print(f"Inference Command = '{cmd}'")

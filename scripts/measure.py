@@ -16,8 +16,7 @@ if __name__=="__main__":
     parser.add_argument("--version-id", type=int)
     parser.add_argument("--attribute-name", type=str)
     parser.add_argument("--strategy-config", type=str)
-    parser.add_argument("--dry-run", action='store_true')
-    parser.add_argument('media_files', type=str, nargs='*')
+    parser.add_argument('media_ids', type=int, nargs='+')
     args = parser.parse_args()
 
     # Weight methods
@@ -41,7 +40,8 @@ if __name__=="__main__":
     else:
         strategy = default_strategy
 
-    tracks = api.get_state_list(project, type=tracklet_type, version=version_id)
+    tracks = api.get_state_list_by_id(project, type=tracklet_type, version=[version_id],
+                                      {'media_ids': args.media_ids})
     for track in tracks:
         locs = api.get_localization_list_by_id(project, ids=track.localizations)
         dimension = strategy["dimension"]

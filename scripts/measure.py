@@ -7,8 +7,6 @@ from statistics import median
 
 import tator
 
-logger = logging.getLogger(__name__)
-
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     tator.get_parser(parser)
@@ -31,7 +29,7 @@ if __name__=="__main__":
     default_strategy = {"method": "median",
                         "dimension": "both",
                         "scale-factor": 1.0, 
-                        "args": {},
+                        "args": {}}
 
     if args.strategy_config:
         strategy = {**default_strategy}
@@ -40,11 +38,12 @@ if __name__=="__main__":
     else:
         strategy = default_strategy
 
-    tracks = api.get_state_list_by_id(project, type=tracklet_type, version=[version_id],
-                                      {'media_ids': args.media_ids})
+    dimension = strategy["dimension"]
+    method = strategy["method"]
+    tracks = api.get_state_list_by_id(project, {'media_ids': args.media_ids},
+                                      type=tracklet_type.id, version=[version_id])
     for track in tracks:
-        locs = api.get_localization_list_by_id(project, ids=track.localizations)
-        dimension = strategy["dimension"]
+        locs = api.get_localization_list_by_id(project, {'ids': track.localizations})
         if dimension == "both":
             sizes = [(loc.width + loc.height) / 2 for loc in locs]
         elif dimension == "width":
@@ -62,7 +61,8 @@ if __name__=="__main__":
             raise ValueError(f"Invalid method \'{method}\', must be one of "
                               "\'median\' or \'mean\'!")
         size *= strategy['scale-factor']
-        logger.info(f"Updating track {track.id} with {attribute_name} = {size}...")
-        response = api.update_state(track.id, {attribute_name: size})
+        print(f"Updating track {track.id} with {attribute_name} = {size}...")
+        response = api.update_state(track.id, {'attributes': {attribute_name: size}})
         assert(isinstance(response, tator.models.MessageResponse))
+        print(response.message)
 

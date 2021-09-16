@@ -3,8 +3,10 @@
 import argparse
 import yaml
 import logging
+import math
 from statistics import median
 
+import numpy as np
 import tator
 
 if __name__=="__main__":
@@ -61,9 +63,15 @@ if __name__=="__main__":
             size = median(sizes)
         elif method == "mean":
             size = sum(sizes) / len(sizes)
+        elif method == "center":
+            centers = [(loc.x + loc.width / 2, loc.y + loc.height / 2) for loc in locs]
+            dists = [math.sqrt((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5))
+                     for x, y in centers]
+            nearest = np.argmin(dists)
+            size = sizes[nearest]
         else:
             raise ValueError(f"Invalid method \'{method}\', must be one of "
-                              "\'median\' or \'mean\'!")
+                              "\'median\', \'mean\', or \'center\'!")
         size *= strategy['scale-factor']
         if transform == "scallops":
             size = ((0.1/120) * (size - 40) + 0.8) * size

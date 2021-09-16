@@ -40,16 +40,20 @@ if __name__=="__main__":
 
     dimension = strategy["dimension"]
     method = strategy["method"]
+    transform = strategy["transform"]
+    medias = api.get_media_list_by_id(project, {'ids': args.media_ids})
+    medias = {media.id:media for media in medias}
     tracks = api.get_state_list_by_id(project, {'media_ids': args.media_ids},
                                       type=tracklet_type.id, version=[version_id])
     for track in tracks:
         locs = api.get_localization_list_by_id(project, {'ids': track.localizations})
+        media = medias[track.media[0]]
         if dimension == "both":
-            sizes = [(loc.width + loc.height) / 2 for loc in locs]
+            sizes = [(loc.width * media.width + loc.height * media.height) / 2 for loc in locs]
         elif dimension == "width":
-            sizes = [loc.width for loc in locs]
+            sizes = [loc.width * media.width for loc in locs]
         elif dimension == "height":
-            sizes = [loc.height for loc in locs]
+            sizes = [loc.height * media.height for loc in locs]
         else:
             raise ValueError(f"Invalid dimension \'{dimension}\', must be one of "
                               "\'width\', \'height\', or \'both\'!")
@@ -61,6 +65,13 @@ if __name__=="__main__":
             raise ValueError(f"Invalid method \'{method}\', must be one of "
                               "\'median\' or \'mean\'!")
         size *= strategy['scale-factor']
+        if transform == "scallops":
+            size = ((0.1/120) * (size - 40) + 0.8) * size
+        elif transform == "none":
+            pass
+        else:
+            raise ValueError(f"Invalid transform \'{transform}\', must be one of "
+                              "\'scallops\' or \'none\'!")
         print(f"Updating track {track.id} with {attribute_name} = {size}...")
         response = api.update_state(track.id, {'attributes': {attribute_name: size}})
         assert(isinstance(response, tator.models.MessageResponse))

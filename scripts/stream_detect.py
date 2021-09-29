@@ -96,10 +96,12 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
   for media_input in media_inputs:
     if type(media_input) is str:
       ffmpeg_media_input = media_input
+      unique_media_id = media_input
     else:
       api = get_tator_api(strategy)
       media_obj = api.get_media(media_input['id'], presigned=86400)
       ffmpeg_media_input = get_best_quality(media_obj)
+      unique_media_id = media_input['id']
       if ffmpeg_media_input is None:
         print(f"Can't process {media_obj.name} ({media_obj.id})")
         continue
@@ -130,7 +132,7 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
       this_image += got_bytes
       if this_image == expectedFrameSize:
         this_image = 0
-        process_queue.put(current_buffer)
+        process_queue.put((current_buffer, unique_media_id, frame_count))
         frame_count += 1
         current_buffer = free_queue.get() #get next available buffer
         frame_buf = buffer[current_buffer]
@@ -150,7 +152,7 @@ def save_thread(save_queue, strategy):
   results = save_queue.get()
   if strategy['save'].get('file', None):
     fp = open(strategy['save'].get('file', None), 'w')
-    fp.write(f"Frame,x1,y1,x2,y2,score,label\n")
+    fp.write(f"Media, Frame,x1,y1,x2,y2,score,label\n")
   else:
     fp = None
   names = strategy['detector']['names']
@@ -158,8 +160,9 @@ def save_thread(save_queue, strategy):
   while results is not None:
     for box,score,label_id in zip(results['boxes'], results['scores'], results['classes']):
       frame = results['frame']
+      media = results['media']
       if fp:
-        data=f"{frame},{box[0]/dims[1]},{box[1]/dims[0]},{box[2]/dims[1]},{box[3]/dims[0]},{score},{names[label_id]}\n"
+        data=f"{media}, {frame},{box[0]/dims[1]},{box[1]/dims[0]},{box[2]/dims[1]},{box[3]/dims[0]},{score},{names[label_id]}\n"
         fp.write(data)
         # flush out to disk after each write
         if strategy['save'].get('flush', True):
@@ -336,16 +339,15 @@ def main():
 
   print("Loaded model")
 
-  frame_count = 0
-  frame_idx = process_queue.get()
+  buffer_idx, media_id, frame_count  = process_queue.get()
 
   names = strategy['detector']['names']
 
   current={"boxes": [], "scores": [], "classes":[]}
   begin = time.time()
-  while frame_idx is not None:
+  while buffer_idx is not None:
     if frame_count % frame_interval == 0:
-      bgr = np.frombuffer(buffers[frame_idx],
+      bgr = np.frombuffer(buffers[buffer_idx],
                           dtype=np.uint8).reshape(dims)
       blob = torch.as_tensor(
                 bgr.transpose(2,0,1)).cuda()
@@ -366,28 +368,28 @@ def main():
       if current['boxes']:
         if save_queue:
           current['frame'] = frame_count
+          current['media'] = media_id
           save_queue.put(current)
         if publish_queue:
           for box,score,label_id in zip(current['boxes'], current['scores'], current['classes']):
             drawBox(bgr, box, score, names[label_id])
             frame_data = bgr.tobytes()
       if publish_queue:
-        publish_queue.put(frame_idx)
+        publish_queue.put(buffer_idx)
       else:
-        free_queue.put(frame_idx)
+        free_queue.put(buffer_idx)
     else:
       if current['boxes'] and publish_queue:
-        bgr = np.frombuffer(buffers[frame_idx],
+        bgr = np.frombuffer(buffers[buffer_idx],
                             dtype=np.uint8).reshape(dims)
         for box,score,label_id in zip(current['boxes'], current['scores'], current['classes']):
           drawBox(bgr, box, score, names[label_id])
           frame_data = bgr.tobytes()
       if publish_queue:
-        publish_queue.put(frame_idx)
+        publish_queue.put(buffer_idx)
       else:
-        free_queue.put(frame_idx)
-    frame_idx = process_queue.get()
-    frame_count += 1
+        free_queue.put(buffer_idx)
+    buffer_idx, media_id, frame_count = process_queue.get()
 
     if args.verbose:
       if frame_count % 100 == 0:

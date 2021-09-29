@@ -56,14 +56,19 @@ def get_best_quality(media_object):
   media_object = media_object.to_dict()
   if media_object['media_files'] == None:
     return None
+  print(media_object['media_files'])
   archival=media_object['media_files'].get('archival', [])
   streaming=media_object['media_files'].get('streaming', [])
-  if len(archival) > 0:
+  images=media_object['media_files'].get('image', [])
+  if archival:
     archival.sort(key=lambda x:x['resolution'][0], reverse=True)
     return archival[0]['path']
-  elif len(streaming) > 0:
+  elif streaming:
     streaming.sort(key=lambda x:x['resolution'][0], reverse=True)
     return streaming[0]['path']
+  elif images:
+    images.sort(key=lambda x:x['resolution'][0], reverse=True)
+    return images[0]['path']
   else:
     return None
 
@@ -97,6 +102,7 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
     if type(media_input) is str:
       ffmpeg_media_input = media_input
       unique_media_id = media_input
+      api = None
     else:
       api = get_tator_api(strategy)
       media_obj = api.get_media(media_input['id'], presigned=86400)
@@ -104,6 +110,9 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
       unique_media_id = media_input['id']
       if ffmpeg_media_input is None:
         print(f"Can't process {media_obj.name} ({media_obj.id})")
+        continue
+      if media_obj.attributes.get('Object Detector Processed', 'No') != 'No':
+        print(f"Skipping already processed file {media_obj.name} ({media_obj.id})")
         continue
 
 
@@ -144,10 +153,17 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
     time_per_frame = duration / frame_count
     fps = 1.0 / time_per_frame
     print(f"bytes= {bytes_received}, duration = {duration}, frames={frame_count}, FPS = {fps}")
+    # Set sentinel flag to avoid duping boxes.
+    if api:
+      try:
+        api.update_media(media_obj.id, {'attributes': {"Object Detector Processed": datetime.datetime.now().isoformat()}})
+      except:
+        print("Unable to set sentinel flag")
 
-  # End the downchain processing
-  process_queue.put(None)
+  # End the downchain processing send frame 0 to make printouts look good.
+  process_queue.put((None,None,-1))
 
+batch_results=[]
 def save_thread(save_queue, strategy):
   results = save_queue.get()
   if strategy['save'].get('file', None):
@@ -157,17 +173,53 @@ def save_thread(save_queue, strategy):
     fp = None
   names = strategy['detector']['names']
   dims = strategy['detector']['size']
+
+
+  tator_config = strategy['save'].get('tator', None)
+  if tator_config:
+    api = get_tator_api(strategy)
+    localization_type_id = tator_config['localization_type_id']
+    project_id = api.get_localization_type(localization_type_id).project
+    score_mapping = tator_config.get('mapping',{}).get('score','Confidence')
+    label_mapping = tator_config.get('mapping',{}).get('label','Species')
+    upload_batch_size = tator_config.get('upload_batch_size', 500)
+  else:
+    api = None
+
+  # functor to periodically send batch results + clean out
+  def add_to_batch(datum):
+    global batch_results
+    if api is None:
+      return
+    if datum:
+      batch_results.append(datum)
+    if len(batch_results) > upload_batch_size or datum is None:
+      for response in tator.util.chunked_create(api.create_localization_list,
+                                                project_id,
+                                                localization_spec=batch_results):
+            pass
+      batch_results=batch_results[upload_batch_size:]
   while results is not None:
     for box,score,label_id in zip(results['boxes'], results['scores'], results['classes']):
       frame = results['frame']
       media = results['media']
+      x0 = box[0]/dims[1]
+      y0 = box[1]/dims[0]
+      x1 = box[2]/dims[1]
+      y1 = box[3]/dims[0]
+      if api:
+        new_object={'x': x0, 'y': y0, 'width': x1-x0, 'height': y1-y0, score_mapping: score, label_mapping: names[label_id], 'media_id': media, 'frame': frame, 'type': localization_type_id}
+        add_to_batch(new_object)
       if fp:
-        data=f"{media}, {frame},{box[0]/dims[1]},{box[1]/dims[0]},{box[2]/dims[1]},{box[3]/dims[0]},{score},{names[label_id]}\n"
+        data=f"{media}, {frame},{x0},{y0},{x1},{y1},{score},{names[label_id]}\n"
         fp.write(data)
         # flush out to disk after each write
         if strategy['save'].get('flush', True):
           fp.flush()
+
     results = save_queue.get()
+  # Flush the rest of the results
+  add_to_batch(None)
 
 def broadcast_thread(buffers, send_queue, free_queue, strategy):
   if strategy.get('broadcast_process', None):

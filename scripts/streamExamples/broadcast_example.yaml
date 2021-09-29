@@ -9,32 +9,34 @@ detector:
           'Sea spider', 'Worm']
 broadcast_process: ["ffmpeg",
                     "-f", "rawvideo",
-                    "-video_size", "960x540", 
+                    "-video_size", "960x540",
                     "-framerate", "29.97",
                     "-pix_fmt", "bgr24",
-                    "-i", "tcp://127.0.0.1:20001?listen", 
-                    "-c:v", "h264_nvenc", 
+                    "-i", "tcp://127.0.0.1:20001?listen",
+                    "-c:v", "h264_nvenc",
                     "-threads", "4",
                     "-profile", "baseline",
                     "-preset", "ll",
                     "-pix_fmt", "nv12",
                     "-b:v", "4000K",
-                    "-f", "rtsp", 
-                    "-rtsp_transport", "tcp", 
-                    "-g", "25", 
+                    "-f", "rtsp",
+                    "-rtsp_transport", "tcp",
+                    "-g", "25",
                     "-movflags", "faststart+frag_keyframe+empty_moov+default_base_moof",
-                    "-f", "rtsp", 
+                    "-f", "rtsp",
                     "rtsp://spudcannon.tator.io:8554/Camera1_720"]
 # Can optionally save to file as well
 #save:
 #  file: output.csv
-capture_process: ["ffmpeg",
-                  "-stream_loop", "-1", 
-                  "-re", 
-                  #"-c:v", "h264_cuvid",
-                  "-i", "test.mp4",
-                  "-c:v", "rawvideo", 
-                  "-f", "rawvideo",
-                  "-pix_fmt", "bgr24", 
-                  "-vf", "scale=960:540",
-                  "tcp://127.0.0.1:20000"]
+capture:
+  inputs: ['test.mp4']
+  capture_process: ["ffmpeg",
+                    "-stream_loop", "-1",
+                    "-re",
+                    #"-c:v", "h264_cuvid",
+                    "-i", "%{INPUT}",
+                    "-c:v", "rawvideo",
+                    "-f", "rawvideo",
+                    "-pix_fmt", "bgr24",
+                    "-vf", "scale=960:540",
+                    "tcp://127.0.0.1:20000"]

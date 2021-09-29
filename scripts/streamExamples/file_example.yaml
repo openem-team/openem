@@ -8,17 +8,19 @@ detector:
           'Sea spider', 'Worm']
 save:
   file: output.csv
-  #Notional: 
+  #Notional:
   # tator:
     # media_id: <foo>
     # host: <foo>
     # token: <foo>
     # type_id: <foo>
-capture_process: ["ffmpeg",
-                  #"-c:v", "h264_cuvid",
-                  "-i", "test.mp4",
-                  "-c:v", "rawvideo", 
-                  "-f", "rawvideo",
-                  "-pix_fmt", "bgr24", 
-                  "-vf", "scale=960:540",
-                  "tcp://127.0.0.1:20000"]
+capture:
+  inputs: ['test.mp4'] # sequentially processes each input
+  capture_process: ["ffmpeg",
+                    #"-c:v", "h264_cuvid",
+                    "-i", "%{INPUT}",
+                    "-c:v", "rawvideo",
+                    "-f", "rawvideo",
+                    "-pix_fmt", "bgr24",
+                    "-vf", "scale=960:540",
+                    "tcp://127.0.0.1:20000"]

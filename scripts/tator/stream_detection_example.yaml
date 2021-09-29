@@ -46,7 +46,7 @@ spec:
                                 "-vf", "scale=1280:720",
                                 "tcp://127.0.0.1:20000"]
     container:
-      image: cvisionai/openem_lite:latest
+      image: cvisionai/openem_pytorch:latest
       volumeMounts:
         - name: dockersock
           mountPath: /var/run/docker.sock

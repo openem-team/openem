@@ -9,6 +9,9 @@ spec:
   - name: dockersock
     hostPath:
       path: /var/run/docker.sock
+  - name: workdir
+    emptyDir:
+      medium: Memory
   templates:
   - name: pipeline
     steps:

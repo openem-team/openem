@@ -1,0 +1,71 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: openem-workflow-
+spec:
+  entrypoint: pipeline
+  ttlSecondsAfterFinished: 3600
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+  templates:
+  - name: pipeline
+    steps:
+    - - name: worker
+        template: worker
+  - name: worker
+    inputs:
+      artifacts:
+      - name: strategy
+        path: /data/strategy.yaml
+        raw:
+          data: |
+            detector:
+              size: [720,1280]
+              threshold: 0.4
+              config: "https://cvision-ai-models.s3.us-east-2.amazonaws.com/fathomnet/fathomnet_config.yaml"
+              weights: "https://cvision-ai-models.s3.us-east-2.amazonaws.com/fathomnet/model_0183599.pth"
+              names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
+                      'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
+                      'Sea spider', 'Worm']
+            save:
+              tator:
+                localization_type_id: <ID>
+                version_id: <ID>
+                upload_batch_size: 12 # controls upload interval
+                mapping:
+                  label: Species
+                  score: Confidence
+            capture:
+              capture_process: ["ffmpeg",
+                                "-i", "%{INPUT}",
+                                "-c:v", "rawvideo", 
+                                "-f", "rawvideo",
+                                "-pix_fmt", "bgr24", 
+                                "-vf", "scale=1280:720",
+                                "tcp://127.0.0.1:20000"]
+    container:
+      image: cvisionai/openem_lite:latest
+      volumeMounts:
+        - name: dockersock
+          mountPath: /var/run/docker.sock
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+      env:
+      - name: TATOR_MEDIA_IDS
+        value: "{{workflow.parameters.media_ids}}"
+      - name: TATOR_API_SERVICE
+        value: "{{workflow.parameters.rest_url}}"
+      - name: TATOR_AUTH_TOKEN
+        value: "{{workflow.parameters.rest_token}}"
+      - name: TATOR_PROJECT_ID
+        value: "{{workflow.parameters.project_id}}"
+      - name: TATOR_WORK_DIR
+        value: "/work"
+      volumeMounts:
+      - name: workdir
+        mountPath: /work
+      command: [python3]
+      args: ["/scripts/stream_detect.py -v /data/strategy.yaml"]

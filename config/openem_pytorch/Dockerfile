@@ -22,13 +22,12 @@ RUN mkdir -p /root/.cache/torch/hub/checkpoints
 RUN wget https://download.pytorch.org/models/resnet50-19c8e357.pth \
       -O /root/.cache/torch/hub/checkpoints/resnet50-19c8e357.pth
 
-COPY scripts /scripts
-
-WORKDIR /working
-RUN git clone https://github.com/NVIDIA-AI-IOT/torch2trt
-WORKDIR /working/torch2trt
-RUN python setup.py install --plugins
+#WORKDIR /working
+#RUN git clone https://github.com/NVIDIA-AI-IOT/torch2trt
+#WORKDIR /working/torch2trt
+#RUN python setup.py install --plugins
 
 RUN python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
 
 WORKDIR /
+COPY scripts /scripts

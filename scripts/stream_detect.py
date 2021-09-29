@@ -12,6 +12,7 @@ import ctypes
 import signal
 import subprocess
 import datetime
+import requests
 
 from detectron2 import model_zoo
 from detectron2.config import get_cfg
@@ -20,7 +21,9 @@ from detectron2.checkpoint import DetectionCheckpointer
 
 import torch
 import time
+import tempfile
 import random
+import os
 
 """
 Example usage: 
@@ -29,6 +32,15 @@ shell>  chrt -f 50 python3 stream_detect.py broadcast_example.yaml
 
 shell>  python3 stream_detect.py -v file_example.yaml
 """
+
+def download_file(url, local_filename):
+    # NOTE the stream=True parameter below
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    return local_filename
 
 def server_thread(buffer,free_queue, process_queue, dims, strategy):
   block_size=4*1024*1024
@@ -217,6 +229,28 @@ def main():
   backbone = strategy['detector'].get('backbone', 'COCO-Detection/retinanet_R_50_FPN_3x.yaml')
   config = strategy['detector']['config']
   weights = strategy['detector']['weights']
+
+  # Make a temporary work dir, or fetch from pipeline arguments
+  temp_work_dir=os.getenv("TATOR_WORK_DIR")
+  temp_gc = None
+  if temp_work_dir is None:
+    temp_gc = tempfile.TemporaryDirectory()
+    temp_work_dir = temp_gc.name
+
+  def handle_potential_fetch(path):
+    # If config/weights are URLs, download them locally
+    if path.startswith('http://') or path.startswith('https://'):
+      local_name = path.split('/')[-1]
+      local_path = os.path.join(temp_work_dir, local_name)
+      print(f"Downloading '{path}' to '{local_path}'")
+      download_file(path, local_path)
+      return local_path
+    else:
+      return path
+
+  config = handle_potential_fetch(config)
+  weights = handle_potential_fetch(weights)
+
   cfg = get_cfg()
   cfg.merge_from_file(model_zoo.get_config_file(backbone))
   cfg.merge_from_file(config)

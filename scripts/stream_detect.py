@@ -24,14 +24,50 @@ import time
 import tempfile
 import random
 import os
+import tator
+
 
 """
-Example usage: 
+Example usage:
 shell>  chrt -f 50 python3 stream_detect.py broadcast_example.yaml
 
 
 shell>  python3 stream_detect.py -v file_example.yaml
 """
+
+def get_tator_api(strategy):
+  if os.getenv('TATOR_API_SERVICE'):
+    host = os.getenv("TATOR_API_SERVICE").replace('/rest','')
+    token=os.getenv('TATOR_AUTH_TOKEN')
+    return tator.get_api(host, token)
+  else:
+    host = strategy['tator']['host']
+    token = strategy['tator']['token']
+    return tator.get_api(host,token)
+
+def get_tator_project(strategy):
+  project_id=os.getenv('TATOR_PROJECT_ID')
+  if project_id:
+    return project_id
+  else:
+    return strategy['tator']['project']
+
+def get_best_quality(media_object):
+  media_object = media_object.to_dict()
+  if media_object['media_files'] == None:
+    return None
+  archival=media_object['media_files'].get('archival', [])
+  streaming=media_object['media_files'].get('streaming', [])
+  if len(archival) > 0:
+    archival.sort(key=lambda x:x['resolution'][0], reverse=True)
+    return archival[0]['path']
+  elif len(streaming) > 0:
+    streaming.sort(key=lambda x:x['resolution'][0], reverse=True)
+    return streaming[0]['path']
+  else:
+    return None
+
+
 
 def download_file(url, local_filename):
     # NOTE the stream=True parameter below
@@ -45,50 +81,68 @@ def download_file(url, local_filename):
 def server_thread(buffer,free_queue, process_queue, dims, strategy):
   block_size=4*1024*1024
   expectedFrameSize = dims[0]*dims[1]*dims[2]
-  bytes_received = 0  
+  bytes_received = 0
   serverSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
   # Sometimes on CTRL-C this doesn't get cleaned up.
   serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   serverSocket.bind(("localhost",strategy.get('port', 20000)))
   serverSocket.listen(100)
 
-  if strategy.get('capture_process', None):
-    print("Lanching capture process")
-    for idx,term in enumerate(strategy['capture_process']):
-        strategy['capture_process'][idx] = term.replace('%{TIME}', datetime.datetime.utcnow().isoformat().replace(':','_'))
-    print(' '.join(strategy['capture_process']))
-    capture = subprocess.Popen(strategy['capture_process'],stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+  capture_process = strategy['capture'].get('capture_process', None)
+  media_inputs = strategy['capture'].get('inputs', None)
+  if os.getenv("TATOR_MEDIA_IDS"):
+    id_list = os.getenv("TATOR_MEDIA_IDS").split(',')
+    media_inputs = [{'id': x} for x in id_list]
+  for media_input in media_inputs:
+    if type(media_input) is str:
+      ffmpeg_media_input = media_input
+    else:
+      api = get_tator_api(strategy)
+      media_obj = api.get_media(media_input['id'], presigned=86400)
+      ffmpeg_media_input = get_best_quality(media_obj)
+      if ffmpeg_media_input is None:
+        print(f"Can't process {media_obj.name} ({media_obj.id})")
+        continue
 
-  print("Waiting on connection")
-  conn, addr =  serverSocket.accept() # Ctrl-C is blocked here. Kind of annoying.
-  frame_count = 0
-  current_buffer = free_queue.get()
-  frame_buf = buffer[current_buffer]
-  print(frame_buf)
-  begin = time.time()
-  this_image = 0
-  # Receive up to the block size without going over an image boundary
-  data_left = min(block_size,expectedFrameSize-this_image)
 
-  # receive data right into a memory buffer only share idx over queues
-  got_bytes = conn.recv_into(memoryview(frame_buf)[this_image:this_image+data_left], data_left)
-  while got_bytes:
-    bytes_received += got_bytes
-    this_image += got_bytes
-    if this_image == expectedFrameSize:
-      this_image = 0
-      process_queue.put(current_buffer)
-      frame_count += 1
-      current_buffer = free_queue.get() #get next available buffer
-      frame_buf = buffer[current_buffer]
+    this_media_capture = capture_process.copy()
+    for idx,term in enumerate(this_media_capture):
+        this_media_capture[idx] = term.replace('%{TIME}', datetime.datetime.utcnow().isoformat().replace(':','_'))
+        this_media_capture[idx] = term.replace('%{INPUT}', ffmpeg_media_input)
+    print(' '.join(this_media_capture))
+    capture = subprocess.Popen(this_media_capture,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    print(f"Waiting on connection for {media_input}")
+    conn, addr =  serverSocket.accept() # Ctrl-C is blocked here. Kind of annoying.
+    frame_count = 0
+    current_buffer = free_queue.get()
+    frame_buf = buffer[current_buffer]
+    print(frame_buf)
+    begin = time.time()
+    this_image = 0
+    # Receive up to the block size without going over an image boundary
     data_left = min(block_size,expectedFrameSize-this_image)
+
+    # receive data right into a memory buffer only share idx over queues
     got_bytes = conn.recv_into(memoryview(frame_buf)[this_image:this_image+data_left], data_left)
-  print("Connection closed")
-  end = time.time()
-  duration = end - begin
-  time_per_frame = duration / frame_count
-  fps = 1.0 / time_per_frame
-  print(f"bytes= {bytes_received}, duration = {duration}, frames={frame_count}, FPS = {fps}")
+    while got_bytes:
+      bytes_received += got_bytes
+      this_image += got_bytes
+      if this_image == expectedFrameSize:
+        this_image = 0
+        process_queue.put(current_buffer)
+        frame_count += 1
+        current_buffer = free_queue.get() #get next available buffer
+        frame_buf = buffer[current_buffer]
+      data_left = min(block_size,expectedFrameSize-this_image)
+      got_bytes = conn.recv_into(memoryview(frame_buf)[this_image:this_image+data_left], data_left)
+    print("Connection closed")
+    end = time.time()
+    duration = end - begin
+    time_per_frame = duration / frame_count
+    fps = 1.0 / time_per_frame
+    print(f"bytes= {bytes_received}, duration = {duration}, frames={frame_count}, FPS = {fps}")
+
   # End the downchain processing
   process_queue.put(None)
 
@@ -125,7 +179,7 @@ def broadcast_thread(buffers, send_queue, free_queue, strategy):
 
   signal.signal(signal.SIGINT, exit_handler)
   signal.signal(signal.SIGTSTP, exit_handler)
-  
+
   clientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
   connected = False
   while connected == False:
@@ -191,7 +245,7 @@ def drawBox(bgr, box, score, label, scale=0.67,margin=10):
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('--port', type=int, default=20000)
-  parser.add_argument('--cpu-only', 
+  parser.add_argument('--cpu-only',
                       action='store_true')
   parser.add_argument('-v', '--verbose', action='store_true')
   parser.add_argument("strategy_file")
@@ -214,13 +268,13 @@ def main():
 
   with open(args.strategy_file, 'r') as fp:
     strategy = yaml.safe_load(fp)
-  
+
   dims=[*strategy['detector']['size'],3]
   frame_interval = strategy['detector'].get('interval',1)
   num_buffers = 64
   free_queue = multiprocessing.Queue(num_buffers)
   process_queue = multiprocessing.Queue(num_buffers)
-    
+
   buffers=[]
   for x in range(num_buffers):
     buffers.append(RawArray(ctypes.c_uint8, dims[0]*dims[1]*dims[2]))
@@ -279,12 +333,12 @@ def main():
 
   server = multiprocessing.Process(None, server_thread, args=(buffers, free_queue, process_queue, dims, strategy))
   server.start()
-  
+
   print("Loaded model")
 
   frame_count = 0
   frame_idx = process_queue.get()
-  
+
   names = strategy['detector']['names']
 
   current={"boxes": [], "scores": [], "classes":[]}
@@ -305,7 +359,7 @@ def main():
       pred_classes = instance_dict["pred_classes"]
       current={"boxes": [], "scores": [], "classes":[]}
       for box, score, cls in zip(pred_boxes, scores, pred_classes):
-          if score > strategy['detector']['threshold']: 
+          if score > strategy['detector']['threshold']:
             current['boxes'].append(np.array(box.tolist(),dtype=np.uint32))
             current['scores'].append(score.tolist())
             current['classes'].append(cls.tolist())
@@ -323,7 +377,7 @@ def main():
         free_queue.put(frame_idx)
     else:
       if current['boxes'] and publish_queue:
-        bgr = np.frombuffer(buffers[frame_idx], 
+        bgr = np.frombuffer(buffers[frame_idx],
                             dtype=np.uint8).reshape(dims)
         for box,score,label_id in zip(current['boxes'], current['scores'], current['classes']):
           drawBox(bgr, box, score, names[label_id])

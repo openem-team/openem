@@ -62,4 +62,4 @@ spec:
       - name: workdir
         mountPath: /work
       command: [python3]
-      args: ["/scripts/tator/ar_inference_entry.py"]
+      args: ["/scripts/tator/ar_inference_2model_entry.py"]

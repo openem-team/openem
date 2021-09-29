@@ -8,7 +8,7 @@ import shutil
 import sys
 
 
-log_filename = "ar_inference_entry.log"
+log_filename = "ar_inference_2model_entry.log"
 
 
 logging.basicConfig(
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     args = [
         "python3",
-        "/scripts/ar_inference.py",
+        "/scripts/ar_inference_2model.py",
         "--host",
         os.getenv("TATOR_API_SERVICE").replace("/rest", ""),
         "--token",

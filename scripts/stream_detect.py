@@ -97,7 +97,7 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
   media_inputs = strategy['capture'].get('inputs', None)
   if os.getenv("TATOR_MEDIA_IDS"):
     id_list = os.getenv("TATOR_MEDIA_IDS").split(',')
-    media_inputs = [{'id': x} for x in id_list]
+    media_inputs = [{'id': int(x)} for x in id_list]
   for media_input in media_inputs:
     if type(media_input) is str:
       ffmpeg_media_input = media_input

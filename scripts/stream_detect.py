@@ -261,7 +261,7 @@ def save_thread(save_queue, strategy):
     if datum:
       batch_results.append(datum)
     if len(batch_results) > upload_batch_size or datum is None:
-      print(f"Uploading a batch of len(batch_results)")
+      print(f"Uploading a batch of {len(batch_results)}")
       for response in tator.util.chunked_create(api.create_localization_list,
                                                 project_id,
                                                 localization_spec=batch_results):

@@ -25,6 +25,7 @@ import tempfile
 import random
 import os
 import tator
+import torchvision
 
 
 """
@@ -373,6 +374,10 @@ def main():
   checkpointer.load(cfg.MODEL.WEIGHTS)
   model = model.eval().cuda()
 
+  # Seperate NMS
+  model_nms = torchvision.ops.nms
+  nms_threshold = strategy['detector'].get('nms_threshold', 0.55)
+
   if strategy.get('broadcast_process',None):
     print("Broadcast mode enabled")
     publish_queue = multiprocessing.Queue(num_buffers)
@@ -410,6 +415,15 @@ def main():
 
       # Process results on CPU
       cpu_results = results[0]
+      cpu_results["instances"] = cpu_results["instances"][
+        model_nms(
+                cpu_results["instances"].pred_boxes.tensor,
+                cpu_results["instances"].scores,
+                nms_threshold,
+            )
+            .to("cpu")
+            .tolist()
+      ]
       instance_dict = cpu_results["instances"].get_fields()
       pred_boxes = instance_dict["pred_boxes"]
       scores = instance_dict["scores"]

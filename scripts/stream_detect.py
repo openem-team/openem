@@ -57,7 +57,6 @@ def get_best_quality(media_object):
   media_object = media_object.to_dict()
   if media_object['media_files'] == None:
     return None
-  print(media_object['media_files'])
   archival=media_object['media_files'].get('archival', [])
   streaming=media_object['media_files'].get('streaming', [])
   images=media_object['media_files'].get('image', [])
@@ -87,25 +86,39 @@ def download_file(url, local_filename):
 def server_thread(buffer,free_queue, process_queue, dims, strategy):
   block_size=4*1024*1024
   expectedFrameSize = dims[0]*dims[1]*dims[2]
-  bytes_received = 0
   serverSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
   # Sometimes on CTRL-C this doesn't get cleaned up.
   serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   serverSocket.bind(("localhost",strategy.get('port', 20000)))
   serverSocket.listen(100)
 
+  api = get_tator_api(strategy)
   capture_process = strategy['capture'].get('capture_process', None)
   media_inputs = strategy['capture'].get('inputs', None)
   if os.getenv("TATOR_MEDIA_IDS"):
     id_list = os.getenv("TATOR_MEDIA_IDS").split(',')
     media_inputs = [{'id': int(x)} for x in id_list]
+
+  # Blow out sections to individual media
   for media_input in media_inputs:
+    if 'section_id' in media_input:
+      section_obj = api.get_section(media_input['section_id'])
+      media_objs = api.get_media_list(section_obj.project, section=section_obj.id)
+      print(f"Section {section_obj.name} has {len(media_objs)}")
+      new_media_objs = [{'id': x.id} for x in media_objs]
+      media_inputs.extend(new_media_objs)
+
+  print(f"About to process {len(media_inputs)}")
+  media_begin = time.time()
+  for media_count,media_input in enumerate(media_inputs):
+    bytes_received = 0
     if type(media_input) is str:
       ffmpeg_media_input = media_input
       unique_media_id = media_input
       api = None
     else:
-      api = get_tator_api(strategy)
+      if 'id' not in media_input:
+        continue
       media_obj = api.get_media(media_input['id'], presigned=86400)
       ffmpeg_media_input = get_best_quality(media_obj)
       unique_media_id = media_input['id']
@@ -116,20 +129,17 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
         print(f"Skipping already processed file {media_obj.name} ({media_obj.id})")
         continue
 
-
     this_media_capture = capture_process.copy()
     for idx,term in enumerate(this_media_capture):
         this_media_capture[idx] = term.replace('%{TIME}', datetime.datetime.utcnow().isoformat().replace(':','_'))
         this_media_capture[idx] = term.replace('%{INPUT}', ffmpeg_media_input)
-    print(' '.join(this_media_capture))
+    #print(' '.join(this_media_capture))
     capture = subprocess.Popen(this_media_capture,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    print(f"Waiting on connection for {media_input}")
     conn, addr =  serverSocket.accept() # Ctrl-C is blocked here. Kind of annoying.
     frame_count = 0
     current_buffer = free_queue.get()
     frame_buf = buffer[current_buffer]
-    print(frame_buf)
     begin = time.time()
     this_image = 0
     # Receive up to the block size without going over an image boundary
@@ -148,18 +158,20 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
         frame_buf = buffer[current_buffer]
       data_left = min(block_size,expectedFrameSize-this_image)
       got_bytes = conn.recv_into(memoryview(frame_buf)[this_image:this_image+data_left], data_left)
-    print("Connection closed")
     end = time.time()
     duration = end - begin
     time_per_frame = duration / frame_count
     fps = 1.0 / time_per_frame
-    print(f"bytes= {bytes_received}, duration = {duration}, frames={frame_count}, FPS = {fps}")
+    print(f"media {media_count}: bytes= {bytes_received}, duration = {duration}, frames={frame_count}, FPS = {fps}")
+    if (media_count + 1) % 10 == 0:
+      media_now = time.time()
+      print(f"Summary: Total media={media_count+1}, total_time = {media_now-media_begin}, avg = {(media_now-media_begin)/(media_count+1)}")
     # Set sentinel flag to avoid duping boxes.
     if api:
       try:
         api.update_media(media_obj.id, {'attributes': {"Object Detector Processed": datetime.datetime.now().isoformat()}})
       except:
-        print("Unable to set sentinel flag")
+        pass
 
   # End the downchain processing send frame 0 to make printouts look good.
   process_queue.put((None,None,-1))
@@ -196,6 +208,7 @@ def save_thread(save_queue, strategy):
     if datum:
       batch_results.append(datum)
     if len(batch_results) > upload_batch_size or datum is None:
+      print(f"Uploading a batch of len(batch_results)")
       for response in tator.util.chunked_create(api.create_localization_list,
                                                 project_id,
                                                 localization_spec=batch_results):

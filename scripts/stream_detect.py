@@ -26,6 +26,7 @@ import random
 import os
 import tator
 import torchvision
+import threading
 
 
 """
@@ -42,9 +43,14 @@ def get_tator_api(strategy):
     token=os.getenv('TATOR_AUTH_TOKEN')
     return tator.get_api(host, token)
   else:
-    host = strategy['tator']['host']
-    token = strategy['tator']['token']
-    return tator.get_api(host,token)
+    try:
+      host = strategy['tator']['host']
+      token = strategy['tator']['token']
+      return tator.get_api(host,token)
+    except:
+      print("ERROR: No tator credentials provided.")
+      return None
+
 
 def get_tator_project(strategy):
   project_id=os.getenv('TATOR_PROJECT_ID')
@@ -83,6 +89,52 @@ def download_file(url, local_filename):
                 f.write(chunk)
     return local_filename
 
+def job_launcher(api, parallel_capture, capture_process, media_inputs):
+  current_jobs=[]
+  for media_input in media_inputs:
+
+    # Only N jobs to run in parallel
+    while len(current_jobs) >= parallel_capture:
+      for job_idx, (job, media_id) in enumerate(current_jobs):
+        if job.poll() is not None:
+          del current_jobs[job_idx]
+      time.sleep(0.050) # check all jobs every 50 ms
+
+    # Compute real path based on media input
+    if type(media_input) is str:
+      ffmpeg_media_input = media_input
+      api = None
+      media_id = media_input
+    else:
+      if 'id' not in media_input:
+        continue
+      media_obj = api.get_media(media_input['id'], presigned=86400)
+      ffmpeg_media_input = get_best_quality(media_obj)
+      media_id = media_input['id']
+      if ffmpeg_media_input is None:
+        print(f"Can't process {media_obj.name} ({media_obj.id})")
+        continue
+      if media_obj.attributes.get('Object Detector Processed', 'No') != 'No':
+        print(f"Skipping already processed file {media_obj.name} ({media_obj.id})")
+        continue
+
+    # construct the process invocation.
+    this_media_capture = capture_process.copy()
+    for idx,term in enumerate(this_media_capture):
+        this_media_capture[idx] = term.replace('%{TIME}', datetime.datetime.utcnow().isoformat().replace(':','_'))
+        this_media_capture[idx] = term.replace('%{INPUT}', ffmpeg_media_input)
+    #print(' '.join(this_media_capture))
+    capture = subprocess.Popen(this_media_capture, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    current_jobs.append((capture, media_id))
+
+  # wait for last job to clean up
+  while len(current_jobs) > 1:
+    for job_idx, (job,media_id) in enumerate(current_jobs):
+      if job.poll() is not None:
+        del current_jobs[job_idx]
+        print(f"Sent {media_id}")
+    time.sleep(0.050) # check all jobs every 50 ms
+
 def server_thread(buffer,free_queue, process_queue, dims, strategy):
   block_size=4*1024*1024
   expectedFrameSize = dims[0]*dims[1]*dims[2]
@@ -93,7 +145,8 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
   serverSocket.listen(100)
 
   api = get_tator_api(strategy)
-  capture_process = strategy['capture'].get('capture_process', None)
+  capture_process_str = strategy['capture'].get('capture_process', None)
+  parallel_capture = strategy['capture'].get('parallel', 1)
   media_inputs = strategy['capture'].get('inputs', None)
   if os.getenv("TATOR_MEDIA_IDS"):
     id_list = os.getenv("TATOR_MEDIA_IDS").split(',')
@@ -108,18 +161,20 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
       new_media_objs = [{'id': x.id} for x in media_objs]
       media_inputs.extend(new_media_objs)
 
+  job_launcher_t = threading.Thread(target=job_launcher, args=(api, parallel_capture, capture_process_str, media_inputs))
+  job_launcher_t.start()
   print(f"About to process {len(media_inputs)}")
   media_begin = time.time()
   for media_count,media_input in enumerate(media_inputs):
     bytes_received = 0
     if type(media_input) is str:
-      ffmpeg_media_input = media_input
       unique_media_id = media_input
-      api = None
     else:
+      # This logic is required to keep the number of accept calls
+      # the expected value
       if 'id' not in media_input:
         continue
-      media_obj = api.get_media(media_input['id'], presigned=86400)
+      media_obj = api.get_media(media_input['id'])
       ffmpeg_media_input = get_best_quality(media_obj)
       unique_media_id = media_input['id']
       if ffmpeg_media_input is None:
@@ -129,14 +184,7 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
         print(f"Skipping already processed file {media_obj.name} ({media_obj.id})")
         continue
 
-    this_media_capture = capture_process.copy()
-    for idx,term in enumerate(this_media_capture):
-        this_media_capture[idx] = term.replace('%{TIME}', datetime.datetime.utcnow().isoformat().replace(':','_'))
-        this_media_capture[idx] = term.replace('%{INPUT}', ffmpeg_media_input)
-    #print(' '.join(this_media_capture))
-    capture = subprocess.Popen(this_media_capture,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-    conn, addr =  serverSocket.accept() # Ctrl-C is blocked here. Kind of annoying.
+    conn, _ =  serverSocket.accept() # Ctrl-C is blocked here. Kind of annoying.
     frame_count = 0
     current_buffer = free_queue.get()
     frame_buf = buffer[current_buffer]
@@ -158,11 +206,15 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
         frame_buf = buffer[current_buffer]
       data_left = min(block_size,expectedFrameSize-this_image)
       got_bytes = conn.recv_into(memoryview(frame_buf)[this_image:this_image+data_left], data_left)
+
+    # If buffer isn't totally used return it, else we leak 1 buffer per media
+    if this_image != expectedFrameSize:
+      free_queue.put(current_buffer)
     end = time.time()
     duration = end - begin
     time_per_frame = duration / frame_count
     fps = 1.0 / time_per_frame
-    print(f"media {media_count}: bytes= {bytes_received}, duration = {duration}, frames={frame_count}, FPS = {fps}")
+    print(f"media {media_count} ({unique_media_id}): bytes= {bytes_received}, duration = {duration}, frames={frame_count}, FPS = {fps}")
     if (media_count + 1) % 10 == 0:
       media_now = time.time()
       print(f"Summary: Total media={media_count+1}, total_time = {media_now-media_begin}, avg = {(media_now-media_begin)/(media_count+1)}")
@@ -174,6 +226,7 @@ def server_thread(buffer,free_queue, process_queue, dims, strategy):
         pass
 
   # End the downchain processing send frame 0 to make printouts look good.
+  job_launcher_t.join()
   process_queue.put((None,None,-1))
 
 batch_results=[]
@@ -474,7 +527,7 @@ def main():
     buffer_idx, media_id, frame_count = process_queue.get()
 
     if args.verbose:
-      if frame_count % 100 == 0:
+      if (frame_count+1) % 100 == 0:
         duration = time.time() - begin
         time_per_frame = duration / 100
         fps = 1.0 / time_per_frame

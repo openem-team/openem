@@ -1,0 +1,68 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: ar-inference-
+spec:
+  entrypoint: pipeline
+  podGC:
+    strategy: OnPodCompletion
+  ttlStrategy:
+    SecondsAfterSuccess: 600
+    SecondsAfterFailure: 86400
+    SecondsAfterCompletion: 86400
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+  - name: workdir
+    emptyDir:
+      medium: Memory
+  templates:
+  - name: pipeline
+    steps:
+    - - name: worker
+        template: worker
+  - name: worker
+    inputs:
+      artifacts:
+      - name: config
+        path: /data/config.yaml
+        raw:
+          data: |
+            data_image: <docker_image>
+            state_type_id: 90
+            sample_size: 60
+            attribute_name: "feature_s3"
+            video_order: [3, 2, 0, 1] # The video order in which the features should be concatenated
+    container:
+      image: "cvisionai/openem_pytorch:latest"
+      imagePullPolicy: Always
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+      env:
+      - name: TATOR_MEDIA_IDS
+        value: "{{workflow.parameters.media_ids}}"
+      - name: TATOR_API_SERVICE
+        value: "{{workflow.parameters.rest_url}}"
+      - name: TATOR_AUTH_TOKEN
+        value: "{{workflow.parameters.rest_token}}"
+      - name: OBJECT_STORAGE_ACCESS_KEY
+        value: "" # Fill in with s3 access key
+      - name: OBJECT_STORAGE_SECRET_KEY
+        value: "" # Fill in with s3 secret access key
+      - name: S3_BUCKET
+        value: "" # Fill in with existing bucket name
+      - name: ENDPOINT_URL
+        value: "" # Fill in with s3 endpoint
+      - name: TATOR_PROJECT_ID
+        value: "{{workflow.parameters.project_id}}"
+      - name: TATOR_WORK_DIR
+        value: "/work"
+      - name: CONFIG_FILE
+        value: "/data/config.yaml"
+      volumeMounts:
+      - name: workdir
+        mountPath: /work
+      command: [python3]
+      args: ["/scripts/tator/ar_inference_entry.py"]

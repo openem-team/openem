@@ -179,6 +179,7 @@ def save_thread(save_queue, strategy):
   if tator_config:
     api = get_tator_api(strategy)
     localization_type_id = tator_config['localization_type_id']
+    version_id = tator_config.get('version_id',None)
     project_id = api.get_localization_type(localization_type_id).project
     score_mapping = tator_config.get('mapping',{}).get('score','Confidence')
     label_mapping = tator_config.get('mapping',{}).get('label','Species')
@@ -209,6 +210,8 @@ def save_thread(save_queue, strategy):
       y1 = box[3]/dims[0]
       if api:
         new_object={'x': x0, 'y': y0, 'width': x1-x0, 'height': y1-y0, score_mapping: score, label_mapping: names[label_id], 'media_id': media, 'frame': frame, 'type': localization_type_id}
+        if version_id:
+          new_object.update({'version': version_id})
         add_to_batch(new_object)
       if fp:
         data=f"{media}, {frame},{x0},{y0},{x1},{y1},{score},{names[label_id]}\n"

@@ -1,0 +1,31 @@
+detector:
+  size: [720,1280]
+  threshold: 0.4
+  config: "https://cvision-ai-models.s3.us-east-2.amazonaws.com/fathomnet/fathomnet_config.yaml"
+  weights: "https://cvision-ai-models.s3.us-east-2.amazonaws.com/fathomnet/model_0183599.pth"
+  names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
+          'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
+          'Sea spider', 'Worm']
+save:
+  #file: output.csv
+  #Notional: 
+  tator:
+    localization_type_id: 157
+    version_id: 207
+    upload_batch_size: 500
+    mapping:
+      label: Species
+      score: Confidence
+
+capture:
+  inputs: [{'section_id': 1430}]
+  parallel: 16
+  capture_process: ["ffmpeg",
+                    #"-c:v", "h264_cuvid",
+                    "-probesize", "10M",
+                    "-i", "%{INPUT}",
+                    "-c:v", "rawvideo", 
+                    "-f", "rawvideo",
+                    "-pix_fmt", "bgr24", 
+                    "-vf", "scale=1280:720",
+                    "tcp://127.0.0.1:20000"]

@@ -4,7 +4,7 @@ import logging
 import os
 import pandas as pd
 from statistics import median
-from typing import Dict, Generator, List, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
 import yaml
 
 import boto3
@@ -30,15 +30,6 @@ logger = logging.getLogger(__name__)
 
 
 class ModelManager:
-    AR_STATES = [
-        "Hold Loading Score",
-        "Net In / Out Score",
-        "Offloading Score",
-        "Sorting Score",
-        "Background",
-        "Net Out / Sort Score",
-    ]
-
     class LSTMAR(nn.Module):
         def __init__(
             self,
@@ -106,6 +97,7 @@ class ModelManager:
           dropout: !!float
         ```
         """
+        self._ar_states = params["ar_states"]
         self._is_cuda = torch_device.type == "cuda"
         self._softmax_norm = nn.Softmax(dim=1)
 
@@ -141,7 +133,7 @@ class ModelManager:
 
         outs = self._softmax_norm(outs).view(-1).tolist()
 
-        return {state: prob for state, prob in zip(ModelManager.AR_STATES, outs)}
+        return {state: prob for state, prob in zip(self._ar_states, outs)}
 
 
 class SampleGenerator:
@@ -181,13 +173,15 @@ class SampleGenerator:
         self._video_order = video_order
 
     @staticmethod
-    def _process_stitch_map(stitch_map_str: str) -> List[Tuple[int, int]]:
+    def _process_stitch_map(stitch_map_str: Optional[str]) -> List[Tuple[int, int]]:
         """
         Takes the string contained in the `_stitch_map` attribute and turns it in to a list of
         tuples, where the first value of the tuple is the beginning of a frame gap and the second is
         the end of a frame gap. A frame gap is time between two videos that were stitched together
         where at least one frame of time was missing, relative to wall clock time.
         """
+        if stitch_map_str is None:
+            return []
         video_starts = []
         blank_starts = []
 
@@ -240,7 +234,7 @@ class SampleGenerator:
 
         # Parse frame gaps
         frame_gaps = [
-            self._process_stitch_map(media_dict[media_id].attributes["_stitch_map"])
+            self._process_stitch_map(media_dict[media_id].attributes.get("_stitch_map"))
             for media_id in media_ids
         ]
 
@@ -252,7 +246,7 @@ class SampleGenerator:
         global_frame_gaps = [
             (min(gap[idx][0] for gap in frame_gaps), max(gap[idx][1] for gap in frame_gaps))
             for idx in range(n_gaps)
-        ]
+        ] if n_gaps > 0 else []
 
         # Download feature files from S3
         feature_filenames = []
@@ -267,11 +261,20 @@ class SampleGenerator:
                     exc_info=True,
                 )
                 raise
-            feature_filename = os.path.join(self._work_dir, feature_s3["key"])
-            logger.info(f"Downloading {feature_filename}")
-            self._client.download_file(feature_s3["bucket"], feature_s3["key"], feature_filename)
-            logger.info(f"{feature_filename} downloaded!")
-            feature_filenames.append(feature_filename)
+
+            key = feature_s3["key"]
+            bucket = feature_s3["bucket"]
+            feature_filename = os.path.join(self._work_dir, key)
+
+            if self._client.list_objects_v2(Bucket=bucket, Prefix=key)["KeyCount"] == 1:
+                logger.info(f"Downloading {feature_filename}")
+                self._client.download_file(bucket, key, feature_filename)
+                logger.info(f"{feature_filename} downloaded!")
+                feature_filenames.append(feature_filename)
+            else:
+                msg = f"Could not find '{key}' in bucket '{bucket}'"
+                logger.warning(msg)
+                raise ValueError(msg)
 
         # Get global FPS
         if all(fps == media_fps[0] for fps in media_fps):
@@ -349,6 +352,7 @@ def main(
     s3_bucket: str,
     endpoint_url: str,
     attribute_name: str,
+    upload_version: int,
     work_dir: str,
     project_id: int,
     state_type: int,
@@ -394,6 +398,7 @@ def main(
                 "project": project_id,
                 "type": state_type,
                 "media_ids": media_ids,
+                "version": upload_version,
             }
 
             for frame, sample in sample_generator(multiview_id, sample_size):
@@ -433,6 +438,7 @@ if __name__ == "__main__":
     parser.add_argument("--s3-bucket", type=str, required=True)
     parser.add_argument("--endpoint-url", type=str, required=True)
     parser.add_argument("--attribute-name", type=str, required=True)
+    parser.add_argument("--upload-version", type=int, required=True)
     parser.add_argument("--work-dir", type=str, required=True)
     parser.add_argument("--project-id", type=int, required=True)
     parser.add_argument("--state-type", type=int, required=True)
@@ -462,6 +468,7 @@ if __name__ == "__main__":
         s3_bucket=args.s3_bucket,
         endpoint_url=args.endpoint_url,
         attribute_name=args.attribute_name,
+        upload_version=args.upload_version,
         work_dir=args.work_dir,
         project_id=args.project_id,
         state_type=args.state_type,

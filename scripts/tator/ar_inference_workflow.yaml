@@ -29,11 +29,12 @@ spec:
         path: /data/config.yaml
         raw:
           data: |
-            data_image: <docker_image>
-            state_type_id: 90
+            data_image: "cvisionai/ar_inference:lm"
+            state_type_id: 159
             sample_size: 60
             attribute_name: "feature_s3"
-            video_order: [3, 2, 0, 1] # The video order in which the features should be concatenated
+            upload_version: 212
+            video_order: [2, 1, 0] # The video order in which the features should be concatenated
     container:
       image: "cvisionai/openem_pytorch:latest"
       imagePullPolicy: Always
@@ -64,5 +65,7 @@ spec:
       volumeMounts:
       - name: workdir
         mountPath: /work
+      - name: dockersock
+        mountPath: /var/run/docker.sock
       command: [python3]
       args: ["/scripts/tator/ar_inference_entry.py"]

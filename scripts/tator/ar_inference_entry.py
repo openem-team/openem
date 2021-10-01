@@ -39,6 +39,7 @@ if __name__ == "__main__":
     state_type_id = config["state_type_id"]
     sample_size = config["sample_size"]
     attribute_name = config["attribute_name"]
+    upload_version = config["upload_version"]
     video_order = config["video_order"]
 
     # Copy model files
@@ -77,16 +78,18 @@ if __name__ == "__main__":
         os.getenv("TATOR_PROJECT_ID"),
         "--attribute-name",
         attribute_name,
+        "--upload-version",
+        str(upload_version),
         "--multiview-ids",
         *os.getenv("TATOR_MEDIA_IDS").split(","),
         "--state-type",
-        state_type_id,
+        str(state_type_id),
         "--model-config-file",
         os.path.join(work_dir, "data", "model_config.yaml"),
         "--sample-size",
-        sample_size,
+        str(sample_size),
         "--video-order",
-        video_order,
+        *[str(vid) for vid in video_order],
     ]
 
     cmd = " ".join(args)

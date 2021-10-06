@@ -378,7 +378,7 @@ def plot_data(
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("config_filename", type=str)
+    parser.add_argument("--config-filename", type=str, default="plot_states_config.yaml")
     args = parser.parse_args()
 
     with open(args.config_filename, "r") as fp:

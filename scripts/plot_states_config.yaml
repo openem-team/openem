@@ -2,12 +2,13 @@ tator:
   host: "https://www.tatorapp.com"
   token: "TATOR_TOKEN"
 collect_data: True
+plot_file_starts: False
 data_config:
   project_id: 31
   state_type: 159 # The inferred state type
   gt_state_type: 149 # The annotated state type
   gt_versions: [51] # The version in which the annotated states live
-  media_type: 55 # The multiview type id
+  media_type: 55 # The multivideo type id
   versions: # The versions in which the inferred states live; keys are version names
     AF: [211]
     NA: [210]
@@ -24,5 +25,5 @@ data_config:
   - "Offloading"
   - "Net Activity"
   - "Fish Presence"
-  destination_folder: "." # Where to store the data and plots
+  destination_folder: "plot_states_out" # Where to store the data and plots
   data_filename: "data.pkl" # Intermediate data file

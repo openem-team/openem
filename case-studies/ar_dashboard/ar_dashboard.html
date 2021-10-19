@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<link rel="stylesheet" href="tator.min.css">
+
+<style>
+
+table {
+  width: 100%;
+}
+tr:nth-child(even) {
+  background-color: #00070d;
+}
+tr.selected, tr:hover {
+  background-color: #1e2129;
+  color: #ffffff;
+}
+tr.selected, tr:hover {
+  fill: #a2afcd;
+}
+th {
+  background-color: #262e3d;
+}
+
+th,
+td {
+  text-align: center;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  border: 1px solid #a2afcd;
+}
+
+.main-div {
+  background-color: #151b28;
+}
+
+.box-border {
+  border: 1px solid #262e3d;
+}
+</style>
+
+<script type="text/javascript" src="https://unpkg.com/uuidv1/uuidv1.js"></script>
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<script src="ar_dashboard_data.js"></script>
+<script src="utilities.js"></script>
+
+</head>
+
+<body>
+
+<div class="analysis--main--wrapper col-12 d-flex">
+<main class="collections-gallery--main col-12 py-4 px-4">
+
+<div>
+<div class="h1 py-2">Activity Recognition Dashboard</div>
+<div id="dateDiv" class="text-gray f2"></div>
+</div>
+
+
+<div class="py-4">
+<div class="d-flex h2 py-4">Select Vessel Trip</div>
+<div class="main-div px-3 py-2 rounded-2">
+  <div class="d-flex ">
+    <div id="vesselSelector" class="d-flex flex-items-center f2 text-gray py-1"></div>
+    <div id="tripSelector" class="d-flex flex-items-center f2 text-gray py-1 ml-3"></div>
+  </div>
+</div>
+</div>
+
+
+<div class="py-4">
+<div id="tripTimelineHeader" class="d-flex h2 py-4">Trip Timeline</div>
+<div id="f" class="main-div px-3 py-2 rounded-2">
+  <div class="d-flex flex-justify-center flex-column">
+    <div id="tripTimelineWrapper">
+      <div id="tripTimeline"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<div class="py-4">
+  <div id="truthHeader" class="d-flex h2 py-4">Truth Activity States</div>
+  <div id="f" class="main-div px-3 py-2 rounded-2">
+    <div class="d-flex flex-justify-center flex-column text-gray f2">
+      <div id="truthWrapper">
+        <div id="truthTable"></div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+
+</main>
+</div>
+
+<script>
+
+var uuidv1 = require('uuidv1');
+function setupTimeline() {
+  var div = document.getElementById("tripTimeline");
+  this.timeline = document.createElement("fancy-timeline");
+  div.appendChild(this.timeline);
+}
+
+function setupTripSelection() {
+  var vesselSelector = document.createElement("enum-input");
+  vesselSelector.setAttribute("name", "Select vessel:");
+  vesselSelector._select.classList.remove("col-8");
+  vesselSelector._select.style.marginLeft = "10px";
+  var choices = [];
+  for (let vessel of vesselData) {
+    var choice = {"value": `${vessel.vesselName}`}
+    choices.push(choice);
+  }
+  vesselSelector.choices = choices;
+
+  var div = document.getElementById("vesselSelector");
+  div.appendChild(vesselSelector);
+
+  var tripSelector = document.createElement("enum-input");
+  tripSelector.setAttribute("name", "Select trip:");
+  tripSelector._select.classList.remove("col-8");
+  tripSelector._select.style.marginLeft = "10px";
+
+  choices = [];
+  for (const trip of this.currentVesselData.trips) {
+    choices.push({"value": `${trip.tripName}`});
+  }
+  tripSelector.choices = choices;
+
+  div = document.getElementById("tripSelector");
+  div.appendChild(tripSelector);
+
+  vesselSelector.addEventListener("change", () => {
+    for (const data of vesselData) {
+      if (data.vesselName == vesselSelector.getValue()) {
+        this.currentVesselData = data;
+      }
+    }
+
+    while (tripSelector._select.firstChild) {
+      tripSelector._select.removeChild(tripSelector._select.firstChild);
+    }
+
+    var tripChoices = [];
+    for (const trip of this.currentVesselData.trips) {
+      tripChoices.push({"value": `${trip.tripName}`});
+    }
+    tripSelector.choices = tripChoices;
+
+    this.currentTrip = this.currentVesselData.trips[0];
+    displayTripData();
+  });
+
+  tripSelector.addEventListener("change", () => {
+
+    var selectedTripName = tripSelector.getValue();
+
+    for (let idx = 0; idx < this.currentVesselData.trips.length; idx++) {
+      if (selectedTripName == this.currentVesselData.trips[idx].tripName) {
+        this.currentTrip = this.currentVesselData.trips[idx];
+        break;
+      }
+    }
+    displayTripData();
+  });
+}
+
+function displayTripData() {
+
+  var stateData = [];
+  for (const info of this.currentTrip.truthData) {
+      var graphData = [];
+
+      graphData.push({
+          frame: 0,
+          value: 0.0,
+          actualValue: false
+        });
+
+      for (let idx=0; idx < info.data.global_start_frame.length; idx++) {
+        graphData.push({
+          frame: info.data.global_start_frame[idx],
+          value: 1.0,
+          actualValue: true
+        });
+        graphData.push({
+          frame: info.data.global_end_frame[idx],
+          value: 0.0,
+          actualValue: false
+        });
+      }
+
+      graphData.push({
+          frame: this.currentTrip.globalMaxFrame,
+          value: 0.0,
+          actualValue: false
+        });
+
+      stateData.push({
+        name: info.activity,
+        graphData: graphData,
+        color: info.color
+      });
+    }
+
+  this.timeline.updateData(stateData, this.currentTrip.globalMaxFrame);
+
+  createTripTruthTable();
+
+  var tripTimelineHeaderDiv = document.getElementById("tripTimelineHeader");
+  tripTimelineHeaderDiv.textContent = `${this.currentTrip.tripName} Activity Timeline`;
+}
+
+function createTripTruthTable() {
+
+  // Clear out the table
+  var parent = document.getElementById("truthTable");
+  while (parent.firstChild) {
+    parent.removeChild(parent.firstChild);
+  }
+
+  // Create the table
+  const table = document.createElement("table");
+  table.setAttribute("class", "inventory-table");
+  parent.appendChild(table);
+
+  // Create the header row
+  const thead = document.createElement("thead");
+  thead.setAttribute("class", "text-white");
+  table.appendChild(thead);
+
+  const trHead = document.createElement("tr");
+  thead.appendChild(trHead);
+
+  var th = document.createElement("th");
+  th.setAttribute("class", "py-2 clickable");
+  th.textContent = "Activity";
+  trHead.appendChild(th);
+
+  th = document.createElement("th");
+  th.setAttribute("class", "py-2 clickable");
+  th.textContent = "Global Start Frame";
+  trHead.appendChild(th);
+
+  th = document.createElement("th");
+  th.setAttribute("class", "py-2 clickable");
+  th.textContent = "Multiview Start Frame";
+  trHead.appendChild(th);
+
+  th = document.createElement("th");
+  th.setAttribute("class", "py-2 clickable");
+  th.textContent = "Start Tator Multiview ID";
+  trHead.appendChild(th);
+
+  th = document.createElement("th");
+  th.setAttribute("class", "py-2 clickable");
+  th.textContent = "Global End Frame";
+  trHead.appendChild(th);
+
+  th = document.createElement("th");
+  th.setAttribute("class", "py-2 clickable");
+  th.textContent = "Multiview End Frame";
+  trHead.appendChild(th);
+
+  th = document.createElement("th");
+  th.setAttribute("class", "py-2 clickable");
+  th.textContent = "End Tator Multiview ID";
+  trHead.appendChild(th);
+
+  const tbody = document.createElement("tbody");
+  table.appendChild(tbody);
+
+  for (const info of this.currentTrip.truthData) {
+    for (let idx = 0; idx < info.data.global_start_frame.length; idx++) {
+
+      var linksWrapper;
+      var action;
+
+      const trData = document.createElement("tr");
+      tbody.appendChild(trData);
+
+      var td = document.createElement("td");
+      td.textContent = info.activity;
+      trData.appendChild(td);
+
+      td = document.createElement("td");
+      td.textContent = Math.floor(info.data.global_start_frame[idx]);
+      trData.appendChild(td);
+
+      td = document.createElement("td");
+      td.textContent = Math.floor(info.data.start_frame[idx]);
+      trData.appendChild(td);
+
+      td = document.createElement("td");
+      linksWrapper = document.createElement("div");
+      linksWrapper.setAttribute("class", "d-flex flex-column");
+      td.appendChild(linksWrapper);
+      action = document.createElement("a");
+      action.setAttribute("class", "clickable text-purple text-bold");
+      action.setAttribute("target", "_blank");
+      action.setAttribute("href", `${info.data.start_multi_media_link[idx]}`);
+      action.appendChild(document.createTextNode(info.data.start_multi_media_id[idx]));
+      linksWrapper.appendChild(action);
+      trData.appendChild(td);
+
+      td = document.createElement("td");
+      td.textContent = Math.floor(info.data.global_end_frame[idx]);
+      trData.appendChild(td);
+
+      td = document.createElement("td");
+      td.textContent = Math.floor(info.data.end_frame[idx]);
+      trData.appendChild(td);
+
+      td = document.createElement("td");
+      linksWrapper = document.createElement("div");
+      linksWrapper.setAttribute("class", "d-flex flex-column");
+      td.appendChild(linksWrapper);
+      action = document.createElement("a");
+      action.setAttribute("class", "clickable text-purple text-bold");
+      action.setAttribute("target", "_blank");
+      action.setAttribute("href", `${info.data.end_multi_media_link[idx]}`);
+      action.appendChild(document.createTextNode(info.data.end_multi_media_id[idx]));
+      linksWrapper.appendChild(action);
+      trData.appendChild(td);
+    }
+  }
+}
+
+this.currentVesselData = vesselData[0];
+this.currentTrip = this.currentVesselData.trips[0];
+
+setupTripSelection();
+setupTimeline();
+
+displayTripData();
+
+</script>
+
+</body>
+</html>

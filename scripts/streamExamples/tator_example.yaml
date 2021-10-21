@@ -1,0 +1,29 @@
+detector:
+  size: [720,1280]
+  threshold: 0.4
+  config: "https://cvision-ai-models.s3.us-east-2.amazonaws.com/fathomnet/fathomnet_config.yaml"
+  weights: "https://cvision-ai-models.s3.us-east-2.amazonaws.com/fathomnet/model_0183599.pth"
+  names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
+          'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
+          'Sea spider', 'Worm']
+save:
+  #file: output.csv
+  #Notional: 
+  tator:
+    localization_type_id: <ID>
+    version_id: <ID>
+    upload_batch_size: 12 # controls how often uploads happen
+    mapping:
+      label: Species
+      score: Confidence
+
+capture:
+  inputs: [{'id': <ID>}, {'id': <ID>}] # this line is ignored if running in tator workflow
+  capture_process: ["ffmpeg",
+                    #"-c:v", "h264_cuvid",
+                    "-i", "%{INPUT}",
+                    "-c:v", "rawvideo", 
+                    "-f", "rawvideo",
+                    "-pix_fmt", "bgr24", 
+                    "-vf", "scale=1280:720",
+                    "tcp://127.0.0.1:20000"]

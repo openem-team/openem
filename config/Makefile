@@ -83,6 +83,9 @@ inference_bash:
 inference_2_bash:
 	$(docker_cmd) --name $(openem_container_name) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) -v /var/run/docker.sock:/var/run/docker.sock cvisionai/openem_lite2:$(USER)
 
+inference_torch_bash:
+	$(docker_cmd) --privileged --name $(openem_container_name) --rm -ti --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864  $(extra_mounts) -v /var/run/docker.sock:/var/run/docker.sock cvisionai/openem_pytorch:$(USER)
+
 
 inference_cpu:
 	docker run --name $(container_name)_cpu --rm -ti --shm-size=1g -v `pwd`/../deploy_python:/deploy_python $(extra_mounts) cvisionai/openem_cpu:$(USER)

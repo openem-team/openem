@@ -14,11 +14,53 @@ import yaml
 import subprocess
 import time
 import sys
+import tqdm
+import functools
+import math
+import traceback
 
 import docker
 import tator
 
 from . import thumbnail_classifier
+
+def _generate_dl_funcs(api, media, trackTypeId, **kwargs):
+    """ Generate functions to execute on demand localization fetching """
+    print(f"Extracting tracks from '{media.name}'")
+    mode = kwargs.get('mode', 'state')
+    print(f"Extracing mode = {mode}")
+    if mode == 'state':
+        tracks = api.get_state_list(media.project,
+                                media_id=[media.id],
+                                type=trackTypeId)
+    elif mode == 'localization':
+        # call these tracks even though its a track of one detection
+        tracks = api.get_localization_list(media.project,
+                                           media_id=[media.id],
+                                           type=trackTypeId)
+    if len(tracks) == 0:
+        return None
+
+    track_thumbs = defaultdict(lambda: [])
+    if mode == 'state':
+        for track in tracks:
+            localizations = api.get_localization_list_by_id(
+                media.project,
+                {"ids": track['localizations']})
+            localizations = [l.to_dict() for l in localizations]
+            for l in localizations:
+                track_thumbs[track['id']].append(
+                    functools.partial(api.get_localization_graphic, l.id))
+    elif mode == 'localization':
+        for local in tracks:
+            track_thumbs[local.id].append(
+                functools.partial(api.get_localization_graphic,
+                                  local.id)) # just use local id
+
+    return track_thumbs
+
+
+
 
 def _extract_tracks(api, media, trackTypeId, **kwargs):
     print(f"Extracting tracks from '{media.name}'")
@@ -35,14 +77,22 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
                                            type=trackTypeId)
     if len(tracks) == 0:
         return None
-    temp_dir = tempfile.mkdtemp()
+    if os.getenv("TATOR_WORK_DIR"):
+        temp_dir = os.path.join(os.getenv("TATOR_WORK_DIR"),
+                                media.name)
+        os.makedirs(temp_dir, exist_ok=True)
+    else:
+        temp_dir = tempfile.mkdtemp()
     local_media = os.path.join(temp_dir, media.name)
-    for _ in tator.download_media(api,
+    print(f"Downloading to {local_media}\n")
+    for p in tator.download_media(api,
                                   media,
                                   local_media):
-        pass
+        print(f'\r{media.name}: {p}',end='', flush=True)
+    print('')
     assert os.path.exists(local_media)
 
+    print("Starting extraction process")
     tracks = [t.to_dict() for t in tracks]
     by_frame = defaultdict(lambda: [])
     if mode == 'state':
@@ -61,11 +111,14 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
     max_frame = max(list(by_frame.keys()))
     print(f"Processing {len(tracks)} up to frame {max_frame}")
     reader = cv2.VideoCapture(local_media)
+    print("Made reader")
     frame_idx = 0
     ok = True
     track_thumbs = defaultdict(lambda: [])
     while frame_idx <= max_frame and ok is True:
         ok,frame_bgr = reader.read()
+        if frame_idx % 100 == 0:
+            print(f"Processed {frame_idx}")
         if ok is False:
             print(f"Couldn't read frame {frame_idx}, '{local_media}'")
             break
@@ -91,11 +144,14 @@ def _extract_tracks(api, media, trackTypeId, **kwargs):
                 thumbnail = frame_bgr[thumb_y:thumb_y+thumb_height,
                                       thumb_x:thumb_x+thumb_width,
                                       :];
-                track_thumbs[localization['track_id']].append(thumbnail)
+                image_path = os.path.join(temp_dir, str(media.id), f"{localization['id']}.png")
+                os.makedirs(os.path.join(temp_dir, str(media.id)), exist_ok=True)
+                cv2.imwrite(image_path, thumbnail)
+                track_thumbs[localization['track_id']].append(image_path)
 
         frame_idx+=1
     del reader
-    _try_delete(temp_dir)
+    _try_delete(local_media)
     return track_thumbs
 
 def _try_delete(directory):
@@ -163,6 +219,7 @@ def run_tracker(api,
 
     track_type_id = strategy['tator']['track_type_id']
     extract_mode = strategy['tator'].get('extract_mode', 'state')
+    defer_extractions = strategy['tator'].get('defer_extractions', False)
     assert extract_mode in ['state','localization']
     update_mode = strategy['tator'].get('update_mode', 'patch')
     assert update_mode in ['patch', 'post']
@@ -178,7 +235,11 @@ def run_tracker(api,
             print(f"Already processed '{media.name}'")
             continue
 
-        tracks = _extract_tracks(api, media, track_type_id, mode=extract_mode)
+        if defer_extractions:
+            tracks = _generate_dl_funcs(api, media, track_type_id, mode=extract_mode)
+        else:
+            tracks = _extract_tracks(api, media, track_type_id,
+                                     mode=extract_mode)
 
         if tracks is None:
             print(f"No tracks to process")
@@ -190,9 +251,24 @@ def run_tracker(api,
                     )
             continue
 
-        for track_id,thumbnails in tracks.items():
+        for track_id,raw_thumbnails in tqdm.tqdm(tracks.items()):
             # Run pre-processing filter first
             label, winner, track_entropy = None, -1, None
+            thumbnails=[]
+            for t in raw_thumbnails:
+                # Handle cases where the fetch is deffered
+                if callable(t):
+                    tmp_path = _safe_retry(t)
+                else:
+                    tmp_path = t
+                try:
+                    raw_data = cv2.imread(tmp_path)
+                    thumbnails.append(raw_data)
+                except Exception as e:
+                    print(f"{e}: Couldn't process {tmp_path}")
+                    traceback.print_exc()
+                    continue
+                os.remove(tmp_path)
             if filter_function:
                 label,track_entropy = filter_function(api, project, track_id, thumbnails, **filter_args)
             if label is None:
@@ -203,6 +279,9 @@ def run_tracker(api,
                     detection_scores,
                     entropy,
                     **strategy['track_params'])
+                if math.isnan(track_entropy):
+                    print(f"{entropy} resulted in NaN!")
+                    track_entropy = 1.0
             update = {'attributes':
                       {strategy['tator']['label_attribute']: label,
                       'Entropy': track_entropy}}

@@ -1,43 +1,32 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: openem-workflow-
+  generateName: make-localization-summary-
 spec:
   entrypoint: pipeline
   ttlSecondsAfterFinished: 3600
   volumes:
-  - name: dockersock
-    hostPath:
-      path: /var/run/docker.sock
   - name: workdir
     emptyDir:
       medium: Memory
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
   templates:
   - name: pipeline
     steps:
-    - - name: worker
-        template: worker
-  - name: worker
-    inputs:
-      artifacts:
-      - name: strategy
-        path: /data/strategy.yaml
-        raw:
-          data: |
-            img-size: [<max>,<min>]
-            keep-threshold: <keep>
-            batch-size: <batch>
-            date_image: <docker_image>
-            version_id: <version_id>
-            box_type_id: <localization_id>
+    - - name: execute
+        template: execute
+  - name: execute
+    nodeSelector:
+      webServer: "yes"
     container:
-      image: cvisionai/openem_lite:latest
-      volumeMounts:
-        - name: dockersock
-          mountPath: /var/run/docker.sock
+      image: cvisionai/openem_cv2:experimental
+      imagePullPolicy: "Always"
       resources:
         limits:
-          nvidia.com/gpu: 1
+          cpu: 250m
+          memory: 4Gi
       env:
       - name: TATOR_MEDIA_IDS
         value: "{{workflow.parameters.media_ids}}"
@@ -49,8 +38,15 @@ spec:
         value: "{{workflow.parameters.project_id}}"
       - name: TATOR_WORK_DIR
         value: "/work"
+      - name: TATOR_PIPELINE_ARGS
+        value: ""
       volumeMounts:
       - name: workdir
         mountPath: /work
+      - name: dockersock
+        mountPath: /var/run/docker.sock
       command: [python3]
-      args: ["/scripts/tator/detection_entry.py"]
+      args: ["/scripts/make_localization_summary.py",
+             "--uid", "{{workflow.parameters.uid}}",
+             "--encoded-filters", "{{workflow.parameters.encoded_filters}}",
+             "--total-image-size-threshold-gb", "2.0"]

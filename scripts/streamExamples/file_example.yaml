@@ -1,0 +1,26 @@
+detector:
+  size: [540,960]
+  threshold: 0.4
+  config: "fathomnet_config.yaml"
+  weights: "model_0183599.pth"
+  names: ['Anemone', 'Fish', 'Eel', 'Gastropod', 'Sea star', 'Feather star', 'Sea cucumber', 'Urchin', 'Glass sponge',
+          'Sea fan', 'Soft coral', 'Sea pen', 'Stony coral', 'Ray', 'Crab', 'Shrimp', 'Squat lobster', 'Flatfish',
+          'Sea spider', 'Worm']
+save:
+  file: output.csv
+  #Notional:
+  # tator:
+    # media_id: <foo>
+    # host: <foo>
+    # token: <foo>
+    # type_id: <foo>
+capture:
+  inputs: ['test.mp4'] # sequentially processes each input
+  capture_process: ["ffmpeg",
+                    #"-c:v", "h264_cuvid",
+                    "-i", "%{INPUT}",
+                    "-c:v", "rawvideo",
+                    "-f", "rawvideo",
+                    "-pix_fmt", "bgr24",
+                    "-vf", "scale=960:540",
+                    "tcp://127.0.0.1:20000"]

@@ -306,6 +306,9 @@ if __name__=="__main__":
     print(unique_media)
     bar = progressbar.ProgressBar(redirect_stdout=True,
                                   max_value=len(unique_media))
+    # Generate giant localization list and chunk that rather than
+    # group by media
+    raw_objects = []
     for media_id in bar(unique_media):
         local_list=[]
         media_data = input_data.loc[input_data['media_id'] == media_id]
@@ -322,12 +325,17 @@ if __name__=="__main__":
                                          raw=False,
                                          axis=1)
         bar2.finish()
-        raw_objects = localizations.values.tolist()
-        for response in tator.util.chunked_create(api.create_localization_list,
-                                                  args.project,
-                                                  localization_spec=raw_objects):
-                pass
+        raw_objects.extend(localizations.values.tolist())
+    for response in tator.util.chunked_create(api.create_localization_list,
+                                                args.project,
+                                                localization_spec=raw_objects):
+            pass
 
+    # After all localizations have been uploaded, update the media
+    # Reset the progress bar
+    bar = progressbar.ProgressBar(redirect_stdout=True,
+                                  max_value=len(unique_media))
+    for media_id in bar(unique_media):
         try:
             # When complete for a given media update the sentinel value
             api.update_media(int(media_id), {'attributes':{"Object Detector Processed": str(datetime.datetime.now())}})

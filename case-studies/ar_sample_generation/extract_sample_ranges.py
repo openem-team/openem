@@ -1,4 +1,6 @@
+from argparse import ArgumentParser
 from collections import defaultdict
+from configparser import ConfigParser
 from datetime import datetime, timedelta
 import json
 import logging
@@ -50,6 +52,29 @@ def _download_feature(client, target_folder, s3_info):
             logger.warning(f"Could not find {key} in bucket {bucket}")
 
     return key
+
+
+def check_raw_data(api, project_id, state_type, min_cameras, bad_media):
+    """ Logs stats about raw data """
+    state_list = get_state_list(api, project_id, state_type, min_cameras, bad_media)
+    all_section_list = [sec for sec in api.get_section_list(project_id) if sec.tator_user_sections]
+
+    multi_section_list = [sec for sec in all_section_list if sec.name.endswith("_Trip")]
+    section_dict = {sec.tator_user_sections: sec for sec in all_section_list}
+
+    for sec in multi_section_list:
+        multis = api.get_media_list(project=project_id, section=sec.id)
+        seconds = 0
+        for media in multis:
+            if media.media_files.ids is None:
+                continue
+            singles = api.get_media_list(project=project_id, media_id=media.media_files.ids)
+            seconds += min(s.num_frames / s.fps for s in singles)
+
+        # TODO
+        # 2. Do something with `seconds`
+        # 3. ???
+        # 4. Profit!
 
 
 def check_and_download_features(api, client, project_id, state_type, target_folder, bad_media):
@@ -270,59 +295,60 @@ def check_tv_files(destination_folder, samples_by_vessel):
 
     logger.info(f"STATS:\n{pformat(stats)}")
 
-if __name__ == "__main__":
-    token = "TOKEN"
-    host = "https://www.tatorapp.com"
-    endpoint_url = "https://cvisionai-edf.s3-us-east-2.amazonaws.com/"
-    access_key = "ACCESS_KEY"
-    secret_key = "SECRET_KEY"
-    project_id = 31
-    state_type = 149
-    bad_media = [1521421, 1489066]
-    samples_by_vessel = {
-        "AF": {"train": 2000, "val": 200},
-        "LM": {"train": 1000, "val": 100},
-        "NA": {"train": 500, "val": 50},
-    }
-    check_fe = False
-    feature_map = None
-    feature_map_file = "feature_map.json"
-    download_folder = "/mnt/md0/Projects/ar_149"
-    gen_samples = False
-    sample_starts = None
-    sample_starts_file = "sample_starts.json"
-    gen_tv = False
-    val_trips = None
-    val_trips_file = "val_trips.json"
-    test_tv = True
-    gen_tv_final = False
-    tv_samples = None
-    tv_samples_file = "tv_samples.json"
-    extract_tv = False
-    destination_folder = "/mnt/md0/Projects/ar_149/samples"
-    check_tv = True
 
-    api = tator.get_api(token=token, host=host)
+if __name__ == "__main__":
+    parser = ArgumentParser(description="Extract samples from a Tator project")
+    parser.add_argument("config_file", help="Path to config file.")
+    args = parser.parse_args()
+
+    # Read the config file.
+    config = ConfigParser(os.environ)
+    config.read(args.config_file)
+    project_id = config["Media"]["ProjectId"]
+    state_type = config["Media"]["StateType"]
+    bad_media_str = config["Media"]["BadMedia"]
+    bad_media = [int(ele) for ele in bad_media_str.split(",")] if bad_media_str else []
+    feature_map_file = config["FeatureExtraction"]["FeatureMapFile"]
+    download_folder = config["FeatureExtraction"]["DownloadFolder"]
+    sample_starts_file = config["CollectSamples"]["SampleStartsFile"]
+    val_trips_file = config["GenValTrips"]["ValTripsFile"]
+    tv_samples_file = config["GenSamples"]["TvSamplesFile"]
+    destination_folder = config["ExtractSamples"]["DestinationFolder"]
+
+    # Default values
+    feature_map = None
+    sample_starts = None
+    val_trips = None
+    tv_samples = None
+
+    api = tator.get_api(
+        token=config["Credentials"]["TatorToken"], host=config["Credentials"]["TatorHost"]
+    )
     client = boto3.client(
         "s3",
-        endpoint_url=endpoint_url,
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
+        endpoint_url=config["Credentials"]["AwsEndpointUrl"],
+        aws_access_key_id=config["Credentials"]["AwsAccessKey"],
+        aws_secret_access_key=config["Credentials"]["AwsSecretKey"],
     )
 
-    if check_fe:
+    if config.getboolean("CheckRawData", "Run"):
+        check_raw_data(
+            api, project_id, state_type, config.getint("CheckRawData", "MinCameras"), bad_media
+        )
+
+    if config.getboolean("FeatureExtraction", "Run"):
         feature_map = check_and_download_features(
             api, client, project_id, state_type, download_folder, bad_media
         )
         with open(feature_map_file, "w") as fp:
             json.dump(feature_map, fp, indent=2)
 
-    if gen_samples:
+    if config.getboolean("CollectSamples", "Run"):
         sample_starts = gen_sample_starts(api, project_id, state_type, bad_media)
         with open(sample_starts_file, "w") as fp:
             json.dump(sample_starts, fp, indent=2)
 
-    if gen_tv:
+    if config.getboolean("GenValTrips", "Run"):
         if sample_starts is None:
             with open(sample_starts_file, "r") as fp:
                 sample_starts = json.load(fp)
@@ -331,7 +357,7 @@ if __name__ == "__main__":
         with open(val_trips_file, "w") as fp:
             json.dump(val_trips, fp, indent=2)
 
-    if test_tv:
+    if config.getboolean("GenValTrips", "TestTv"):
         if sample_starts is None:
             with open(sample_starts_file, "r") as fp:
                 sample_starts = json.load(fp)
@@ -341,7 +367,9 @@ if __name__ == "__main__":
 
         log_tv_stats(val_trips, sample_starts)
 
-    if gen_tv_final:
+    samples_by_vessel = json.loads(config["Media"]["SamplesByVessel"])
+
+    if config.getboolean("GenSamples", "Run"):
         if sample_starts is None:
             with open(sample_starts_file, "r") as fp:
                 sample_starts = json.load(fp)
@@ -356,7 +384,7 @@ if __name__ == "__main__":
         with open(tv_samples_file, "w") as fp:
             json.dump(tv_samples, fp, indent=2)
 
-    if extract_tv:
+    if config.getboolean("ExtractSamples", "Run"):
         if tv_samples is None:
             with open(tv_samples_file, "r") as fp:
                 tv_samples = json.load(fp)
@@ -366,5 +394,5 @@ if __name__ == "__main__":
 
         extract_tv_samples(tv_samples, feature_map, download_folder, destination_folder)
 
-    if check_tv:
+    if config.getboolean("ExtractSamples", "CheckTv"):
         check_tv_files(destination_folder, samples_by_vessel)

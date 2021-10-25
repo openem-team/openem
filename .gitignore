@@ -6,3 +6,4 @@ config/arm_packages/*
 *~
 \#*\#
 *.swp
+case-studies/ar_sample_generation/*.json

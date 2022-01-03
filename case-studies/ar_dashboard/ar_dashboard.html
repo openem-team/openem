@@ -31,6 +31,11 @@ td {
   border: 1px solid #a2afcd;
 }
 
+tr.highlight-row {
+  background-color: #3b424f;
+  color: #ffffff;
+}
+
 .main-div {
   background-color: #151b28;
 }
@@ -82,15 +87,27 @@ td {
 
 
 <div class="py-4">
-  <div id="truthHeader" class="d-flex h2 py-4">Truth Activity States</div>
-  <div id="f" class="main-div px-3 py-2 rounded-2">
-    <div class="d-flex flex-justify-center flex-column text-gray f2">
-      <div id="truthWrapper">
-        <div id="truthTable"></div>
-      </div>
+<div id="truthHeader" class="d-flex h2 py-4">Truth Activity States</div>
+<div id="f" class="main-div px-3 py-2 rounded-2">
+  <div class="d-flex flex-justify-center flex-column text-gray f2">
+    <div id="truthWrapper">
+      <div id="truthTable"></div>
     </div>
   </div>
+</div>
+</div>
+
+
+<div class="py-4">
+<div id="errorHeader" class="d-flex h2 py-4">Error Activity States</div>
+<div id="f" class="main-div px-3 py-2 rounded-2">
+  <div class="d-flex flex-justify-center flex-column text-gray f2">
+    <div id="errorWrapper">
+      <div id="errorTable"></div>
+    </div>
   </div>
+</div>
+</div>
 
 
 </main>
@@ -103,6 +120,15 @@ function setupTimeline() {
   var div = document.getElementById("tripTimeline");
   this.timeline = document.createElement("fancy-timeline");
   div.appendChild(this.timeline);
+
+  this.timeline.addEventListener("select", (evt) => {
+    this.createStateTable("truthTable", this.currentTrip.truthData, evt.detail.frame);
+  });
+}
+
+function highlightTruthStates(frame) {
+  // Highlight the rows that match
+
 }
 
 function setupTripSelection() {
@@ -209,16 +235,17 @@ function displayTripData() {
 
   this.timeline.updateData(stateData, this.currentTrip.globalMaxFrame);
 
-  createTripTruthTable();
+  createStateTable("truthTable", this.currentTrip.truthData, -1);
+  createStateTable("errorTable", this.currentTrip.errorData, -1);
 
   var tripTimelineHeaderDiv = document.getElementById("tripTimelineHeader");
   tripTimelineHeaderDiv.textContent = `${this.currentTrip.tripName} Activity Timeline`;
 }
 
-function createTripTruthTable() {
+function createStateTable(divId, stateData, frame) {
 
   // Clear out the table
-  var parent = document.getElementById("truthTable");
+  var parent = document.getElementById(divId);
   while (parent.firstChild) {
     parent.removeChild(parent.firstChild);
   }
@@ -274,7 +301,7 @@ function createTripTruthTable() {
   const tbody = document.createElement("tbody");
   table.appendChild(tbody);
 
-  for (const info of this.currentTrip.truthData) {
+  for (const info of stateData) {
     for (let idx = 0; idx < info.data.global_start_frame.length; idx++) {
 
       var linksWrapper;
@@ -326,6 +353,10 @@ function createTripTruthTable() {
       action.appendChild(document.createTextNode(info.data.end_multi_media_id[idx]));
       linksWrapper.appendChild(action);
       trData.appendChild(td);
+
+      if (frame <= info.data.global_end_frame[idx] && frame >= info.data.global_start_frame[idx]) {
+        trData.classList.add("highlight-row");
+      }
     }
   }
 }

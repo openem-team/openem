@@ -19,8 +19,8 @@ api = tator.get_api(**config)
 project_id = 31
 state_type = 149
 media_type = 55
+single_media_type = 53
 algorithm_name = "ResNet 50 Feature Extraction"  # Double check this
-
 
 # Define the vessels
 vessels = {}
@@ -32,6 +32,10 @@ vessel_tag_name_map = {}
 for name in vessels:
     vessel_tag_name_map[vessels[name]["tag"]] = name
 
+for vessel_name in vessels:
+    this_vessel = vessels[vessel_name]
+    this_vessel["sections"] = []
+
 sections = api.get_section_list(project=project_id)
 section_list = []
 for section in sections:
@@ -41,7 +45,7 @@ for section in sections:
         for tag in vessel_tag_name_map:
             vessel_name = vessel_tag_name_map[tag]
             if tag in section.name:
-                #vessels[vessel_name]["sections"].append(section)
+                vessels[vessel_name]["sections"].append(section)
                 section_list.append(section)
                 found_match = True
                 break
@@ -49,33 +53,47 @@ for section in sections:
         if not found_match:
             print(f"Did not find matching vessel for {section.name}")
             
-#for name in vessels:
-#    print(f"{name} - {len(vessels[name]['sections'])} trips")
+for name in vessels:
+    print(f"{name} - {len(vessels[name]['sections'])} trips")
 
 
-# Set the section ids here
-'''
-trips = [
-    "AF-20190806_Trip",
-    "AF-20190815_Trip",
-    "LM-20200824_Trip",
-    "LM-20200825_Trip",
-    "NA-20191007_Trip",
-    "NA-20191008_Trip",
-]
-'''
+print("Getting trip media")
+trip_media = {
+    sec.name: [
+        mv
+        for mv in api.get_media_list(project_id, type=media_type, section=sec.id)
+        if mv.media_files is not None and len(mv.media_files.ids) == 3
+    ]
+    for sec in section_list
+}
+print("done!")
 
-# Get list of sections
-#section_list = [sec for sec in api.get_section_list(project_id) if sec.name in trips]
+trip_ids = {sec_name: {mv.id: mv for mv in mv_lst} for sec_name, mv_lst in trip_media.items()}
+
+for sec_ids in trip_ids.values():
+    sec_ids_update = {}
+    for mv in sec_ids.values():
+        sec_ids_update.update((m_id, mv) for m_id in mv.media_files.ids)
+    sec_ids.update(sec_ids_update)
+
+trip_keys = [key for key in trip_ids.keys()]
 
 # Get 
 all_media_ids_by_trip = {section.name: set() for section in section_list}
 for sec in section_list:
-    states = api.get_state_list(
-        project=project_id,
-        section=sec.id,
-        type=state_type,
-    )
+    if list(trip_ids[sec.name].keys()) == []:
+        states = []
+    else:
+        states = []
+        for idx in range(0, len(trip_ids[sec.name].keys()), 100):
+            states_chunk = api.get_state_list(
+                project=project_id,
+                media_id=list(trip_ids[sec.name].keys())[idx:idx+100],
+                type=state_type,
+            )
+            states += states_chunk
+    print(f"Section: {sec.name}")
+    print(f"Number of ids: {len(trip_ids[sec.name].keys())}")
     print(f"Num States: {len(states)}")
     all_media_ids_by_trip[sec.name].update(mid for state in states for mid in state.media)
 
@@ -88,7 +106,7 @@ for trip, media_id_set in all_media_ids_by_trip.items():
     while start < len(media_id_list):
         id_sublist = media_id_list[start : start + step]
         pruned_media_ids_by_trip[trip].extend(
-            m.id for m in api.get_media_list(project_id, media_id=id_sublist, type=media_type)
+            m.id for m in api.get_media_list(project_id, media_id=id_sublist, type=single_media_type)
         )
         start += step
 
@@ -96,10 +114,11 @@ pruned_media_ids = [
     ele for media_id_set in pruned_media_ids_by_trip.values() for ele in media_id_set
 ]
 
+print(pruned_media_ids)
 # Uncomment to save to yaml file for inspection
 ###############################################
-with open("test.yaml", "w") as fp:
-    yaml.dump(pruned_media_ids_by_trip, fp)
+#with open("test.yaml", "w") as fp:
+#    yaml.dump(pruned_media_ids_by_trip, fp)
 
 # Uncomment to launch the algorithm
 ###################################

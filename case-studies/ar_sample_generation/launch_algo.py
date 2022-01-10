@@ -20,7 +20,7 @@ project_id = 31
 state_type = 149
 media_type = 55
 single_media_type = 53
-algorithm_name = "ResNet 50 Feature Extraction"  # Double check this
+algorithm_name = "ResNet50 Feature Extraction"  # Double check this
 
 # Define the vessels
 vessels = {}
@@ -114,7 +114,7 @@ pruned_media_ids = [
     ele for media_id_set in pruned_media_ids_by_trip.values() for ele in media_id_set
 ]
 
-print(pruned_media_ids)
+#print(pruned_media_ids)
 # Uncomment to save to yaml file for inspection
 ###############################################
 #with open("test.yaml", "w") as fp:

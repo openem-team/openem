@@ -151,7 +151,7 @@ class ResNet50FeatureExtractor:
             try:
                 img, frame_num = self._raw_queue.get(timeout=FRAME_TIMEOUT)
             except:
-                logger.info("Hit timeout retrieving from raw queue")
+                logger.info("Hit timeout retrieving from raw queue", exc_info=True)
                 self._done_event.wait()
                 self._stop_event.set()
             else:
@@ -211,7 +211,7 @@ class ResNet50FeatureExtractor:
                 try:
                     images, frames = self._get_frames(batch_size)
                 except queue.Empty:
-                    logger.info("timed out getting frames")
+                    logger.info("timed out getting frames", exc_info=True)
                     self._done_event.set()
                     break
 
@@ -334,7 +334,7 @@ def main(
                             logger.info(f"{media_unique_name} download progress: {progress}%")
                             last_progress = floor(progress)
                 except:
-                    logger.warning(f"{media_unique_name} did not download!")
+                    logger.warning(f"{media_unique_name} did not download!", exc_info=True)
                     media_dict["download_attempts_rem"] -= 1
                     continue
 
@@ -458,7 +458,7 @@ def main(
             try:
                 client.upload_file(media_dict["df_file"], s3_bucket, uuid_filename)
             except:
-                logger.warn(f"Unable to upload file {uuid_filename} to s3")
+                logger.warn(f"Unable to upload file {uuid_filename} to s3", exc_info=True)
                 api.update_media(int(media_id), {"attributes": {attribute_name: ""}})
                 media_dict["upload_attempts_rem"] -= 1
                 continue

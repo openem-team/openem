@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+from math import isnan
 import os
 import pandas as pd
 from statistics import median
@@ -14,19 +15,12 @@ import numpy as np
 
 import tator
 
+
+MAX_CHUNKED_CREATE_RETRIES = 5
+
+
 if torch.cuda.is_available():
     torch.set_default_tensor_type("torch.cuda.FloatTensor")
-
-
-logging.basicConfig(
-    handlers=[logging.StreamHandler()],
-    format="%(asctime)s %(levelname)s:%(message)s",
-    datefmt="%m/%d/%Y %I:%M:%S %p",
-    level=logging.INFO,
-)
-
-
-logger = logging.getLogger(__name__)
 
 
 class ModelManager:
@@ -81,7 +75,7 @@ class ModelManager:
                 hidden = tuple(ele.cuda() for ele in hidden)
             self.hidden = hidden
 
-    def __init__(self, params: dict, torch_device: torch.device):
+    def __init__(self, params: dict, torch_device: torch.device, logger: logging.Logger):
         """
         Format:
 
@@ -95,10 +89,13 @@ class ModelManager:
           output_dim: !!int
           num_layers: !!int
           dropout: !!float
+
+        ar_states: ["list", "of", "state", "names"]
         ```
         """
         self._ar_states = params["ar_states"]
         self._is_cuda = torch_device.type == "cuda"
+        self._logger = logger
         self._softmax_norm = nn.Softmax(dim=1)
 
         self._model = ModelManager.LSTMAR(
@@ -122,17 +119,11 @@ class ModelManager:
     def __call__(self, sample: torch.Tensor) -> Dict[str, float]:
         """
         Runs inference on a sample and returns a dict mapping state names to detection
-        probabilities.
+        probabilities. Call to self._model() may raise an exception.
         """
         self._init_hidden()
-        try:
-            outs = self._model(sample)
-        except:
-            logger.info(f"Model failed to process sample", exc_info=True)
-            raise
-
+        outs = self._model(sample)
         outs = self._softmax_norm(outs).view(-1).tolist()
-
         return {state: prob for state, prob in zip(self._ar_states, outs)}
 
 
@@ -151,6 +142,7 @@ class SampleGenerator:
         work_dir: str,
         torch_device: torch.device,
         video_order: List[int],
+        logger: logging.Logger,
     ):
         # The project ID where the media reside
         self._project = project_id
@@ -171,6 +163,8 @@ class SampleGenerator:
         # `multiview.media_files.ids` list. For example, a list of ids [2, 4, 8, 16] with a video
         # order [3, 2, 0, 1] would produce the id ordering [16, 8, 2, 4].
         self._video_order = video_order
+
+        self._logger = logger
 
     @staticmethod
     def _process_stitch_map(stitch_map_str: Optional[str]) -> List[Tuple[int, int]]:
@@ -201,15 +195,22 @@ class SampleGenerator:
         assert len(blank_starts) == len(video_starts)
         return [(start, end) for start, end in zip(blank_starts, video_starts)]
 
-    def get_associated_media_ids(self, multiview_id: int) -> List[int]:
+    def get_associated_media_ids(self, multiview_id: int) -> Tuple[List[int], int]:
         """
-        Looks up a multiview from its ID and returns a list of media ids including the multiview and
-        all of its media file ids.
+        Looks up a multiview from its ID and returns a tuple with the list of media ids including
+        the multiview and all of its media file ids and the number of individual videos composing
+        this multiview.
         """
         multiview = self._api.get_media(multiview_id)
+
+        if multiview.media_files.ids is None:
+            # These aren't the droids you're looking for
+            return [], 0
+
         media_ids = list(multiview.media_files.ids)
+        num_videos = len(media_ids)
         media_ids.append(multiview_id)
-        return media_ids
+        return media_ids, num_videos
 
     @staticmethod
     def _get_max_frame(feature_filenames):
@@ -243,20 +244,24 @@ class SampleGenerator:
         if any(len(gaps) != n_gaps for gaps in frame_gaps):
             raise ValueError(f"Not all media contain the same number of frame gaps, aborting")
 
-        global_frame_gaps = [
-            (min(gap[idx][0] for gap in frame_gaps), max(gap[idx][1] for gap in frame_gaps))
-            for idx in range(n_gaps)
-        ] if n_gaps > 0 else []
+        global_frame_gaps = (
+            [
+                (min(gap[idx][0] for gap in frame_gaps), max(gap[idx][1] for gap in frame_gaps))
+                for idx in range(n_gaps)
+            ]
+            if n_gaps > 0
+            else []
+        )
 
         # Download feature files from S3
         feature_filenames = []
         for media_id in media_ids:
-            logger.info(f"Loading features from {media_id}...")
+            self._logger.info(f"Loading features from {media_id}...")
             vid = media_dict[media_id]
             try:
                 feature_s3 = json.loads(vid.attributes["feature_s3"])
             except:
-                logger.info(
+                self._logger.info(
                     f"Could not read bucket/key information for {media_id}, aborting!",
                     exc_info=True,
                 )
@@ -267,13 +272,13 @@ class SampleGenerator:
             feature_filename = os.path.join(self._work_dir, key)
 
             if self._client.list_objects_v2(Bucket=bucket, Prefix=key)["KeyCount"] == 1:
-                logger.info(f"Downloading {feature_filename}")
+                self._logger.info(f"Downloading {feature_filename}")
                 self._client.download_file(bucket, key, feature_filename)
-                logger.info(f"{feature_filename} downloaded!")
+                self._logger.info(f"{feature_filename} downloaded!")
                 feature_filenames.append(feature_filename)
             else:
                 msg = f"Could not find '{key}' in bucket '{bucket}'"
-                logger.warning(msg)
+                self._logger.warning(msg)
                 raise ValueError(msg)
 
         # Get global FPS
@@ -281,7 +286,7 @@ class SampleGenerator:
             fps = media_fps[0]
         else:
             fps = round(median(media_fps))
-            logger.warning(f"Media FPS differ ({media_fps}), using median value {fps}.")
+            self._logger.warning(f"Media FPS differ ({media_fps}), using median value {fps}.")
 
         # Generate samples
         progress_thresh = 10
@@ -317,7 +322,7 @@ class SampleGenerator:
                     for feature_filename in feature_filenames
                 ]
             except:
-                logger.info(f"Problem subsampling features.", exc_info=True)
+                self._logger.info(f"Problem subsampling features.", exc_info=True)
                 raise
 
             sample = pd.concat(sample_parts, axis=1)
@@ -333,7 +338,7 @@ class SampleGenerator:
             progress = sample_start_frame / max_frame * 100
             if progress > progress_thresh:
                 progress_thresh += 10
-                logger.info(f"Progress {progress:.2f}%")
+                self._logger.info(f"Progress {progress:.2f}%")
 
             yield sample_start_frame, sample_tensor
 
@@ -362,6 +367,7 @@ def main(
     multiview_ids: List[int],
     sample_size: int,
     video_order: List[int],
+    logger: logging.Logger,
     gpu_num: int = 0,
 ):
 
@@ -384,14 +390,22 @@ def main(
     with torch.no_grad():
 
         # Initialize models and sample generator
-        model_manager = ModelManager(model_config_params, torch_device)
+        model_manager = ModelManager(model_config_params, torch_device, logger)
         sample_generator = SampleGenerator(
-            project_id, api, client, work_dir, torch_device, video_order
+            project_id, api, client, work_dir, torch_device, video_order, logger
         )
+
+        desired_num_videos = len(video_order)
 
         for multiview_id in multiview_ids:
             logger.info(f"Starting inference on {multiview_id}")
-            media_ids = sample_generator.get_associated_media_ids(multiview_id)
+            media_ids, actual_num_videos = sample_generator.get_associated_media_ids(multiview_id)
+
+            if actual_num_videos != desired_num_videos:
+                logger.warning(
+                    f"Multiview {multiview_id} contains {actual_num_videos}, but the desired number is {desired_num_videos}, skipping inference..."
+                )
+                continue
 
             state_spec_list = []
             state_header = {
@@ -401,30 +415,81 @@ def main(
                 "version": upload_version,
             }
 
-            for frame, sample in sample_generator(multiview_id, sample_size):
-                activities = model_manager(sample)
+            # Perform activity inference on each sample of this multiview
+            samples = sample_generator(multiview_id, sample_size)
+            frame = -1
+            sample = None
+            while True:
+                try:
+                    # Use the `samples` generator with `next()` in a while True in order to put it
+                    # inside of a `try...except` block, since it is possible for the generator to
+                    # raise an exception.
+                    frame, sample = next(samples)
+                except StopIteration:
+                    # Expected end of generator
+                    break
+                except:
+                    logger.error(
+                        f"Failed getting sample from {multiview_id}; last successful sample from frame {frame}",
+                        exc_info=True,
+                    )
+                    break
+
+                try:
+                    activities = model_manager(sample)
+                except:
+                    logger.error(
+                        f"Caught exception during inference, skipping sample in {multiview_id} starting at frame {frame}",
+                        exc_info=True,
+                    )
+                    continue
 
                 state = {**state_header, **activities}
                 state["frame"] = frame
+
+                if any(isnan(value) for value in activities.values()):
+                    logger.error(
+                        f"Activities in {multiview_id} contain a NaN, discarding result: {state}"
+                    )
+                    continue
+
                 state_spec_list.append(state)
 
+            # Upload all inferred states
             n_states = len(state_spec_list)
             logger.info(f"Generated {n_states} for {multiview_id}, uploading...")
             states_uploaded = 0
-            try:
-                for response in tator.util.chunked_create(
-                    api.create_state_list, project_id, state_spec=state_spec_list
-                ):
-                    logger.info(response.message)
-                    states_uploaded += len(response.id)
-            except:
-                logger.info(
-                    f"Failed during chunked create after uploading {states_uploaded} states, moving on...",
-                    exc_info=True,
-                )
+            for idx in range(MAX_CHUNKED_CREATE_RETRIES):
+                try:
+                    for response in tator.util.chunked_create(
+                        api.create_state_list, project_id, state_spec=state_spec_list
+                    ):
+                        logger.info(response.message)
+                        states_uploaded += len(response.id)
+                except:
+                    logger.error(
+                        f"Failed attempt {idx + 1} of {MAX_CHUNKED_CREATE_RETRIES} state chunked create for {multiview_id}, "
+                        f"deleting {states_uploaded} states{' and trying again' if idx + 1 < MAX_CHUNKED_CREATE_RETRIES else ''}...",
+                        exc_info=True,
+                    )
+                    try:
+                        api.delete_state_list(
+                            project_id, media_id=[multiview_id], version=[upload_version]
+                        )
+                    except:
+                        logger.error(
+                            f"Failed to delete uploaded states on {multiview_id} (version {upload_version}), needs manual intervention!",
+                            exc_info=True,
+                        )
+                        break
+                else:
+                    logger.info(
+                        f"{states_uploaded} (of {n_states}) states for {multiview_id} uploaded successfully!"
+                    )
+                    break
             else:
-                logger.info(
-                    f"{states_uploaded} (of {n_states}) states for {multiview_id} uploaded successfully!"
+                logger.error(
+                    f"Failed to upload states for multiview {multiview_id} after {MAX_CHUNKED_CREATE_RETRIES}, moving on..."
                 )
 
 
@@ -462,6 +527,15 @@ if __name__ == "__main__":
     with open(args.model_config_file, "r") as fp:
         model_config_params = yaml.load(fp)
 
+    log_filename = os.path.join(args.work_dir, "ar_inference.log")
+    logging.basicConfig(
+        handlers=[logging.FileHandler(log_filename, mode="w"), logging.StreamHandler()],
+        format="%(asctime)s %(levelname)s:%(message)s",
+        datefmt="%m/%d/%Y %I:%M:%S %p",
+        level=logging.INFO,
+    )
+    logger = logging.getLogger(__file__)
+
     main(
         access_key=args.access_key,
         secret_key=args.secret_key,
@@ -478,4 +552,5 @@ if __name__ == "__main__":
         multiview_ids=args.multiview_ids,
         sample_size=args.sample_size,
         video_order=args.video_order,
+        logger=logger,
     )

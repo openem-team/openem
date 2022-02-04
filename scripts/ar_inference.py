@@ -351,6 +351,19 @@ class SampleGenerator:
             os.remove(feature_filename)
 
 
+def _get_extant_state_frames(api, media_id, project_id, state_type, version):
+    """
+    Gets the set of start frames for existing states from `version` on media `media_id` of type
+    `state_type`.
+    """
+    return set(
+        state.frame
+        for state in api.get_state_list(
+            project_id, type=state_type, media_id=[media_id], version=[version]
+        )
+    )
+
+
 def main(
     access_key: str,
     secret_key: str,
@@ -417,6 +430,9 @@ def main(
 
             # Perform activity inference on each sample of this multiview
             samples = sample_generator(multiview_id, sample_size)
+            extant_state_frames = _get_extant_state_frames(
+                api, multiview_id, project_id, state_type, upload_version
+            )
             frame = -1
             sample = None
             while True:
@@ -434,6 +450,14 @@ def main(
                         exc_info=True,
                     )
                     break
+
+                if frame in extant_state_frames:
+                    # Idempotency check: an inferred state for this frame range already exists, skip
+                    # it.
+                    logger.warning(
+                        f"Found extant state for frame {frame} in {multiview_id}, skipping inference..."
+                    )
+                    continue
 
                 try:
                     activities = model_manager(sample)

@@ -126,6 +126,10 @@ class ModelManager:
         outs = self._softmax_norm(outs).view(-1).tolist()
         return {state: prob for state, prob in zip(self._ar_states, outs)}
 
+    def empty_activities(self) -> Dict[str, float]:
+        """Returns the same dict mapping as __call__, but with all zeros for results"""
+        return {state: 0.0 for state in self._ar_states}
+
 
 class SampleGenerator:
     """
@@ -137,6 +141,8 @@ class SampleGenerator:
     def __init__(
         self,
         project_id: int,
+        state_type: int,
+        version: int,
         api: tator.api,
         client: boto3.client,
         work_dir: str,
@@ -146,6 +152,12 @@ class SampleGenerator:
     ):
         # The project ID where the media reside
         self._project = project_id
+
+        # The state type to create from the inference
+        self._state_type = state_type
+
+        # The version to which the states will be uploaded
+        self._version = version
 
         # The tator.api client
         self._api = api
@@ -195,7 +207,7 @@ class SampleGenerator:
         assert len(blank_starts) == len(video_starts)
         return [(start, end) for start, end in zip(blank_starts, video_starts)]
 
-    def get_associated_media_ids(self, multiview_id: int) -> Tuple[List[int], int]:
+    def _get_associated_media_ids(self, multiview_id: int) -> Tuple[List[int], int]:
         """
         Looks up a multiview from its ID and returns a tuple with the list of media ids including
         the multiview and all of its media file ids and the number of individual videos composing
@@ -216,6 +228,53 @@ class SampleGenerator:
     def _get_max_frame(feature_filenames):
         return max(pd.read_hdf(fn, start=-1).iloc[-1].name for fn in feature_filenames)
 
+    @staticmethod
+    def _remove_feature_files(filenames):
+        for filename in filenames:
+            os.remove(filename)
+
+    def _download_feature_files(self, media_ids, media_dict):
+        """
+        Downloads the previously extracted feature files for each video from s3. Returns the list of
+        filenames in the desired order.
+        """
+        filenames = []
+        try:
+            for media_id in media_ids:
+                self._logger.info(f"Loading features from {media_id}...")
+                vid = media_dict[media_id]
+                feature_str = str(vid.attributes["feature_s3"])
+                try:
+                    feature_s3 = json.loads(feature_str)
+                except:
+                    self._logger.info(
+                        f"Could not read bucket/key information for {media_id}: '{feature_str}'",
+                        exc_info=True,
+                    )
+                    raise
+
+                key = feature_s3["key"]
+                bucket = feature_s3["bucket"]
+                feature_filename = os.path.join(self._work_dir, key)
+
+                try:
+                    self._logger.info(f"Downloading {feature_filename}")
+                    self._client.download_file(bucket, key, feature_filename)
+                    self._logger.info(f"{feature_filename} downloaded!")
+                    filenames.append(feature_filename)
+                except:
+                    self._logger.warning(
+                        f"Could not find '{key}' in bucket '{bucket}'", exc_info=True
+                    )
+                    raise
+        except:
+            # Clean up before raising
+            self._remove_feature_files(filenames)
+
+            raise
+
+        return filenames
+
     def __call__(
         self, multiview_id: int, sample_size: int
     ) -> Generator[Tuple[int, torch.Tensor], None, None]:
@@ -227,11 +286,24 @@ class SampleGenerator:
         # Get media associated with given multiview id
         multiview = self._api.get_media(multiview_id)
         media_ids = list(multiview.media_files.ids)
+
+        # Put them in the required order
         media_ids = [media_ids[idx] for idx in self._video_order]
+
+        # Get media metadata
         media_dict = {
             vid.id: vid for vid in self._api.get_media_list(self._project, media_id=media_ids)
         }
-        media_fps = [vid.fps for vid in media_dict.values()]
+        media_fps = [round(vid.fps) for vid in media_dict.values()]
+        extant_state_frames = set(
+            state.frame
+            for state in self._api.get_state_list(
+                self._project,
+                type=self._state_type,
+                media_id=[multiview_id],
+                version=[self._version],
+            )
+        )
 
         # Parse frame gaps
         frame_gaps = [
@@ -254,32 +326,7 @@ class SampleGenerator:
         )
 
         # Download feature files from S3
-        feature_filenames = []
-        for media_id in media_ids:
-            self._logger.info(f"Loading features from {media_id}...")
-            vid = media_dict[media_id]
-            try:
-                feature_s3 = json.loads(vid.attributes["feature_s3"])
-            except:
-                self._logger.info(
-                    f"Could not read bucket/key information for {media_id}, aborting!",
-                    exc_info=True,
-                )
-                raise
-
-            key = feature_s3["key"]
-            bucket = feature_s3["bucket"]
-            feature_filename = os.path.join(self._work_dir, key)
-
-            if self._client.list_objects_v2(Bucket=bucket, Prefix=key)["KeyCount"] == 1:
-                self._logger.info(f"Downloading {feature_filename}")
-                self._client.download_file(bucket, key, feature_filename)
-                self._logger.info(f"{feature_filename} downloaded!")
-                feature_filenames.append(feature_filename)
-            else:
-                msg = f"Could not find '{key}' in bucket '{bucket}'"
-                self._logger.warning(msg)
-                raise ValueError(msg)
+        feature_filenames = self._download_feature_files(media_ids, media_dict)
 
         # Get global FPS
         if all(fps == media_fps[0] for fps in media_fps):
@@ -314,25 +361,18 @@ class SampleGenerator:
                     global_frame_gaps.pop(0)
                     continue
 
-            # Concatenate the samples from each video into a single feature vector per frame
-            condition = [f"index in {list(range(sample_start_frame, sample_end_frame + 1))}"]
-            try:
-                sample_parts = [
-                    pd.read_hdf(feature_filename, where=condition)
-                    for feature_filename in feature_filenames
-                ]
-            except:
-                self._logger.info(f"Problem subsampling features.", exc_info=True)
-                raise
+            if sample_start_frame in extant_state_frames:
+                # Idempotency check: an inferred state for this frame range already exists, skip
+                # it.
+                logger.warning(
+                    f"Found extant state for frame {sample_start_frame} in {multiview_id}, skipping inference..."
+                )
+            else:
+                sample_tensor = self._tensor_from_features(
+                    feature_filenames, sample_start_frame, sample_end_frame
+                )
 
-            sample = pd.concat(sample_parts, axis=1)
-            sample.columns = list(range(len(sample.columns)))
-            sample_batch = [torch.Tensor(sample.iloc[idx].to_numpy()) for idx in range(len(sample))]
-            sample_tensor = (
-                torch.cat(sample_batch)
-                .view(len(sample_batch), 1, -1)
-                .to(self._torch_device, non_blocking=True)
-            )
+                yield sample_start_frame, sample_tensor
 
             # Log progress periodically
             progress = sample_start_frame / max_frame * 100
@@ -340,28 +380,33 @@ class SampleGenerator:
                 progress_thresh += 10
                 self._logger.info(f"Progress {progress:.2f}%")
 
-            yield sample_start_frame, sample_tensor
-
             # Update start and end frames for next iteration
             sample_start_frame = sample_end_frame + 1
             sample_end_frame = sample_start_frame + sample_size_frames - 1
 
         # Clean up after sample generation
-        for feature_filename in feature_filenames:
-            os.remove(feature_filename)
+        self._remove_feature_files(feature_filenames)
 
+    def _tensor_from_features(self, feature_filenames, sample_start_frame, sample_end_frame):
+        # Concatenate the samples from each video into a single feature vector per frame
+        condition = [f"index in {list(range(sample_start_frame, sample_end_frame + 1))}"]
+        try:
+            sample_parts = [
+                pd.read_hdf(feature_filename, where=condition)
+                for feature_filename in feature_filenames
+            ]
+        except:
+            self._logger.info(f"Problem subsampling features.", exc_info=True)
+            raise
 
-def _get_extant_state_frames(api, media_id, project_id, state_type, version):
-    """
-    Gets the set of start frames for existing states from `version` on media `media_id` of type
-    `state_type`.
-    """
-    return set(
-        state.frame
-        for state in api.get_state_list(
-            project_id, type=state_type, media_id=[media_id], version=[version]
+        sample = pd.concat(sample_parts, axis=1)
+        sample.columns = list(range(len(sample.columns)))
+        sample_batch = [torch.Tensor(sample.iloc[idx].to_numpy()) for idx in range(len(sample))]
+        return (
+            torch.cat(sample_batch)
+            .view(len(sample_batch), 1, -1)
+            .to(self._torch_device, non_blocking=True)
         )
-    )
 
 
 def main(
@@ -405,14 +450,22 @@ def main(
         # Initialize models and sample generator
         model_manager = ModelManager(model_config_params, torch_device, logger)
         sample_generator = SampleGenerator(
-            project_id, api, client, work_dir, torch_device, video_order, logger
+            project_id,
+            state_type,
+            upload_version,
+            api,
+            client,
+            work_dir,
+            torch_device,
+            video_order,
+            logger,
         )
 
         desired_num_videos = len(video_order)
 
         for multiview_id in multiview_ids:
             logger.info(f"Starting inference on {multiview_id}")
-            media_ids, actual_num_videos = sample_generator.get_associated_media_ids(multiview_id)
+            media_ids, actual_num_videos = sample_generator._get_associated_media_ids(multiview_id)
 
             if actual_num_videos != desired_num_videos:
                 logger.warning(
@@ -430,9 +483,6 @@ def main(
 
             # Perform activity inference on each sample of this multiview
             samples = sample_generator(multiview_id, sample_size)
-            extant_state_frames = _get_extant_state_frames(
-                api, multiview_id, project_id, state_type, upload_version
-            )
             frame = -1
             sample = None
             while True:
@@ -451,14 +501,6 @@ def main(
                     )
                     break
 
-                if frame in extant_state_frames:
-                    # Idempotency check: an inferred state for this frame range already exists, skip
-                    # it.
-                    logger.warning(
-                        f"Found extant state for frame {frame} in {multiview_id}, skipping inference..."
-                    )
-                    continue
-
                 try:
                     activities = model_manager(sample)
                 except:
@@ -475,7 +517,7 @@ def main(
                     logger.error(
                         f"Activities in {multiview_id} contain a NaN, discarding result: {state}"
                     )
-                    continue
+                    state.update(model_manager.empty_activities())
 
                 state_spec_list.append(state)
 

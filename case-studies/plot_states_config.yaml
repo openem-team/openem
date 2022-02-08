@@ -10,15 +10,28 @@ data_config:
   gt_versions: [51] # The version in which the annotated states live
   media_type: 55 # The multivideo type id
   versions: # The versions in which the inferred states live; keys are version names
-    AF: [211]
-    NA: [210]
-    LM: [212]
+    AF: [253]
+    NA: [251]
+    LM: [252]
   trips: # The list of section names to plot
-  - "AF-20190806_Trip"
-  - "AF-20190815_Trip"
-  - "LM-20200824_Trip"
-  - "LM-20200825_Trip"
-  - "NA-20191007_Trip"
+  - "AF-20200901_Trip"
+  - "AF-20200727_Trip"
+  - "AF-20200818_Trip"
+  - "AF-20200804_Trip"
+  - "AF-20200819_Trip"
+  - "AF-20200802_Trip"
+  - "AF-20200730_Trip"
+  - "AF-20200721_Trip"
+  - "AF-20190808_Trip"
+  - "LM-20200827_Trip"
+  - "LM-20190918_Trip"
+  - "LM-20200801_Trip"
+  - "LM-20200816_Trip"
+  - "LM-20200810_Trip"
+  - "LM-20191020_Trip"
+  - "LM-20190910_Trip"
+  - "LM-20200819_Trip"
+  - "NA-20191006_Trip"
   - "NA-20191008_Trip"
   activities: # The choices from the activities to visualize
   - "Background"

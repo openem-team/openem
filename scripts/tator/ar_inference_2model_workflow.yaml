@@ -23,18 +23,6 @@ spec:
     - - name: worker
         template: worker
   - name: worker
-    inputs:
-      artifacts:
-      - name: config
-        path: /data/config.yaml
-        raw:
-          data: |
-            data_image: "cvisionai/ar_inference:lm"
-            state_type_id: 159
-            sample_size: 60
-            attribute_name: "feature_s3"
-            upload_version: 212
-            video_order: [2, 1, 0] # The video order in which the features should be concatenated
     container:
       image: "cvisionai/openem_pytorch:latest"
       imagePullPolicy: Always
@@ -54,18 +42,24 @@ spec:
         value: "" # Fill in with s3 secret access key
       - name: S3_BUCKET
         value: "" # Fill in with existing bucket name
+      - name: TATOR_ATTRIBUTE_NAME
+        value: "feature_s3"
       - name: ENDPOINT_URL
         value: "" # Fill in with s3 endpoint
+      - name: STATE_TYPE
+        value: "90" # The type of state to generate
+      - name: MODEL_CONFIG_FILE
+        value: "" # The location of the model configuration in the image
+      - name: SAMPLE_SIZE
+        value: "60" # The size of each sample from which to infer activities, in seconds
+      - name: VIDEO_ORDER
+        value: "3,2,0,1" # The video order in which the features should be concatenated
       - name: TATOR_PROJECT_ID
         value: "{{workflow.parameters.project_id}}"
       - name: TATOR_WORK_DIR
         value: "/work"
-      - name: CONFIG_FILE
-        value: "/data/config.yaml"
       volumeMounts:
       - name: workdir
         mountPath: /work
-      - name: dockersock
-        mountPath: /var/run/docker.sock
       command: [python3]
-      args: ["/scripts/tator/ar_inference_entry.py"]
+      args: ["/scripts/tator/ar_inference_2model_entry.py"]

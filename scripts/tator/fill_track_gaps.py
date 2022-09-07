@@ -13,6 +13,7 @@ import threading
 import time
 import sys
 import urllib.parse
+from typing import List
 from types import SimpleNamespace
 
 import numpy as np
@@ -318,6 +319,119 @@ def extend_track(
             tator_api.delete_localization(id=loc_id)
         raise ValueError("Problem updating state with new localizations")
 
+def calc_interpolation_params(
+    det1 : tator.models.LocalizationSpec,
+    det2 : tator.models.LocalizationSpec) -> List:
+    """ Calculates interpolation params between detections
+    """
+    frame_1 = det1.frame
+    frame_2 = det2.frame
+    frame_delta = frame_1 - frame_2
+    mx = (det2.x + det2.width/2) - (det1.x + det1.width/2)
+    my = (det2.y + det2.height/2) - (det1.y + det1.height/2)
+    mw = det2.width - det1.width
+    mh = det2.height - det1.height
+
+    return frame_delta, mx, my, mw, mh
+
+def linearly_interpolate_sparse_track(
+    tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
+        media_id: int,
+        state_id: int) -> None:
+    """ Fills in gaps of detections for the given track
+
+    :param tator_api: Connection to Tator REST API
+    :param media_id: Media ID associated with the track
+    :param state_id: State/track ID to extend
+
+    This checks for the existence of a track with sparse detections. For every pair
+    of detections, it will calculate a linear interpolation of size and position
+    between the pair, and fill in the gaps.
+
+    """
+
+    media = tator_api.get_media(id=media_id)
+    track = tator_api.get_state(id=state_id)
+    detections = {}
+    detection_frames = []
+    for detection_id in track.localizations:
+        det = tator_api.get_localization(id=detection_id)
+        if det.frame not in detections:
+            detections[det.frame] = [det]
+        else:
+            detections[det.frame].append(det)
+            detection_frames.append(det.frame)
+
+    detection_pairs = []
+    # Find consecutive dets with gaps
+    for i,frame in enumerate(sorted(detection_frames)):
+        if i + 1 >= len(detection_frames):
+            break
+        if detection_frames[i+1] - frame > 1:
+            detection_pairs.append((frame, detection_frames[i+1]))
+
+    # Calc inerpolation params for pairs
+    interpolation_params = []
+    for det_pair in detection_pairs:
+        det1 = detections.get(det_pair[0])
+        det2 = detections.get(det_pair[1])
+        det_pair_params = calc_interpolation_params(det1, det2)
+        interpolation_params.append(det_pair_params)
+
+    # Create interpolated detections for pairs
+
+    for det_pair, params in zip (detection_pairs,interpolation_params):
+        frame_start = det_pair[0] + 1
+        frame_delta, mx, my, mw, mh = params
+        det_start = detections.get(frame_start)
+
+        localizations = []
+        for frame in range(frame_delta - 1):
+
+            x = 0.0 if det.x < 0 else det_start.x + det_start.width/2 + mx*(frame+1) - (det_start.width + mw*(frame+1))/2
+            y = 0.0 if det.y < 0 else det_start.y + det_start.height/2 + my*(frame+1) - (det_start.height + mh*(frame+1))/2
+
+            width = 1.0 - x if det.x + det.width > 1.0 else det_start.width + mw*(frame+1)
+            height = 1.0 - y if det.y + det.height > 1.0 else det_start.height + mh*(frame+1)
+
+            detection_spec = dict(
+                media_id=media,
+                type=det_start.meta,
+                frame=frame_start + frame + 1,
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+                **det_start.attributes)
+
+            localizations.append(detection_spec)
+
+        # These are encapsulated in try/catch blocks to delete newly created localizations
+        # if something goes awry
+        created_ids = []
+        try:
+            for response in tator.util.chunked_create(
+                    tator_api.create_localization_list,
+                    media.project,
+                    localization_spec=localizations):
+                created_ids += response.id
+
+        except:
+            for loc_id in created_ids:
+                tator_api.delete_localization(id=loc_id)
+            created_ids = []
+            raise ValueError("Problem creating new localizations")
+
+        try:
+            if len(created_ids) > 0:
+                tator_api.update_state(id=state_id, state_update={'localization_ids_add': created_ids})
+
+        except:
+            for loc_id in created_ids:
+                tator_api.delete_localization(id=loc_id)
+            raise ValueError("Problem updating state with new localizations")
+
+    
 def fill_sparse_track(
         tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
         media_id: int,

@@ -400,7 +400,7 @@ def linearly_interpolate_sparse_track(
                 y=y,
                 width=width,
                 height=height,
-                version=28,
+                version=det_start.version,
                 **det_start.attributes)
 
             localizations.append(detection_spec)

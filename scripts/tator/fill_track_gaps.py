@@ -326,13 +326,13 @@ def calc_interpolation_params(
     """
     frame_1 = det1.frame
     frame_2 = det2.frame
-    frame_delta = frame_1 - frame_2
+    frame_delta = frame_2 - frame_1
     mx = (det2.x + det2.width/2) - (det1.x + det1.width/2)
     my = (det2.y + det2.height/2) - (det1.y + det1.height/2)
     mw = det2.width - det1.width
     mh = det2.height - det1.height
 
-    return frame_delta, mx, my, mw, mh
+    return frame_delta, mx/frame_delta, my/frame_delta, mw/frame_delta, mh/frame_delta
 
 def linearly_interpolate_sparse_track(
     tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
@@ -358,10 +358,9 @@ def linearly_interpolate_sparse_track(
         det = tator_api.get_localization(id=detection_id)
         if det.frame not in detections:
             detections[det.frame] = [det]
-        else:
-            detections[det.frame].append(det)
             detection_frames.append(det.frame)
 
+    detection_frames.sort()
     detection_pairs = []
     # Find consecutive dets with gaps
     for i,frame in enumerate(sorted(detection_frames)):
@@ -370,24 +369,23 @@ def linearly_interpolate_sparse_track(
         if detection_frames[i+1] - frame > 1:
             detection_pairs.append((frame, detection_frames[i+1]))
 
+    
     # Calc inerpolation params for pairs
     interpolation_params = []
     for det_pair in detection_pairs:
-        det1 = detections.get(det_pair[0])
-        det2 = detections.get(det_pair[1])
+        det1 = detections.get(det_pair[0])[0]
+        det2 = detections.get(det_pair[1])[0]
         det_pair_params = calc_interpolation_params(det1, det2)
         interpolation_params.append(det_pair_params)
 
     # Create interpolated detections for pairs
-
     for det_pair, params in zip (detection_pairs,interpolation_params):
         frame_start = det_pair[0] + 1
         frame_delta, mx, my, mw, mh = params
-        det_start = detections.get(frame_start)
+        det_start = detections.get(frame_start-1)[0]
 
         localizations = []
         for frame in range(frame_delta - 1):
-
             x = 0.0 if det.x < 0 else det_start.x + det_start.width/2 + mx*(frame+1) - (det_start.width + mw*(frame+1))/2
             y = 0.0 if det.y < 0 else det_start.y + det_start.height/2 + my*(frame+1) - (det_start.height + mh*(frame+1))/2
 
@@ -395,13 +393,14 @@ def linearly_interpolate_sparse_track(
             height = 1.0 - y if det.y + det.height > 1.0 else det_start.height + mh*(frame+1)
 
             detection_spec = dict(
-                media_id=media,
+                media_id=media_id,
                 type=det_start.meta,
-                frame=frame_start + frame + 1,
+                frame=frame_start + frame,
                 x=x,
                 y=y,
                 width=width,
                 height=height,
+                version=28,
                 **det_start.attributes)
 
             localizations.append(detection_spec)
@@ -430,7 +429,6 @@ def linearly_interpolate_sparse_track(
             for loc_id in created_ids:
                 tator_api.delete_localization(id=loc_id)
             raise ValueError("Problem updating state with new localizations")
-
     
 def fill_sparse_track(
         tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,

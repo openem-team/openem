@@ -8,7 +8,7 @@ To utilize this applet in a particular Tator project, follow the installation in
 # Installation
 
 ## Applet
-Register this [applet](https://github.com/openem-team/openem/blob/master/tator_applets/fill_track_gaps/fill_track_gaps_applet.html)in Tator using the project settings page or via tator-py.  
+Register this [applet](https://github.com/openem-team/openem/blob/master/tator_applets/fill_track_gaps/fill_track_gaps_applet.html) in Tator using the project settings page or via tator-py.  
 
 The applet must be registered with the following categories:
 - annotator-menu
@@ -33,4 +33,4 @@ Example usage:
 python3 ./register_algorithm.py --host <tator_host> --token <tator_api_token> --project <project-id> --manifest openem_fill_track_gaps.yaml --files_per_job 1 --description "OpenEM algorithm that is used by the fill track applet" --categories annotator-view hidden --algorithm_name openem-fill-track-gaps
 
 ## Tator Version
-This applet requires using (this Tator commit)[https://github.com/cvisionai/tator/tree/3e3c13684237657a3e27005d9443e3ae04bc76d8] at minimum. This commit contains the framework to utilize track specific applets.
+This applet requires using [this Tator commit](https://github.com/cvisionai/tator/tree/3e3c13684237657a3e27005d9443e3ae04bc76d8) at minimum. This commit contains the framework to utilize track specific applets.

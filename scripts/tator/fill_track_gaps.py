@@ -637,6 +637,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--extend-detection-id', type=int, help='ID of detection to start the extension process with.')
     parser.add_argument('--extend-max-coast', type=int, default=0, help='Max coast frames to use with the extension algorithm.')
     parser.add_argument('--extend-max-frames', type=int, help="Max number of frames to extend if provided. If not provided, only coasting or end of media will prohibit the extension")
+    parser.add_argument('--fill-strategy', type=str,help='Strategy for filling track gaps',
+        default='visual')
     return parser.parse_args()
 
 def main() -> None:
@@ -653,11 +655,18 @@ def main() -> None:
 
     # Launch the algorithm depending on the provided arguments
     if args.algo == 'fillgaps':
-        fill_sparse_track(
-            tator_api=tator_api,
-            media_id=args.media,
-            state_id=args.track,
-            work_folder=args.work_folder)
+        if args.fill_strategy == 'visual':
+            fill_sparse_track(
+                tator_api=tator_api,
+                media_id=args.media,
+                state_id=args.track,
+                work_folder=args.work_folder)
+        elif args.fill_strategy == 'linear':
+            linearly_interpolate_sparse_track(
+                tator_api=tator_api,
+                media_id=args.media,
+                state_id=args.track
+            )
 
     elif args.algo == 'extend':
         extend_track(

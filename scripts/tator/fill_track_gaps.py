@@ -667,6 +667,8 @@ def main() -> None:
                 media_id=args.media,
                 state_id=args.track
             )
+        else:
+            raise ValueError(f"Invalid fill strategy provided: {args.fill_strategy}")
 
     elif args.algo == 'extend':
         extend_track(

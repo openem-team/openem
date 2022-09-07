@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="/static/components.css"></link>
+  <script src="/static/annotation.js"></script>
+  <script src="/static/components.js"></script>
+  <script src="/static/util.js"></script>
+  <style>
+    .main {
+      background: #151b28;
+    }
+  </style>
+</head>
+
+<body class="main" style="padding: 0px;">
+
+<script>
+
+  /**
+   * This applet performs an automated fill track gap method using the OpenEM methods.
+   *
+   * The user can pick the type of automated fill track gap, and then this applet will
+   * launch the registered workflow with the selected parameters. It will then
+   * monitor the job status, display a message, and refreshes the corresponding localization
+   * and state types.
+   *
+   * It is expected that this applet has the following categories:
+   * annotator-menu
+   * track-applet
+   *
+   * The methods available will be based on the categories associated with the applet.
+   * openem-csrt
+   * openem-linear
+   *
+   * It is expected there is a registered algorithm called:
+   * openem-fill-track-gaps
+   */
+  class MenuApplet extends tatorUi.annotation.MenuAppletElement {
+    constructor() {
+      super();
+
+      this._div = document.createElement("div");
+      this._div.setAttribute("class", "annotation__panel--popup annotation__panel px-4 rounded-2");
+      this._shadow.appendChild(this._div);
+
+      var infoDiv = document.createElement("div");
+      infoDiv.setAttribute("class", "d-flex text-gray f3 py-2");
+      this._div.appendChild(infoDiv);
+
+      var helpIcon = document.createElement("div");
+      helpIcon.setAttribute("class", "d-flex flex-items-center mr-3");
+      helpIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="no-fill" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <line x1="12" y1="17" x2="12" y2="17.01" />
+      <path d="M12 13.5a1.5 1.5 0 0 1 1 -1.5a2.6 2.6 0 1 0 -3 -4" />
+      </svg>`;
+      infoDiv.appendChild(helpIcon);
+
+      var infoText = document.createElement("div");
+      infoText.setAttribute("class", "d-flex text-gray f3 py-2");
+      infoText.textContent = "Choose the method to automatically fill the selected track's gaps. Press the launch button below to start the automated process. An annotator status message will be displayed once the workflow has been completed."
+      infoDiv.appendChild(infoText);
+
+      this._fillMethod = document.createElement("enum-input");
+      this._fillMethod.setAttribute("name", "Method");
+      this._div.appendChild(this._fillMethod);
+
+      // We won't display the progress dialog, but we will use its job monitoring properties
+      this._progressDialog = document.createElement("progress-dialog");
+      this._shadow.appendChild(this._progressDialog);
+      this._progressDialog.addEventListener("jobsDone", evt => {
+        this._processJobsDone(evt.detail.status);
+      });
+
+      this._trackId = null;
+    }
+
+    /**
+     * Retrieves the detection and track types
+     * @param {bool} jobStatus - True if the job was completed successfully. False indicates
+     *                           an error occurred.
+     * @postcondition this._trackId is reset back to null, allowing this modal to pop up again
+     */
+    _processJobsDone(jobStatus) {
+      if (jobStatus) {
+        this.dispatchEvent(new CustomEvent(
+          "refreshDataType", {
+            detail: {
+              dataType: this._detectionType
+            }
+          }
+        ));
+        this.dispatchEvent(new CustomEvent(
+          "refreshDataType", {
+            detail: {
+              dataType: this._trackType
+            }
+          }
+        ));
+        this.dispatchEvent(new Event("hideLoadingScreen"));
+        this.dispatchEvent(new CustomEvent(
+          "displaySuccessMessage", {
+            detail: {
+              message: `Filled gaps in track ${this._trackId}`
+            }
+        }));
+
+      }
+      else {
+        this.dispatchEvent(new CustomEvent(
+          "displayErrorMessage", {
+            detail: {
+              message: `Error filling gaps in track ${this._trackId}`
+            }
+          }));
+      }
+
+      this._trackId = null;
+    }
+
+    /**
+     * Retrieves the detection and track types
+     */
+    async _getTypes() {
+
+      var response;
+      var typeId;
+
+      typeId = this._data.selectedLocalization.meta.split("_")[1];
+
+      response = await tatorUi.util.fetchRetry(`/rest/LocalizationType/${typeId}`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          "X-CSRFToken": tatorUi.util.getCookie("csrftoken"),
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        }
+      });
+      this._detectionType = await response.json();
+
+      typeId = this._data.selectedTrack.meta.split("_")[1];
+
+      response = await tatorUi.util.fetchRetry(`/rest/StateType/${typeId}`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          "X-CSRFToken": tatorUi.util.getCookie("csrftoken"),
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        }
+      });
+      this._trackType = await response.json();
+
+    }
+
+    /**
+     * @override
+     * @return {string}
+     */
+    getModalTitle() {
+      return "Automate Track Gap Fill";
+    }
+
+    /**
+     * @override
+     * @return {string}
+     */
+    getModalHeight() {
+      return "150px";
+    }
+
+    /**
+     * @override
+     * @return {string}
+     */
+    getAcceptButtonText() {
+      return "Launch Workflow";
+    }
+
+    /**
+     * @override
+     * @param {Object} data
+     */
+    updateData(data) {
+      this._data = data;
+
+      this._fillMethodChoices = [];
+
+      if (this._data.applet.categories.includes("openem-linear")) {
+        this._fillMethodChoices.push({"label": "Linear Interpolation", "value": "linear"});
+
+      }
+
+      if (this._data.applet.categories.includes("openem-csrt")) {
+        this._fillMethodChoices.push({"label": "Visual Tracking (CSRT)", "value": "visual"});
+      }
+
+      this._fillMethod.clear();
+      this._fillMethod.choices = this._fillMethodChoices;
+    }
+
+    /**
+     * @override
+     */
+    async updateUI() {
+
+      if (this._trackId != null) {
+        this.dispatchEvent(new CustomEvent(
+          "displayProgressMessage", {
+            detail: {
+              message: `Track fill currently in progress for track ${this._trackID}`
+            }
+          }));
+        this.dispatchEvent(new Event("closeApplet"));
+        return;
+      }
+
+      this._fillAlgoType = null;
+      this._fillAlgoName = "openem-fill-track-gaps"; // #TODO Could check to see if this has been registered.
+
+      await this._getTypes();
+
+    }
+
+    /**
+     * @override
+     */
+    accept() {
+
+      this._trackId = this._data.selectedTrack.id;
+
+      this.dispatchEvent(new Event("displayLoadingScreen"));
+
+      this._fillAlgoType = this._fillMethod.getValue();
+
+      let body = {
+        "algorithm_name": this._fillAlgoName,
+        "extra_params": [
+          {name: "fill_strategy", value: this._fillAlgoType},
+          {name: "track", value: this._trackId}]};
+
+      fetch("/rest/AlgorithmLaunch/" + this._data.projectId, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "X-CSRFToken": tatorUi.util.getCookie("csrftoken"),
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body),
+      })
+      .then(response => {
+        if (response.status != 201) {
+          this.dispatchEvent(new Event("hideLoadingScreen"));
+          this.dispatchEvent(new CustomEvent(
+            "displayErrorMessage", {
+              detail: {
+                message: "Error launching automatic track gaps fill workflow"
+              }
+            }));
+            this._trackId = null;
+            return;
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log(data);
+
+        this._progressDialog.monitorJob(data.uid, `Filling gaps in track ${this._trackId} with visual tracker. Status will be provided in the annotator when complete.`);
+        this.dispatchEvent(new Event("hideLoadingScreen"));
+        this.dispatchEvent(new CustomEvent(
+          "displayProgressMessage", {
+            detail: {
+              message: "Track gaps fill workflow launched"
+            }
+          }));
+      })
+      .catch(error => {
+        this.dispatchEvent(new Event("hideLoadingScreen"));
+        this.dispatchEvent(new CustomEvent(
+          "displayErrorMessage", {
+            detail: {
+              message: error
+            }
+        }));
+        this._trackId = null;
+      });
+
+    }
+
+  }
+
+  customElements.define("menu-applet", MenuApplet);
+
+  </script>
+
+  <div>
+    <menu-applet id="mainApplet"></menu-applet>
+  </div>
+
+</body>
+</html>

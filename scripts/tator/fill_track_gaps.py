@@ -11,6 +11,7 @@ import multiprocessing
 import os
 import threading
 import time
+import shutil
 import sys
 import urllib.parse
 from typing import List
@@ -33,7 +34,8 @@ class FrameBuffer():
             media_num_frames: int,
             moving_forward: bool,
             work_folder: str,
-            buffer_size: int) -> None:
+            buffer_size: int,
+            use_get_frame: bool=False) -> None:
         """ Constructor
         """
 
@@ -48,28 +50,39 @@ class FrameBuffer():
         # that can be directly used by opencv, etc.
         self.frame_buffer = {}
 
+        # Utilize the GetFrame endpoint for every request if asked to do so
+        self.use_get_frame = use_get_frame
+
     def get_frame(self, frame: int) -> np.ndarray:
         """ Returns image to process from cv2.imread
         """
 
-        # Have we already read the frame we care about?
-        if frame not in self.frame_buffer:
+        if self.use_get_frame:
+            temp_path = self.tator_api.get_frame(id=self.media_id, frames=[frame])
+            image = cv2.imread(temp_path)
+            os.remove(temp_path)
+            return image
 
-            # Nope, looks like we need to refresh the buffer.
-            # If we are moving backwards in the media, then we should jump further back.
-            start_frame = frame
-            if not self.moving_forward:
-                start_frame = frame - self.buffer_size
-                start_frame = 0 if start_frame < 0 else start_frame
+        else:
 
-            self._refresh_frame_buffer(start_frame=start_frame)
-
-            # Check again, if frame is still not in the frame buffer after refreshing,
-            # we've got a problem. And bounce out.
+            # Have we already read the frame we care about?
             if frame not in self.frame_buffer:
-                raise ValueError("Problem refreshing frame buffer")
 
-        return self.frame_buffer[frame]
+                # Nope, looks like we need to refresh the buffer.
+                # If we are moving backwards in the media, then we should jump further back.
+                start_frame = frame
+                if not self.moving_forward:
+                    start_frame = frame - self.buffer_size
+                    start_frame = 0 if start_frame < 0 else start_frame
+
+                self._refresh_frame_buffer(start_frame=start_frame)
+
+                # Check again, if frame is still not in the frame buffer after refreshing,
+                # we've got a problem. And bounce out.
+                if frame not in self.frame_buffer:
+                    raise ValueError("Problem refreshing frame buffer")
+
+            return self.frame_buffer[frame]
 
     def _refresh_frame_buffer(
             self,
@@ -121,7 +134,8 @@ def extend_track(
         direction: str,
         work_folder: str,
         max_coast_frames: int=0,
-        max_extend_frames: int=None) -> None:
+        max_extend_frames: int=None,
+        use_get_frame: bool=False) -> None:
     """ Extends the track using the given track's detection using a visual tracker
 
     :param tator_api: Connection to Tator REST API
@@ -166,7 +180,8 @@ def extend_track(
         media_num_frames=media.num_frames,
         moving_forward=moving_forward,
         work_folder=work_folder,
-        buffer_size=200)
+        buffer_size=200,
+        use_get_frame=use_get_frame)
     logger.info("Frame buffer initialized")
 
     start_detection = tator_api.get_localization(id=start_localization_id)
@@ -369,7 +384,7 @@ def linearly_interpolate_sparse_track(
         if detection_frames[i+1] - frame > 1:
             detection_pairs.append((frame, detection_frames[i+1]))
 
-    
+
     # Calc inerpolation params for pairs
     interpolation_params = []
     for det_pair in detection_pairs:
@@ -429,12 +444,13 @@ def linearly_interpolate_sparse_track(
             for loc_id in created_ids:
                 tator_api.delete_localization(id=loc_id)
             raise ValueError("Problem updating state with new localizations")
-    
+
 def fill_sparse_track(
         tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
         media_id: int,
         state_id: int,
-        work_folder: str) -> None:
+        work_folder: str,
+        use_get_frame: bool=False) -> None:
     """ Fills in gaps of detections for the given track
 
     :param tator_api: Connection to Tator REST API
@@ -466,7 +482,8 @@ def fill_sparse_track(
         media_num_frames=media.num_frames,
         moving_forward=True,
         work_folder=work_folder,
-        buffer_size=200)
+        buffer_size=200,
+        use_get_frame=use_get_frame)
 
     # Grab the detections in the given track
     track = tator_api.get_state(id=state_id)
@@ -593,6 +610,7 @@ def fill_sparse_track(
             y=y,
             width=width,
             height=height,
+            version=start_detection.version,
             **start_detection.attributes)
 
         localizations.append(detection_spec)
@@ -639,6 +657,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--extend-max-frames', type=int, help="Max number of frames to extend if provided. If not provided, only coasting or end of media will prohibit the extension")
     parser.add_argument('--fill-strategy', type=str,help='Strategy for filling track gaps',
         default='visual')
+    parser.add_argument('--use-get-frame', action='store_true', help='Use the Tator GetFrame endpoint instead of GetClip.')
     return parser.parse_args()
 
 def main() -> None:
@@ -660,7 +679,8 @@ def main() -> None:
                 tator_api=tator_api,
                 media_id=args.media,
                 state_id=args.track,
-                work_folder=args.work_folder)
+                work_folder=args.work_folder,
+                use_get_frame=args.use_get_frame)
         elif args.fill_strategy == 'linear':
             linearly_interpolate_sparse_track(
                 tator_api=tator_api,
@@ -679,7 +699,8 @@ def main() -> None:
             direction=args.extend_direction,
             work_folder=args.work_folder,
             max_coast_frames=args.extend_max_coast,
-            max_extend_frames=args.extend_max_frames)
+            max_extend_frames=args.extend_max_frames,
+            use_get_frame=args.use_get_frame)
 
     else:
         raise ValueError(f"Invalid algorithm provided: {args.algo}")

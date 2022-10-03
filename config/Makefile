@@ -102,3 +102,7 @@ publish_lite:
 publish_experimental_cv2:
 	docker tag cvisionai/openem_cv2:$(USER) cvisionai/openem_cv2:experimental
 	docker push cvisionai/openem_cv2:experimental
+
+publish_dev_cv2:
+	docker tag cvisionai/openem_cv2:$(USER) cvisionai/openem_cv2:dev
+	docker push cvisionai/openem_cv2:dev

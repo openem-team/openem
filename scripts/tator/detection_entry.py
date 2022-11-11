@@ -36,12 +36,13 @@ if __name__=="__main__":
         confidence_attr_name = strategy.get('confidence_attr_name','Confidence')
         version_id = strategy.get('version_id', None)
         box_type_id = strategy.get('box_type_id', None)
+        sentinel_name = strategy.get('sentinel_name', "Object Detector Processed")
 
     # Generate work document
     api = tator.get_api(host, token)
     media_list = api.get_media_list_by_id(project_id, {"ids": media_ids})
     media_type_id = media_list[0].meta
-    media_files = [{'path': f"{m.id}_{m.name}"} for m in media_list if m.attributes.get("Object Detector Processed", "No") == "No"]
+    media_files = [{'path': f"{m.id}_{m.name}"} for m in media_list if m.attributes.get(sentinel_name, "No") == "No"]
     work_df = pd.DataFrame(columns=['path'],
                            data=media_files)
     work_df.to_csv(f'{work_dir}/work.csv', index=False,header=False)
@@ -109,5 +110,14 @@ if __name__=="__main__":
     print(f"Upload Command = '{cmd}'")
     p=subprocess.Popen(args)
     p.wait()
+
+    for m in media_list:
+        media_id = m.id
+        try:
+            # When complete for a given media update the sentinel value
+            api.update_media(int(media_id), {'attributes':{sentinel_name: str(datetime.datetime.now())}})
+        except Exception as e:
+            print(f"Unable to set sentinel attribute {e}")
+            traceback.print_exc()
 
     sys.exit(p.returncode)

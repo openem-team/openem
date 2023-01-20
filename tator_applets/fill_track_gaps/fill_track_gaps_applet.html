@@ -241,6 +241,7 @@
         "extra_params": [
           {name: "fill_strategy", value: this._fillAlgoType},
           {name: "track", value: this._trackId}]};
+      body["media_ids"] = [this._data.media.id];
 
       fetch("/rest/AlgorithmLaunch/" + this._data.projectId, {
         method: "POST",

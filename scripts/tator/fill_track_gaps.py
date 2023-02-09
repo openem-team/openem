@@ -12,6 +12,7 @@ import os
 import threading
 import time
 import shutil
+import subprocess
 import sys
 import urllib.parse
 from typing import List
@@ -30,8 +31,7 @@ class FrameBuffer():
     def __init__(
             self,
             tator_api: tator.openapi.tator_openapi.api.tator_api.TatorApi,
-            media_id: int,
-            media_num_frames: int,
+            media: tator.openapi.tator_openapi.models.media.Media,
             moving_forward: bool,
             work_folder: str,
             buffer_size: int,
@@ -40,11 +40,11 @@ class FrameBuffer():
         """
 
         self.tator_api = tator_api
-        self.media_id = media_id
-        self.media_num_frames = media_num_frames - 2 #TODO Need to revisit once 2 frame bug is gone
+        self.media_num_frames = media.num_frames - 2 #TODO Need to revisit once 2 frame bug is gone
         self.moving_forward = moving_forward
         self.buffer_size = buffer_size
         self.work_folder = work_folder
+        self.media = media
 
         # Frames will be indexed by frame number. Each entry will be the 3 channel np matrix
         # that can be directly used by opencv, etc.
@@ -53,12 +53,18 @@ class FrameBuffer():
         # Utilize the GetFrame endpoint for every request if asked to do so
         self.use_get_frame = use_get_frame
 
+        # Determine highest resolution and related codec
+        highest_quality = 0
+        for media_file in media.media_files.streaming:
+            if media_file.resolution[0] > highest_quality:
+                self.hq_media_file = media_file
+
     def get_frame(self, frame: int) -> np.ndarray:
         """ Returns image to process from cv2.imread
         """
 
         if self.use_get_frame:
-            temp_path = self.tator_api.get_frame(id=self.media_id, frames=[frame])
+            temp_path = self.tator_api.get_frame(id=self.media.id, frames=[frame])
             image = cv2.imread(temp_path)
             os.remove(temp_path)
             return image
@@ -98,8 +104,10 @@ class FrameBuffer():
         # Request the video clip and download it
         last_frame = start_frame + self.buffer_size
         last_frame = self.media_num_frames if last_frame > self.media_num_frames else last_frame
+        logger.info(f"_refresh_frame_buffer -- start_frame: {start_frame}, last_frame: {last_frame}")
+
         clip = self.tator_api.get_clip(
-            self.media_id,
+            self.media.id,
             frame_ranges=[f"{start_frame}:{last_frame}"])
         temporary_file = clip.file
         save_path =  os.path.join(self.work_folder, temporary_file.name)
@@ -108,10 +116,25 @@ class FrameBuffer():
                                                            save_path):
             continue
 
+        # Re-create clip with h264 if av1 codec.
+        # #TODO Revisit this once opencv is built with av1 compatibility
+        if self.hq_media_file.codec == "av1":
+            transcoded_file = os.path.join(self.work_folder, f"av1_converted.mp4")
+            cmd = [
+                "ffmpeg",
+                "-i", save_path,
+                "-vcodec", "libx264",
+                "-crf", f"23",
+                transcoded_file
+            ]        
+            subprocess.run(cmd)
+            os.remove(save_path)
+            save_path = transcoded_file
+
         # Create a list of frame numbers associated with the video clip
-        frame_list = []
-        for start_frame, end_frame in zip(clip.segment_start_frames, clip.segment_end_frames):
-            frame_list.extend(list(range(start_frame, end_frame + 1)))
+        # We will assume the clip returned encompasses this range
+        frame_list = list(range(start_frame, last_frame + 1))
+        logger.info(frame_list)
 
         # With the video downloaded, process the video and save the imagery into the buffer
         self.frame_buffer = {}
@@ -119,6 +142,8 @@ class FrameBuffer():
         while reader.isOpened():
             ok, frame = reader.read()
             if not ok:
+                break
+            if len(frame_list) == 0:
                 break
             self.frame_buffer[frame_list.pop(0)] = frame.copy()
         reader.release()
@@ -176,8 +201,7 @@ def extend_track(
     # Frame buffer that handles grabbing images from the video
     frame_buffer = FrameBuffer(
         tator_api=tator_api,
-        media_id=media.id,
-        media_num_frames=media.num_frames,
+        media=media,
         moving_forward=moving_forward,
         work_folder=work_folder,
         buffer_size=200,
@@ -370,10 +394,13 @@ def linearly_interpolate_sparse_track(
     detections = {}
     detection_frames = []
     for detection_id in track.localizations:
-        det = tator_api.get_localization(id=detection_id)
-        if det.frame not in detections:
-            detections[det.frame] = [det]
-            detection_frames.append(det.frame)
+        try:
+            det = tator_api.get_localization(id=detection_id)
+            if det.frame not in detections:
+                detections[det.frame] = [det]
+                detection_frames.append(det.frame)
+        except:
+            print(f"...Ignoring detection: {detection_id} - exception caught.")
 
     detection_frames.sort()
     detection_pairs = []
@@ -478,8 +505,7 @@ def fill_sparse_track(
     # Frame buffer that handles grabbing images from the video
     frame_buffer = FrameBuffer(
         tator_api=tator_api,
-        media_id=media.id,
-        media_num_frames=media.num_frames,
+        media=media,
         moving_forward=True,
         work_folder=work_folder,
         buffer_size=200,
@@ -489,11 +515,14 @@ def fill_sparse_track(
     track = tator_api.get_state(id=state_id)
     detections = {}
     for detection_id in track.localizations:
-        det = tator_api.get_localization(id=detection_id)
-        if det.frame not in detections:
-            detections[det.frame] = [det]
-        else:
-            detections[det.frame].append(det)
+        try:
+            det = tator_api.get_localization(id=detection_id)
+            if det.frame not in detections:
+                detections[det.frame] = [det]
+            else:
+                detections[det.frame].append(det)
+        except:
+            print(f"...Ignoring detection: {detection_id} - exception caught.")
 
     # Grab the frame range we will be operating on based on the existing detections
     sorted_det_frames = list(detections.keys())

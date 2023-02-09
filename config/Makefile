@@ -106,3 +106,7 @@ publish_experimental_cv2:
 publish_dev_cv2:
 	docker tag cvisionai/openem_cv2:$(USER) cvisionai/openem_cv2:dev
 	docker push cvisionai/openem_cv2:dev
+
+publish_main_cv2:
+	docker tag cvisionai/openem_cv2:$(USER) cvisionai/openem_cv2:main
+	docker push cvisionai/openem_cv2:main

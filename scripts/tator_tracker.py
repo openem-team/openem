@@ -339,8 +339,8 @@ if __name__=="__main__":
                 obj={"type": args.tracklet_type_id,
                      "media_ids": [int(media_id)],
                      "localization_ids": [x['id'] for x in track],
-                     **attrs,
-                     "version": version_id}
+                     "version": version_id,
+                     'attributes': attrs}
                 return obj
             else:
                 return None
@@ -353,7 +353,7 @@ if __name__=="__main__":
             json.dump(new_objs,f)
         if not args.dry_run:
             for response in tator.util.chunked_create(api.create_state_list,project,
-                                                      state_spec=new_objs):
+                                                      body=new_objs):
                 pass
             try:
                 api.update_media(int(media_id), {"attributes":{"Tracklet Generator Processed": str(datetime.datetime.now())}})

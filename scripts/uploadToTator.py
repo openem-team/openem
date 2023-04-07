@@ -142,12 +142,14 @@ def make_localization_obj(args,
     for col in default_obj_fields:
         obj.update({col[0] : col[1]})
 
-    obj.update({args.species_attr_name : species})
+    attributes = {}
+    attributes.update({args.species_attr_name : species})
 
     if confidence:
-        obj.update({"Confidence": confidence})
+        attributes.update({"Confidence": confidence})
     if args.media_type != "image":
-        obj.update({"frame": frame})
+        attributes.update({"frame": frame})
+    obj['attributes'] = attributes
     return obj
 
 
@@ -328,7 +330,7 @@ if __name__=="__main__":
         raw_objects.extend(localizations.values.tolist())
     for response in tator.util.chunked_create(api.create_localization_list,
                                                 args.project,
-                                                localization_spec=raw_objects):
+                                                body=raw_objects):
             pass
 
     # After all localizations have been uploaded, update the media

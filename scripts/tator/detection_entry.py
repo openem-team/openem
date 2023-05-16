@@ -14,6 +14,7 @@ import tempfile
 
 import datetime
 import traceback
+import urllib.request
 
 
 import tator
@@ -34,7 +35,8 @@ if __name__=="__main__":
         img_ext = strategy.get('img_ext', 'mp4')
         media_type = strategy.get('media_type', 'video')
         batch_size = strategy.get('batch_size', 1)
-        data_image = strategy.get('data_image',None)
+        graph_pb = strategy.get('graph_pb',None)
+        train_ini = strategy.get('train_ini',None)
         species_attr_name = strategy.get('species_attr_name','Species')
         confidence_attr_name = strategy.get('confidence_attr_name','Confidence')
         version_id = strategy.get('version_id', None)
@@ -44,7 +46,7 @@ if __name__=="__main__":
     # Generate work document
     api = tator.get_api(host, token)
     media_list = api.get_media_list_by_id(project_id, {"ids": media_ids})
-    media_type_id = media_list[0].meta
+    media_type_id = media_list[0].type
     media_files = [{'path': f"{m.id}_{m.name}"} for m in media_list if m.attributes.get(sentinel_name, "No") == "No"]
     work_df = pd.DataFrame(columns=['path'],
                            data=media_files)
@@ -54,19 +56,9 @@ if __name__=="__main__":
         sys.exit(0)
 
     # Download network
-    client=docker.from_env()
-    image=client.images.pull(data_image)
-    container=client.containers.create(data_image)
-    bits, stats = container.get_archive("/network")
-    network_tar = os.path.join(work_dir, "network.tar")
-    with open(network_tar, 'wb') as tar_file:
-        for chunk in bits:
-            tar_file.write(chunk)
-
-    with tarfile.TarFile(network_tar) as tar_file:
-        print(tar_file.getmembers())
-        tar_file.extract("network/graph.pb", work_dir)
-        tar_file.extract("network/train.ini", work_dir)
+    os.makedirs("/work/network", exist_ok=True)
+    urllib.request.urlretrieve(graph_pb, "/work/network/graph.pb")
+    urllib.request.urlretrieve(train_ini, "/work/network/train_ini")
 
     args = ['python3', '/scripts/infer.py',
             '--host', host,

@@ -57,8 +57,8 @@ if __name__=="__main__":
 
     # Download network
     os.makedirs("/work/network", exist_ok=True)
-    urllib.request.urlretrieve(graph_pb, "/work/network/graph.pb")
-    urllib.request.urlretrieve(train_ini, "/work/network/train_ini")
+    urllib.request.urlretrieve(graph_pb, f"{work_dir}/network/graph.pb")
+    urllib.request.urlretrieve(train_ini, f"{work_dir}/network/train_ini")
 
     args = ['python3', '/scripts/infer.py',
             '--host', host,

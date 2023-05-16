@@ -148,7 +148,7 @@ def make_localization_obj(args,
     if confidence:
         attributes.update({"Confidence": confidence})
     if args.media_type != "image":
-        attributes.update({"frame": frame})
+        obj.update({"frame": frame})
     obj['attributes'] = attributes
     return obj
 

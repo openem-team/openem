@@ -6,9 +6,6 @@ spec:
   entrypoint: pipeline
   ttlSecondsAfterFinished: 3600
   volumes:
-  - name: dockersock
-    hostPath:
-      path: /var/run/docker.sock
   - name: workdir
     emptyDir:
       medium: Memory
@@ -27,15 +24,13 @@ spec:
             img-size: [<max>,<min>]
             keep-threshold: <keep>
             batch-size: <batch>
-            date_image: <docker_image>
+            graph_pb: <url to graph.pb>
+            train_ini: <url to train.ini>
             version_id: <version_id>
             box_type_id: <localization_id>
             sentinel_name: <name for sentinal string attr>
     container:
-      image: cvisionai/openem_lite:latest
-      volumeMounts:
-        - name: dockersock
-          mountPath: /var/run/docker.sock
+      image: cvisionai/openem_lite:2023_05
       resources:
         limits:
           nvidia.com/gpu: 1

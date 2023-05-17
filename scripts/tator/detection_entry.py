@@ -56,7 +56,7 @@ if __name__=="__main__":
         sys.exit(0)
 
     # Download network
-    os.makedirs("/work/network", exist_ok=True)
+    os.makedirs(f"{work_dir}/network", exist_ok=True)
     urllib.request.urlretrieve(graph_pb, f"{work_dir}/network/graph.pb")
     urllib.request.urlretrieve(train_ini, f"{work_dir}/network/train_ini")
 

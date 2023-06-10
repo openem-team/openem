@@ -134,7 +134,6 @@ class FrameBuffer():
         # Create a list of frame numbers associated with the video clip
         # We will assume the clip returned encompasses this range
         frame_list = list(range(start_frame, last_frame + 1))
-        logger.info(frame_list)
 
         # With the video downloaded, process the video and save the imagery into the buffer
         self.frame_buffer = {}
@@ -322,14 +321,14 @@ def extend_track(
 
         detection_spec = dict(
             media_id=start_detection.media,
-            type=start_detection.meta,
+            type=start_detection.type,
             frame=det.frame,
             x=x,
             y=y,
             width=width,
             height=height,
             version=start_detection.version,
-            **attributes)
+            attributes=attributes)
 
         localizations.append(detection_spec)
 
@@ -340,7 +339,7 @@ def extend_track(
         for response in tator.util.chunked_create(
                 tator_api.create_localization_list,
                 media.project,
-                localization_spec=localizations):
+                body=localizations):
             created_ids += response.id
 
     except:
@@ -436,14 +435,14 @@ def linearly_interpolate_sparse_track(
 
             detection_spec = dict(
                 media_id=media_id,
-                type=det_start.meta,
+                type=det_start.type,
                 frame=frame_start + frame,
                 x=x,
                 y=y,
                 width=width,
                 height=height,
                 version=det_start.version,
-                **det_start.attributes)
+                attributes=det_start.attributes)
 
             localizations.append(detection_spec)
 
@@ -454,7 +453,7 @@ def linearly_interpolate_sparse_track(
             for response in tator.util.chunked_create(
                     tator_api.create_localization_list,
                     media.project,
-                    localization_spec=localizations):
+                    body=localizations):
                 created_ids += response.id
 
         except:
@@ -633,14 +632,14 @@ def fill_sparse_track(
 
         detection_spec = dict(
             media_id=start_detection.media,
-            type=start_detection.meta,
+            type=start_detection.type,
             frame=det.frame,
             x=x,
             y=y,
             width=width,
             height=height,
             version=start_detection.version,
-            **start_detection.attributes)
+            attributes=start_detection.attributes)
 
         localizations.append(detection_spec)
 
@@ -651,7 +650,7 @@ def fill_sparse_track(
         for response in tator.util.chunked_create(
                 tator_api.create_localization_list,
                 media.project,
-                localization_spec=localizations):
+                body=localizations):
             created_ids += response.id
 
     except:

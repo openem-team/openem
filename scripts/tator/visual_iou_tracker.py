@@ -311,7 +311,7 @@ def extend_track(
 
         detection_spec = dict(
             media_id=start_detection.media,
-            type=start_detection.meta,
+            type=start_detection.type,
             frame=det.frame,
             x=x,
             y=y,
@@ -324,7 +324,7 @@ def extend_track(
     for response in tator.util.chunked_create(
             tator_api.create_localization_list,
             media.project,
-            localization_spec=localizations):
+            body=localizations):
         created_ids += response.id
 
     tator_api.update_state(id=state_id, state_update={'localization_ids_add': created_ids}, _request_timeout=60*5)
@@ -857,7 +857,7 @@ class TrackManager():
                 for idx in range(0, len(dets), 500):
                     response = tator_api.create_localization_list(
                         project=media.project,
-                        localization_spec=dets[idx:idx+500],
+                        body=dets[idx:idx+500],
                         _request_timeout=60)
                     detection_ids += response.id
 
@@ -867,13 +867,14 @@ class TrackManager():
                     frame=track.detection_list[0].frame,
                     version=track_version,
                     localization_ids=detection_ids,
-                    media_ids=[media.id])
+                    media_ids=[media.id],
+                    attributes={})
 
                 # #TODO
-                state_spec["NOAA Label"] = "-"
-                state_spec["Label"] = "-"
+                state_spec["attributes"]["NOAA Label"] = "-"
+                state_spec["attributes"]["Label"] = "-"
 
-                response = tator_api.create_state_list(project=media.project, state_spec=[state_spec], _request_timeout=60*5)
+                response = tator_api.create_state_list(project=media.project, body=[state_spec], _request_timeout=60*5)
                 self.state_id_list.append(response.id)
 
         self.final_track_list = []

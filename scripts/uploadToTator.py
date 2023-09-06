@@ -16,6 +16,7 @@ import traceback
 import math
 
 from functools import partial
+from typing import Callable
 
 def exit_func(_,__):
     print("SIGINT detected")
@@ -52,10 +53,10 @@ def process_box(row,
                                    media_element,
                                    default_obj_fields,
                                    frame=int(row['frame']),
-                                   x=float(row['x']),
-                                   y=float(row['y']),
-                                   width=float(row['width']),
-                                   height=float(row['height']),
+                                   x=min(1,max(float(row['x']),0)),
+                                   y=min(1,max(float(row['y']),0)),
+                                   width=min(1,max(float(row['width']),0)),
+                                   height=min(1,max(float(row['height']),0)),
                                    confidence=None,
                                    species=species_names[species_id_0])
     return obj
@@ -218,6 +219,54 @@ def uploadMedia(row, args, api, bar):
             return None,None
 
 
+def chunked_create(func: Callable, project: int, chunk_size: int = 500, **kwargs):
+    """Breaks a create_*_list operation into chunks.
+
+    Example:
+
+    .. code-block:: python
+
+        created_ids = [
+            new_id
+            for response in tator.util.chunked_create(
+                api.create_localization_list, chunk_size=100, body=my_long_list
+            )
+            for new_id in response.id
+        ]
+
+    :param func: Function to call on each chunk.
+    :param project: Unique integer identifying a project.
+    :param chunk_size: [Optional] Sets the size of the chunks, defaults to 500.
+    :param kwargs: Exactly one keyword argument should be set, which contains the list of specs to
+                   create and is passed to `func`
+    :returns: Generator that yields a response.
+    """
+    if len(kwargs) != 1:
+        raise RuntimeError(f"Expects exactly one keyword argument")
+
+    key = list(kwargs.keys())[0]
+    spec = kwargs[key]
+    n_specs = len(spec)
+    while chunk_size > 0 and spec:
+        n_created = 0
+        try:
+            for idx in range(0, len(spec), chunk_size):
+                try:
+                    response = func(project, **{key: spec[idx : idx + chunk_size]})
+                    n_created += len(response.id)
+                    yield response
+                except:
+                    time.sleep(5)
+                    response = func(project, **{key: spec[idx : idx + chunk_size]})
+                    n_created += len(response.id)
+                    yield response
+
+        except Exception:
+            chunk_size = floor(chunk_size / 2)
+            logger.warning("Caught exception, halving chunk size to %d", chunk_size, exc_info=True)
+        spec = spec[n_created:]
+    if spec:
+        raise RuntimeError(f"Was not able to create {len(spec)} of {n_specs} objects")
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -328,7 +377,7 @@ if __name__=="__main__":
                                          axis=1)
         bar2.finish()
         raw_objects.extend(localizations.values.tolist())
-    for response in tator.util.chunked_create(api.create_localization_list,
+    for response in chunked_create(api.create_localization_list,
                                                 args.project,
                                                 body=raw_objects):
             pass
